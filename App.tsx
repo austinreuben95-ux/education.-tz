@@ -590,30 +590,7 @@ const App: React.FC = () => {
             </button>
           )}
 
-          {currentUser ? (
-              <button 
-                onClick={logout}
-                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
-                title="Logout"
-              >
-                <i className="fa-solid fa-right-from-bracket"></i>
-              </button>
-          ) : (
-            <div className="flex flex-col items-end">
-              <button 
-                id="header-login-btn"
-                onClick={handleLogin}
-                className="bg-tz-blue text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2"
-              >
-                <i className="fa-solid fa-user"></i> Login
-              </button>
-              {loginError && (
-                <span className="text-[10px] text-red-500 font-bold mt-1 max-w-[150px] text-right">
-                  {loginError}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Auth buttons removed */}
         </div>
       </div>
     </header>
@@ -1113,34 +1090,6 @@ const App: React.FC = () => {
            <div className="w-16 h-16 border-4 border-tz-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
            <p className="text-gray-500 font-bold">Loading Education TZ...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800">
-         {renderHeader()}
-         <main className="flex-grow flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl text-center border border-gray-100">
-               <div className="w-20 h-20 bg-tz-blue rounded-3xl flex items-center justify-center text-white text-4xl shadow-lg mx-auto mb-6">
-                 E
-               </div>
-               <h1 className="text-3xl font-extrabold text-tz-dark mb-4">Master Your Studies</h1>
-               <p className="text-gray-500 mb-8">Join thousands of Tanzanian students learning with Yun, our AI primary school companion.</p>
-               
-               <button 
-                id="login-btn-main"
-                onClick={handleLogin}
-                className="w-full bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-gray-50 transition shadow-sm mb-4"
-               >
-                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
-                 Continue with Google
-               </button>
-               
-               <p className="text-xs text-gray-400">By logging in, you agree to our terms of service.</p>
-            </div>
-         </main>
       </div>
     );
   }
