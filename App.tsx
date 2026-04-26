@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion } from './types';
+import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel } from './types';
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
 import { generateQuizQuestion } from './services/geminiService';
+import { 
+  auth, 
+  loginWithGoogle, 
+  logout, 
+  getUserProgress, 
+  saveUserProgress,
+  checkIsAdmin,
+  updateUserCredits,
+  searchUserByEmail
+} from './services/firebaseService';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 // --- Sub-Components ---
 
@@ -35,21 +46,327 @@ const LeaderboardRow = ({ rank, name, points, isUser }: { rank: number, name: st
   </div>
 );
 
+// --- Components ---
+
+interface CalculatorProps {
+  goHome: () => void;
+}
+
+const Calculator: React.FC<CalculatorProps> = ({ goHome }) => {
+  const [inputs, setInputs] = useState<string[]>(['']);
+  const [total, setTotal] = useState<number | null>(null);
+  const [average, setAverage] = useState<number | null>(null);
+
+  const calculate = () => {
+    const numbers = inputs.map(id => parseFloat(id)).filter(n => !isNaN(n));
+    if (numbers.length === 0) {
+      setTotal(null);
+      setAverage(null);
+      return;
+    }
+    const sum = numbers.reduce((acc, curr) => acc + curr, 0);
+    const avg = sum / numbers.length;
+    setTotal(sum);
+    setAverage(avg);
+  };
+
+  useEffect(() => {
+    calculate();
+  }, [inputs]);
+
+  const handleInput = (index: number, value: string) => {
+    const newInputs = [...inputs];
+    newInputs[index] = value;
+    setInputs(newInputs);
+  };
+
+  const addField = () => setInputs([...inputs, '']);
+  const removeField = (index: number) => {
+    if (inputs.length > 1) {
+      setInputs(inputs.filter((_, i) => i !== index));
+    }
+  };
+
+  const clear = () => {
+    setInputs(['']);
+    setTotal(null);
+    setAverage(null);
+  };
+
+  return (
+    <div className="max-w-xl mx-auto animate-fade-in py-12 px-4">
+      <div className="bg-white rounded-[3rem] p-10 shadow-2xl border border-gray-100">
+         <div className="w-20 h-20 bg-tz-blue rounded-3xl flex items-center justify-center text-white text-3xl mx-auto mb-6">
+            <i className="fa-solid fa-calculator"></i>
+         </div>
+         <h1 className="text-3xl font-extrabold text-tz-dark text-center mb-2">Grade Calculator</h1>
+         <p className="text-gray-500 text-center mb-8">Enter your marks below to calculate your average and sum.</p>
+
+         <div className="space-y-3 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {inputs.map((val, idx) => (
+              <div key={idx} className="flex gap-2">
+                 <input 
+                    type="number"
+                    value={val}
+                    onChange={(e) => handleInput(idx, e.target.value)}
+                    placeholder={`Score ${idx + 1}`}
+                    className="flex-grow bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3 focus:border-tz-blue outline-none transition font-bold"
+                 />
+                 <button 
+                  onClick={() => removeField(idx)}
+                  className="w-12 h-12 flex items-center justify-center text-red-400 hover:text-red-500 transition"
+                 >
+                   <i className="fa-solid fa-circle-minus text-xl"></i>
+                 </button>
+              </div>
+            ))}
+         </div>
+
+         <div className="flex gap-4 mb-8">
+            <button 
+              onClick={addField}
+              className="flex-grow bg-gray-100 text-gray-700 py-3 rounded-2xl font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2"
+            >
+               <i className="fa-solid fa-plus"></i> Add Subject
+            </button>
+            <button 
+              onClick={calculate}
+              className="flex-grow bg-tz-blue text-white py-3 rounded-2xl font-bold shadow-lg shadow-tz-blue/20 hover:scale-[1.02] transition flex items-center justify-center gap-2"
+            >
+               <i className="fa-solid fa-calculator"></i> Calculate AVE
+            </button>
+         </div>
+
+         {(total !== null || average !== null) && (
+            <div className="bg-tz-dark text-white rounded-3xl p-8 mb-8 animate-scale-up">
+               <div className="grid grid-cols-2 gap-8">
+                  <div>
+                     <div className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Total Sum</div>
+                     <div className="text-4xl font-black text-tz-yellow">{total?.toFixed(1)}</div>
+                  </div>
+                  <div>
+                     <div className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Average</div>
+                     <div className="text-4xl font-black text-tz-blue">{average?.toFixed(1)}</div>
+                  </div>
+               </div>
+               <button onClick={clear} className="mt-6 text-gray-400 text-sm font-bold hover:text-white transition">Clear all</button>
+            </div>
+         )}
+
+         <button onClick={goHome} className="w-full text-gray-400 font-bold hover:text-tz-blue transition text-center">Back to home</button>
+      </div>
+    </div>
+  );
+};
+
+interface AdminPanelProps {
+  onBack: () => void;
+}
+
+const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
+  const [searchEmail, setSearchEmail] = useState('');
+  const [foundUser, setFoundUser] = useState<UserProgress | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [newCredits, setNewCredits] = useState(0);
+  const [newPoints, setNewPoints] = useState(0);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    try {
+      const u = await searchUserByEmail(searchEmail);
+      if (u) {
+        setFoundUser(u);
+        setNewCredits(u.credits || 0);
+        setNewPoints(u.points || 0);
+      } else {
+        setFoundUser(null);
+        setMessage('User not found.');
+      }
+    } catch (err) {
+      setMessage('Error searching user.');
+    }
+    setLoading(false);
+  };
+
+  const handleUpdate = async () => {
+    if (!foundUser || !foundUser.userId) return;
+    setLoading(true);
+    try {
+      await updateUserCredits(foundUser.userId, newCredits, newPoints);
+      setMessage('User updated successfully!');
+      setFoundUser(prev => prev ? { ...prev, credits: newCredits, points: newPoints } : null);
+    } catch (err) {
+      setMessage('Error updating user.');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="animate-fade-in max-w-4xl mx-auto p-4">
+      <div className="bg-white rounded-3xl p-8 shadow-xl border border-red-100">
+         <div className="flex items-center gap-3 mb-8">
+            <button onClick={onBack} className="text-gray-400 hover:text-gray-600">
+              <i className="fa-solid fa-arrow-left text-xl"></i>
+            </button>
+            <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white text-2xl">
+              <i className="fa-solid fa-user-gear"></i>
+            </div>
+            <h1 className="text-3xl font-extrabold text-tz-dark">Admin Panel</h1>
+         </div>
+
+         <form onSubmit={handleSearch} className="mb-10">
+            <label className="block text-sm font-bold text-gray-600 mb-2">Search User by Email</label>
+            <div className="flex gap-2">
+               <input 
+                  type="email" 
+                  value={searchEmail}
+                  onChange={(e) => setSearchEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  className="flex-grow bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3 focus:border-tz-blue outline-none transition"
+                  required
+               />
+               <button 
+                type="submit"
+                disabled={loading}
+                className="bg-tz-dark text-white px-6 py-3 rounded-2xl font-bold hover:opacity-90 transition disabled:opacity-50"
+               >
+                 {loading ? 'Searching...' : 'Search'}
+               </button>
+            </div>
+         </form>
+
+         {message && (
+           <div className={`p-4 rounded-xl mb-6 font-bold text-center ${message.includes('Error') || message.includes('not found') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-tz-green'}`}>
+              {message}
+           </div>
+         )}
+
+         {foundUser && (
+           <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div>
+                    <h3 className="font-bold text-lg mb-4">User Details</h3>
+                    <div className="space-y-2">
+                       <p className="text-sm text-gray-500">UID: <span className="text-tz-dark font-mono bg-white px-2 rounded">{foundUser.userId}</span></p>
+                       <p className="text-sm text-gray-500">Email: <span className="text-tz-dark font-medium">{searchEmail}</span></p>
+                       <p className="text-sm text-gray-500">Current Level: <span className="text-tz-dark font-medium">{foundUser.level}</span></p>
+                    </div>
+                 </div>
+
+                 <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-600 mb-2">Set Credits</label>
+                      <input 
+                        type="number" 
+                        value={newCredits}
+                        onChange={(e) => setNewCredits(Number(e.target.value))}
+                        className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-tz-blue"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-600 mb-2">Set Points/EP</label>
+                      <input 
+                        type="number" 
+                        value={newPoints}
+                        onChange={(e) => setNewPoints(Number(e.target.value))}
+                        className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-tz-blue"
+                      />
+                    </div>
+                    <button 
+                      onClick={handleUpdate}
+                      disabled={loading}
+                      className="w-full bg-tz-blue text-white py-3 rounded-xl font-bold shadow-lg shadow-tz-blue/20 hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : 'Save Changes'}
+                    </button>
+                 </div>
+              </div>
+           </div>
+         )}
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   // Navigation State
   const [currentView, setCurrentView] = useState<AppView>(AppView.HOME);
+  const [selectedLevel, setSelectedLevel] = useState<EducationLevel | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<GradeSyllabus | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [yunContext, setYunContext] = useState<string>('');
   
-  // User State (Mocked persistence)
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // User State 
   const [user, setUser] = useState<UserProgress>({
-    points: 1250,
-    streak: 5,
+    points: 0,
+    credits: 0,
+    streak: 0,
     completedTopics: [],
-    level: 3
+    level: 1
   });
+
+  // Track if user data is initialized
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Sync with Firebase Auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setCurrentUser(firebaseUser);
+      setAuthLoading(false);
+      
+      if (firebaseUser) {
+        // Check Admin
+        const adminStatus = await checkIsAdmin(firebaseUser.uid);
+        setIsAdmin(adminStatus);
+
+        // Load progress from Firestore
+        const progress = await getUserProgress(firebaseUser.uid);
+        if (progress) {
+          const updatedProgress = { ...progress, email: firebaseUser.email || undefined };
+          if (firebaseUser.email === 'austinreuben95@gmail.com') {
+            updatedProgress.credits = 999999;
+          }
+          setUser(updatedProgress);
+        } else {
+          // Initialize default progress for new user
+          const initialProgress: UserProgress = {
+            points: 100,
+            credits: firebaseUser.email === 'austinreuben95@gmail.com' ? 999999 : 0,
+            streak: 1,
+            completedTopics: [],
+            level: 1,
+            email: firebaseUser.email || undefined
+          };
+          setUser(initialProgress);
+          await saveUserProgress(firebaseUser.uid, initialProgress);
+        }
+        setIsInitialized(true);
+      } else {
+        setIsAdmin(false);
+        setIsInitialized(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Save progress when user state changes (if logged in)
+  useEffect(() => {
+    if (currentUser && isInitialized) {
+      saveUserProgress(currentUser.uid, user);
+    }
+  }, [user, currentUser, isInitialized]);
 
   // Quiz State
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -66,10 +383,31 @@ const App: React.FC = () => {
 
   // --- Actions ---
 
+  const handleLevelSelect = (level: EducationLevel) => {
+    setSelectedLevel(level);
+    setCurrentView(AppView.SYLLABUS);
+  };
+
   const handleGradeSelect = (grade: GradeSyllabus) => {
     setSelectedGrade(grade);
     setSelectedSubject(null);
     setCurrentView(AppView.SYLLABUS);
+  };
+
+  const swapXpForCredits = async () => {
+    if (user.points < 500) return;
+    const newPoints = user.points - 500;
+    const newCredits = user.credits + 10;
+    
+    setUser(prev => ({ 
+      ...prev, 
+      points: newPoints, 
+      credits: newCredits 
+    }));
+    
+    if (currentUser) {
+       await updateUserCredits(currentUser.uid, newCredits, newPoints);
+    }
   };
 
   const enterTopic = (topic: Topic) => {
@@ -136,35 +474,94 @@ const App: React.FC = () => {
           </div>
           <div className="flex flex-col">
             <span className="font-extrabold text-xl leading-none text-tz-dark tracking-tight">Education<span className="text-tz-blue">TZ</span></span>
-            <span className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Learn & Grow</span>
+            <span className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Global Learning</span>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 md:gap-6">
+        <div className="flex items-center gap-2 md:gap-4">
+          {currentUser && (
+            <div className="hidden lg:flex items-center gap-4">
+              <button 
+                onClick={() => setCurrentView(AppView.EXAMS)}
+                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.EXAMS ? 'bg-tz-blue text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+              >
+                <i className="fa-solid fa-file-invoice mr-2"></i> Exams
+              </button>
+              <button 
+                onClick={() => setCurrentView(AppView.WALLET)}
+                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.WALLET ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+              >
+                <i className="fa-solid fa-wallet mr-2"></i> Wallet
+              </button>
+              <button 
+                onClick={() => setCurrentView(AppView.CALCULATOR)}
+                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.CALCULATOR ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+              >
+                <i className="fa-solid fa-calculator mr-2"></i> Calculator
+              </button>
+            </div>
+          )}
           {/* Stats */}
-          <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
-              <i className="fa-solid fa-fire"></i> {user.streak}
+          {currentUser && (
+            <div className="hidden md:flex items-center gap-2">
+              <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+                 {user.streak} <i className="fa-solid fa-fire"></i>
+              </div>
+              <div 
+                onClick={() => setCurrentView(AppView.WALLET)}
+                className="cursor-pointer flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition"
+              >
+                {user.points} EP
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
-              <i className="fa-solid fa-gem"></i> {user.points} EP
-            </div>
-          </div>
+          )}
 
-          <button 
-            onClick={() => setCurrentView(AppView.PARENTS)}
-            className="text-gray-400 hover:text-gray-600 transition"
-            title="Parent Dashboard"
-          >
-            <i className="fa-solid fa-user-shield text-lg"></i>
-          </button>
+          {currentUser && (
+            <button 
+              onClick={() => setCurrentView(AppView.PARENTS)}
+              className="text-gray-400 hover:text-gray-600 transition"
+              title="Parent Dashboard"
+            >
+              <i className="fa-solid fa-user-shield text-lg"></i>
+            </button>
+          )}
 
-          <button 
-            onClick={startChat}
-            className="bg-tz-yellow text-tz-dark px-4 py-2 rounded-xl font-bold shadow-[0_4px_0_rgb(217,119,6)] hover:shadow-[0_2px_0_rgb(217,119,6)] hover:translate-y-[2px] transition-all flex items-center gap-2 border-2 border-yellow-500"
-          >
-            <i className="fa-solid fa-robot"></i> <span className="hidden sm:inline">Ask Yun</span>
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setCurrentView(AppView.ADMIN)}
+              className="text-red-500 hover:text-red-600 transition flex items-center gap-1 font-bold text-xs"
+              title="Admin Panel"
+            >
+              <i className="fa-solid fa-lock text-sm"></i>
+              <span className="hidden lg:inline">ADMIN</span>
+            </button>
+          )}
+
+          {currentUser && (
+            <button 
+              onClick={startChat}
+              className="bg-tz-yellow text-tz-dark px-4 py-2 rounded-xl font-bold shadow-[0_4px_0_rgb(217,119,6)] hover:shadow-[0_2px_0_rgb(217,119,6)] hover:translate-y-[2px] transition-all flex items-center gap-2 border-2 border-yellow-500"
+            >
+              <i className="fa-solid fa-robot"></i> <span className="hidden sm:inline">Ask Yun</span>
+            </button>
+          )}
+
+          {currentUser ? (
+              <button 
+                onClick={logout}
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
+                title="Logout"
+              >
+                <i className="fa-solid fa-right-from-bracket"></i>
+              </button>
+          ) : (
+              <button 
+                onClick={loginWithGoogle}
+                className="bg-tz-blue text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2"
+              >
+                <i className="fa-solid fa-user"></i> Login
+              </button>
+          )}
         </div>
       </div>
     </header>
@@ -251,13 +648,30 @@ const App: React.FC = () => {
               )}
 
               {activeTab === 'video' && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                   <div className="w-full aspect-video bg-gray-900 rounded-2xl flex items-center justify-center mb-4 relative group cursor-pointer">
-                      <i className="fa-brands fa-youtube text-6xl text-red-500 group-hover:scale-110 transition-transform"></i>
-                      <div className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                   </div>
-                   <h3 className="font-bold text-lg">Watch: Introduction to {selectedTopic.title}</h3>
-                   <p className="text-gray-500">Video tutorial tailored for {selectedGrade?.grade}</p>
+                <div className="flex flex-col items-center justify-center h-full text-center py-6">
+                   {selectedTopic.videoUrl ? (
+                      <div className="w-full aspect-video bg-tz-dark rounded-2xl overflow-hidden shadow-2xl mb-6">
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          src={selectedTopic.videoUrl}
+                          title={`YouTube video player - ${selectedTopic.title}`}
+                          frameBorder="0" 
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                   ) : (
+                      <div className="w-full aspect-video bg-gray-900 rounded-2xl flex flex-col items-center justify-center mb-6 relative group cursor-pointer">
+                        <i className="fa-brands fa-youtube text-7xl text-red-500 group-hover:scale-110 transition-transform mb-4"></i>
+                        <p className="text-gray-400 font-bold">Video Lesson Coming Soon</p>
+                        <div className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                      </div>
+                   )}
+                   <h3 className="font-extrabold text-xl text-tz-dark">Watch: {selectedTopic.title}</h3>
+                   <p className="text-gray-500 font-medium max-w-lg mx-auto mt-2">
+                     A comprehensive video lesson perfectly aligned with the {selectedGrade?.grade} syllabus for {selectedSubject.name}.
+                   </p>
                 </div>
               )}
 
@@ -347,6 +761,8 @@ const App: React.FC = () => {
     );
   };
 
+
+
   const renderParentDashboard = () => (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <button onClick={goHome} className="mb-6 flex items-center text-gray-500 hover:text-tz-blue transition">
@@ -434,6 +850,164 @@ const App: React.FC = () => {
     </div>
   );
 
+  const renderHome = () => (
+    <div className="animate-fade-in space-y-12 py-8">
+      {/* Hero */}
+      <div className="text-center space-y-4 max-w-3xl mx-auto px-4">
+         <h1 className="text-4xl md:text-6xl font-extrabold text-tz-dark tracking-tight leading-tight">
+           Your AI Classroom for <span className="text-tz-blue">Every Stage</span>
+         </h1>
+         <p className="text-gray-500 text-lg md:text-xl font-medium">
+           Choose your level to access tailored textbooks, interactive quizzes, and your AI study buddy, Yun.
+         </p>
+      </div>
+
+      {/* Level Selection Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-4">
+         {[
+           { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-green-500', desc: 'Standard 1 - 7' },
+           { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-tz-blue', desc: 'Form 1 - 4' },
+           { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-purple-600', desc: 'Advanced Level' }
+         ].map((level) => (
+           <button 
+            key={level.type}
+            onClick={() => handleLevelSelect(level.type)}
+            className="group bg-white rounded-3xl p-8 shadow-xl border-2 border-gray-50 hover:border-tz-blue transition-all duration-300 text-left"
+           >
+              <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-lg shadow-${level.color}/20 group-hover:scale-110 transition`}>
+                <i className={`fa-solid ${level.icon}`}></i>
+              </div>
+              <h3 className="text-2xl font-bold text-tz-dark mb-2">{level.type}</h3>
+              <p className="text-gray-500 font-medium">{level.desc}</p>
+              <div className="mt-6 flex items-center text-tz-blue font-bold gap-2 group-hover:gap-4 transition-all">
+                Start Learning <i className="fa-solid fa-arrow-right"></i>
+              </div>
+           </button>
+         ))}
+      </div>
+
+      {/* Featured Stats */}
+      <div className="bg-tz-dark rounded-[3rem] p-12 text-white max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+         <div>
+            <h2 className="text-3xl font-bold mb-2">Join the Community</h2>
+            <p className="text-gray-400">Track your progress, earn badges, and compete with friends across Tanzania.</p>
+         </div>
+         <div className="flex gap-8">
+            <div className="text-center">
+               <div className="text-4xl font-black text-tz-yellow">50k+</div>
+               <div className="text-xs uppercase tracking-widest text-gray-400 font-bold">Students</div>
+            </div>
+            <div className="text-center">
+               <div className="text-4xl font-black text-tz-blue">120+</div>
+               <div className="text-xs uppercase tracking-widest text-gray-400 font-bold">Exams</div>
+            </div>
+         </div>
+      </div>
+
+      {/* Quick Tools */}
+      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+         <div className="bg-blue-50 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-blue-100 transition border border-blue-100" onClick={() => setCurrentView(AppView.CALCULATOR)}>
+            <div>
+               <h4 className="text-2xl font-black text-tz-dark mb-1">Average & Sum</h4>
+               <p className="text-gray-500 font-medium">Quickly calculate your grade averages.</p>
+            </div>
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-tz-blue text-2xl shadow-sm group-hover:scale-110 transition">
+               <i className="fa-solid fa-calculator"></i>
+            </div>
+         </div>
+         <div className="bg-orange-50 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-orange-100 transition border border-orange-100" onClick={() => setCurrentView(AppView.EXAMS)}>
+            <div>
+               <h4 className="text-2xl font-black text-tz-dark mb-1">National Exams</h4>
+               <p className="text-gray-500 font-medium">Browse the latest past papers.</p>
+            </div>
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-orange-500 text-2xl shadow-sm group-hover:scale-110 transition">
+               <i className="fa-solid fa-file-contract"></i>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+
+  const renderWallet = () => (
+    <div className="max-w-2xl mx-auto animate-fade-in py-12 px-4">
+      <div className="bg-white rounded-[3rem] p-10 shadow-2xl border border-gray-100 text-center">
+         <div className="w-24 h-24 bg-purple-600 rounded-[2rem] flex items-center justify-center text-white text-4xl mx-auto mb-8 shadow-xl shadow-purple-600/30">
+            <i className="fa-solid fa-wallet"></i>
+         </div>
+         <h1 className="text-4xl font-extrabold text-tz-dark mb-4">Study Wallet</h1>
+         <p className="text-gray-500 text-lg mb-10">Exchange your hard-earned XP (EP) for Study Credits to unlock Yun's premium features.</p>
+         
+         <div className="grid grid-cols-2 gap-4 mb-10">
+            <div className="bg-blue-50 rounded-3xl p-6 border-2 border-blue-100">
+               <div className="text-tz-blue text-xs uppercase tracking-widest font-black mb-2">Your EP</div>
+               <div className="text-3xl font-black text-tz-dark">{user.points}</div>
+            </div>
+            <div className="bg-purple-50 rounded-3xl p-6 border-2 border-purple-100">
+               <div className="text-purple-600 text-xs uppercase tracking-widest font-black mb-2">Credits</div>
+               <div className="text-3xl font-black text-tz-dark">{currentUser?.email === 'austinreuben95@gmail.com' ? '∞' : user.credits}</div>
+            </div>
+         </div>
+
+         <div className="bg-gray-50 rounded-3xl p-8 border border-gray-200 mb-8">
+            <div className="flex items-center justify-between mb-4">
+               <span className="font-bold text-gray-600">Swap rate</span>
+               <span className="font-black text-tz-dark">500 EP = 10 Credits</span>
+            </div>
+            <button 
+              onClick={swapXpForCredits}
+              disabled={user.points < 500}
+              className="w-full bg-tz-dark text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:translate-y-[-2px] active:translate-y-[0] transition disabled:opacity-30 disabled:translate-y-0"
+            >
+              <i className="fa-solid fa-repeat"></i> Swap Points
+            </button>
+            {user.points < 500 && <p className="text-xs text-red-500 mt-2 font-medium">You need at least 500 EP to swap.</p>}
+         </div>
+         
+         <button onClick={goHome} className="text-gray-400 font-bold hover:text-tz-blue transition">Back to learning</button>
+      </div>
+    </div>
+  );
+
+  const renderExamsDash = () => (
+    <div className="max-w-5xl mx-auto animate-fade-in py-12 px-4">
+       <div className="flex items-center justify-between mb-10">
+          <div>
+            <h1 className="text-3xl font-black text-tz-dark">National Past Papers</h1>
+            <p className="text-gray-500 font-medium">Practice with previous PSLE, CSEE, and ACSEE examinations.</p>
+          </div>
+          <div className="bg-tz-yellow px-4 py-2 rounded-2xl border-2 border-yellow-500 font-bold flex items-center gap-2">
+            <i className="fa-solid fa-certificate"></i> Verified by NECTA
+          </div>
+       </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[
+            { level: 'PSLE', year: '2023', subjects: ['Math', 'Science', 'English'] },
+            { level: 'CSEE', year: '2023', subjects: ['Physics', 'Civics', 'Bio'] },
+            { level: 'ACSEE', year: '2023', subjects: ['PCM', 'PCB', 'HKL'] }
+          ].map((exam, idx) => (
+            <div key={idx} className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 hover:shadow-2xl transition duration-300">
+               <div className="flex items-center justify-between mb-6">
+                  <div className="bg-tz-blue/10 text-tz-blue px-3 py-1 rounded-full font-black text-xs">{exam.year}</div>
+                  <h3 className="text-2xl font-black text-tz-dark">{exam.level}</h3>
+               </div>
+               <div className="space-y-4">
+                  {exam.subjects.map(s => (
+                     <div key={s} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition cursor-pointer">
+                        <span className="font-bold text-gray-700 text-sm">{s}</span>
+                        <i className="fa-solid fa-download text-tz-blue text-xs border border-tz-blue/20 p-1 rounded"></i>
+                     </div>
+                  ))}
+               </div>
+               <button className="w-full mt-6 bg-tz-dark text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 transition">
+                  Start Practice Mode
+               </button>
+            </div>
+          ))}
+       </div>
+    </div>
+  );
+
   const renderLeaderboard = () => (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
@@ -452,6 +1026,44 @@ const App: React.FC = () => {
       </button>
     </div>
   );
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+           <div className="w-16 h-16 border-4 border-tz-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+           <p className="text-gray-500 font-bold">Loading Education TZ...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800">
+         {renderHeader()}
+         <main className="flex-grow flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl text-center border border-gray-100">
+               <div className="w-20 h-20 bg-tz-blue rounded-3xl flex items-center justify-center text-white text-4xl shadow-lg mx-auto mb-6">
+                 E
+               </div>
+               <h1 className="text-3xl font-extrabold text-tz-dark mb-4">Master Your Studies</h1>
+               <p className="text-gray-500 mb-8">Join thousands of Tanzanian students learning with Yun, our AI primary school companion.</p>
+               
+               <button 
+                onClick={loginWithGoogle}
+                className="w-full bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-gray-50 transition shadow-sm mb-4"
+               >
+                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
+                 Continue with Google
+               </button>
+               
+               <p className="text-xs text-gray-400">By logging in, you agree to our terms of service.</p>
+            </div>
+         </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800">
@@ -536,64 +1148,72 @@ const App: React.FC = () => {
         )}
 
         {/* HOME VIEW */}
-        {currentView === AppView.HOME && (
-          <div className="grid lg:grid-cols-3 gap-8 animate-fade-in">
-             <div className="lg:col-span-2 space-y-8">
-                {/* Banner */}
-                <div className="bg-tz-dark rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
-                   <div className="relative z-10">
-                      <h2 className="text-3xl font-extrabold mb-2">Karibu, Scholar!</h2>
-                      <p className="text-blue-200 mb-6">You're on a 5 day streak. Keep it up to reach the top of the leaderboard.</p>
-                      <button className="bg-tz-green text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_0_rgb(20,83,45)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(20,83,45)] transition-all">
-                        Continue Learning
-                      </button>
-                   </div>
-                   <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md relative z-10 border-4 border-white/20">
-                      <i className="fa-solid fa-trophy text-5xl text-tz-yellow"></i>
-                   </div>
-                   {/* Decorative background elements */}
-                   <div className="absolute top-0 right-0 w-64 h-64 bg-tz-blue opacity-20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                </div>
+        {currentView === AppView.HOME && renderHome()}
 
-                <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-tz-blue pl-3">Select Class</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {SYLLABUS_DATA.map((data) => (
-                    <button
-                      key={data.grade}
-                      onClick={() => handleGradeSelect(data)}
-                      className="group bg-white p-6 rounded-2xl shadow-[0_2px_0_rgb(229,231,235)] hover:shadow-[0_4px_0_rgb(229,231,235)] hover:-translate-y-1 border border-gray-100 transition-all duration-300 text-left flex flex-col justify-between h-36"
-                    >
-                      <div>
-                        <span className="inline-block px-2 py-1 bg-blue-50 text-tz-blue text-[10px] font-bold rounded-md mb-2 uppercase tracking-wider">
-                          Primary
-                        </span>
-                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-tz-blue transition-colors">
-                          {data.grade}
-                        </h3>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                         <div className="bg-tz-yellow h-1.5 rounded-full" style={{width: '30%'}}></div>
-                      </div>
-                    </button>
-                  ))}
+        {/* SYLLABUS LISTING FOR LEVEL */}
+        {currentView === AppView.SYLLABUS && selectedLevel && !selectedGrade && (
+           <div className="animate-fade-in max-w-7xl mx-auto py-8">
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-tz-dark flex items-center gap-3">
+                    <button onClick={goHome} className="hover:text-tz-blue transition"><i className="fa-solid fa-arrow-left text-xl"></i></button>
+                    {selectedLevel}
+                  </h2>
+                  <p className="text-gray-500 font-medium">Select your class level to see the subjects.</p>
                 </div>
-             </div>
+              </div>
 
-             <div className="lg:col-span-1">
-                {renderLeaderboard()}
-             </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {SYLLABUS_DATA.filter(g => g.level === selectedLevel).map((data) => (
+                  <button
+                    key={data.grade}
+                    onClick={() => handleGradeSelect(data)}
+                    className="group bg-white p-8 rounded-[2rem] shadow-xl border border-gray-100 hover:border-tz-blue transition-all duration-300 text-left flex flex-col justify-between h-48"
+                  >
+                    <div>
+                      <span className="inline-block px-3 py-1 bg-blue-50 text-tz-blue text-[10px] font-black rounded-full mb-4 uppercase tracking-widest">
+                        Curriculum 2024
+                      </span>
+                      <h3 className="text-2xl font-black text-gray-800 group-hover:text-tz-blue transition-colors">
+                        {data.grade}
+                      </h3>
+                    </div>
+                    <div className="flex items-center justify-between w-full">
+                       <span className="text-sm font-bold text-gray-400">{data.subjects.length} Subjects</span>
+                       <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-tz-blue group-hover:text-white transition-all">
+                          <i className="fa-solid fa-arrow-right"></i>
+                       </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+           </div>
         )}
 
         {/* SYLLABUS VIEW */}
         {currentView === AppView.SYLLABUS && selectedGrade && !selectedSubject && (
            <div className="animate-fade-in">
-             <button onClick={goHome} className="mb-6 flex items-center text-gray-500 hover:text-tz-blue transition">
-               <i className="fa-solid fa-arrow-left mr-2"></i> Back to Home
-             </button>
-             <h1 className="text-3xl font-bold text-tz-dark mb-6">{selectedGrade.grade} Subjects</h1>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div>
+                  <button onClick={goHome} className="mb-2 flex items-center text-gray-500 hover:text-tz-blue transition font-bold text-sm">
+                    <i className="fa-solid fa-arrow-left mr-2"></i> Back to Home
+                  </button>
+                  <h1 className="text-4xl font-extrabold text-tz-dark">{selectedGrade.grade} Subjects</h1>
+                </div>
+                
+                <div className="relative group">
+                   <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-tz-blue transition"></i>
+                   <input 
+                      type="text" 
+                      placeholder="Search subjects..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-white border-2 border-gray-100 rounded-2xl py-3 pl-12 pr-6 outline-none focus:border-tz-blue transition w-full md:w-80 shadow-sm font-bold"
+                   />
+                </div>
+              </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {selectedGrade.subjects.map((subject) => (
+                {selectedGrade.subjects.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((subject) => (
                   <div 
                     key={subject.id}
                     onClick={() => setSelectedSubject(subject)}
@@ -638,7 +1258,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <div className="divide-y divide-gray-100">
-                    {selectedSubject.topics.map((topic, index) => (
+                    {selectedSubject.topics.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.description.toLowerCase().includes(searchQuery.toLowerCase())).map((topic, index) => (
                       <div key={topic.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
                           <div className="flex gap-4">
                              <div className="flex flex-col items-center">
@@ -666,8 +1286,12 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
-        {currentView === AppView.PARENTS && renderParentDashboard()}
+    {currentView === AppView.WALLET && renderWallet()}
+    {currentView === AppView.EXAMS && renderExamsDash()}
+    {currentView === AppView.CALCULATOR && <Calculator goHome={goHome} />}
+    {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
+    {currentView === AppView.PARENTS && renderParentDashboard()}
+    {currentView === AppView.ADMIN && <AdminPanel onBack={goHome} />}
 
         {currentView === AppView.CHAT && (
           <div className="animate-fade-in flex flex-col items-center justify-center h-full">

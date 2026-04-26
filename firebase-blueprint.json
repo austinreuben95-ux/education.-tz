@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Stores points, streak, level and completed topics for a student.",
+      "type": "object",
+      "properties": {
+        "points": { "type": "number", "description": "Accumulated experience points (EP)." },
+        "credits": { "type": "number", "description": "Paid credits for premium features." },
+        "streak": { "type": "number", "description": "Consecutive days of study." },
+        "level": { "type": "number", "description": "Student's level based on EP." },
+        "completedTopics": { "type": "array", "description": "List of IDs for completed topics." },
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "email": { "type": "string", "description": "User email address." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last time the progress was updated." }
+      },
+      "required": ["points", "credits", "streak", "level", "completedTopics", "userId"]
+    },
+    "Admin": {
+      "title": "Admin User",
+      "description": "Users with administrative privileges.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProgress",
+      "description": "Individual user progress document."
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "List of administrative users."
+    }
+  }
+}
