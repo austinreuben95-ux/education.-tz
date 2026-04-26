@@ -113,6 +113,7 @@ const Calculator: React.FC<CalculatorProps> = ({ goHome }) => {
                     className="flex-grow bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3 focus:border-tz-blue outline-none transition font-bold"
                  />
                  <button 
+                  id={`remove-field-${idx}`}
                   onClick={() => removeField(idx)}
                   className="w-12 h-12 flex items-center justify-center text-red-400 hover:text-red-500 transition"
                  >
@@ -124,12 +125,14 @@ const Calculator: React.FC<CalculatorProps> = ({ goHome }) => {
 
          <div className="flex gap-4 mb-8">
             <button 
+              id="add-subject-btn"
               onClick={addField}
               className="flex-grow bg-gray-100 text-gray-700 py-3 rounded-2xl font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2"
             >
                <i className="fa-solid fa-plus"></i> Add Subject
             </button>
             <button 
+              id="calculate-ave-btn"
               onClick={calculate}
               className="flex-grow bg-tz-blue text-white py-3 rounded-2xl font-bold shadow-lg shadow-tz-blue/20 hover:scale-[1.02] transition flex items-center justify-center gap-2"
             >
@@ -378,12 +381,36 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Leaderboard State
+  const [leaderboard, setLeaderboard] = useState<UserProgress[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLeaderboardLoading(true);
+      try {
+        const users = await getAllUsers();
+        // Sort by points descending
+        const sorted = [...users].sort((a, b) => b.points - a.points).slice(0, 5);
+        setLeaderboard(sorted);
+      } catch (err) {
+        console.error("Leaderboard fetch error:", err);
+      }
+      setLeaderboardLoading(false);
+    };
+
+    if (currentUser) {
+      fetchLeaderboard();
+    }
+  }, [currentUser, user.points]); // Refresh when user points change or login
+
   // Save progress when user state changes (if logged in)
   useEffect(() => {
     if (currentUser && isInitialized) {
       saveUserProgress(currentUser.uid, user);
     }
   }, [user, currentUser, isInitialized]);
+
 
   // Quiz State
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -574,6 +601,7 @@ const App: React.FC = () => {
           ) : (
             <div className="flex flex-col items-end">
               <button 
+                id="header-login-btn"
                 onClick={handleLogin}
                 className="bg-tz-blue text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2"
               >
@@ -887,27 +915,34 @@ const App: React.FC = () => {
       </div>
 
       {/* Level Selection Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-4">
-         {[
-           { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-green-500', desc: 'Standard 1 - 7' },
-           { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-tz-blue', desc: 'Form 1 - 4' },
-           { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-purple-600', desc: 'Advanced Level' }
-         ].map((level) => (
-           <button 
-            key={level.type}
-            onClick={() => handleLevelSelect(level.type)}
-            className="group bg-white rounded-3xl p-8 shadow-xl border-2 border-gray-50 hover:border-tz-blue transition-all duration-300 text-left"
-           >
-              <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-lg shadow-${level.color}/20 group-hover:scale-110 transition`}>
-                <i className={`fa-solid ${level.icon}`}></i>
-              </div>
-              <h3 className="text-2xl font-bold text-tz-dark mb-2">{level.type}</h3>
-              <p className="text-gray-500 font-medium">{level.desc}</p>
-              <div className="mt-6 flex items-center text-tz-blue font-bold gap-2 group-hover:gap-4 transition-all">
-                Start Learning <i className="fa-solid fa-arrow-right"></i>
-              </div>
-           </button>
-         ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
+         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-green-500', desc: 'Standard 1 - 7' },
+              { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-tz-blue', desc: 'Form 1 - 4' },
+              { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-purple-600', desc: 'Advanced Level' }
+            ].map((level) => (
+              <button 
+                key={level.type}
+                id={`level-select-${level.type.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={() => handleLevelSelect(level.type)}
+                className="group bg-white rounded-3xl p-8 shadow-xl border-2 border-gray-50 hover:border-tz-blue transition-all duration-300 text-left"
+              >
+                  <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-lg shadow-${level.color}/20 group-hover:scale-110 transition`}>
+                    <i className={`fa-solid ${level.icon}`}></i>
+                  </div>
+                  <h3 className="text-2xl font-bold text-tz-dark mb-2">{level.type}</h3>
+                  <p className="text-gray-500 font-medium">{level.desc}</p>
+                  <div className="mt-6 flex items-center text-tz-blue font-bold gap-2 group-hover:gap-4 transition-all">
+                    Start Learning <i className="fa-solid fa-arrow-right"></i>
+                  </div>
+              </button>
+            ))}
+         </div>
+         
+         <div className="lg:col-span-1">
+            {renderLeaderboard()}
+         </div>
       </div>
 
       {/* Featured Stats */}
@@ -1036,18 +1071,38 @@ const App: React.FC = () => {
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-lg text-gray-800">Top Students</h3>
-        <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-500">This Week</span>
+        <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-500">Global</span>
       </div>
       <div className="space-y-2">
-        <LeaderboardRow rank={1} name="Juma" points={2400} />
-        <LeaderboardRow rank={2} name="Asha" points={2150} />
-        <LeaderboardRow rank={3} name="Baraka" points={1900} />
-        <LeaderboardRow rank={14} name="You" points={user.points} isUser />
-        <LeaderboardRow rank={5} name="Neema" points={1100} />
+        {leaderboardLoading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Loading ranks...</div>
+        ) : leaderboard.length > 0 ? (
+            leaderboard.map((u, idx) => (
+                <LeaderboardRow 
+                  key={u.userId || idx}
+                  rank={idx + 1} 
+                  name={u.email ? u.email.split('@')[0] : 'Legend'} 
+                  points={u.points} 
+                  isUser={u.userId === currentUser?.uid}
+                />
+            ))
+        ) : (
+            <div className="py-8 text-center text-gray-400 text-sm">No rankings yet.</div>
+        )}
+        
+        {/* If user not in top 5, show them at the bottom */}
+        {!leaderboardLoading && !leaderboard.find(u => u.userId === currentUser?.uid) && (
+            <>
+                <div className="h-px bg-gray-100 my-4"></div>
+                <LeaderboardRow 
+                    rank={100} // Dummy rank
+                    name="You" 
+                    points={user.points} 
+                    isUser={true} 
+                />
+            </>
+        )}
       </div>
-      <button className="w-full mt-6 py-2 text-sm font-bold text-tz-blue hover:bg-blue-50 rounded-lg transition">
-        View Full Rankings
-      </button>
     </div>
   );
 
@@ -1075,7 +1130,8 @@ const App: React.FC = () => {
                <p className="text-gray-500 mb-8">Join thousands of Tanzanian students learning with Yun, our AI primary school companion.</p>
                
                <button 
-                onClick={loginWithGoogle}
+                id="login-btn-main"
+                onClick={handleLogin}
                 className="w-full bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-gray-50 transition shadow-sm mb-4"
                >
                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
@@ -1238,11 +1294,12 @@ const App: React.FC = () => {
               </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {selectedGrade.subjects.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((subject) => (
-                  <div 
-                    key={subject.id}
-                    onClick={() => setSelectedSubject(subject)}
-                    className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-lg border border-gray-100 cursor-pointer transition-all hover:-translate-y-1"
-                  >
+          <div 
+            key={subject.id}
+            id={`subject-card-${subject.id}`}
+            onClick={() => setSelectedSubject(subject)}
+            className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-lg border border-gray-100 cursor-pointer transition-all hover:-translate-y-1"
+          >
                     <SubjectIcon icon={subject.icon} />
                     <h3 className="text-xl font-bold text-gray-800 mb-1">{subject.name}</h3>
                     <p className="text-sm text-gray-500">{subject.topics.length} Topics</p>
@@ -1298,6 +1355,7 @@ const App: React.FC = () => {
                           </div>
                           
                           <button 
+                              id={`start-learning-${topic.id}`}
                               onClick={() => enterTopic(topic)}
                               className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-600 rounded-xl font-bold hover:border-tz-blue hover:text-tz-blue transition shadow-[0_2px_0_rgb(229,231,235)] active:shadow-none active:translate-y-[2px]"
                           >

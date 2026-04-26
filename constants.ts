@@ -11,8 +11,8 @@ export const SYLLABUS_DATA: GradeSyllabus[] = [
         name: 'Mathematics',
         icon: 'fa-calculator',
         topics: [
-          { id: 'm1-1', title: 'Counting 1-100', description: 'Learning numbers.' },
-          { id: 'm1-2', title: 'Addition', description: 'Basic adding.' },
+          { id: 'm1-1', title: 'Counting 1-100', description: 'Learning numbers.', videoUrl: 'https://www.youtube.com/embed/0TgLtF3PMOc' },
+          { id: 'm1-2', title: 'Addition', description: 'Basic adding.', videoUrl: 'https://www.youtube.com/embed/qM7H5j9Y8U0' },
           { id: 'm1-3', title: 'Subtraction', description: 'Basic taking away.' },
           { id: 'm1-4', title: 'Shapes', description: 'Circles, squares, triangles.' },
           { id: 'm1-5', title: 'Measurements', description: 'Length and weight basics.' }
@@ -23,7 +23,7 @@ export const SYLLABUS_DATA: GradeSyllabus[] = [
         name: 'Kiswahili',
         icon: 'fa-language',
         topics: [
-          { id: 'k1-1', title: 'Alfabeti', description: 'Kutambua herufi.' },
+          { id: 'k1-1', title: 'Alfabeti', description: 'Kutambua herufi.', videoUrl: 'https://www.youtube.com/embed/5mTo8XyQn2o' },
           { id: 'k1-2', title: 'Kusoma', description: 'Kusoma maneno mafupi.' },
           { id: 'k1-3', title: 'Uandishi', description: 'Kuandika sentensi rahisi.' },
           { id: 'k1-4', title: 'Hadithi', description: 'Kusikiliza na kusimulia hadithi.' }
@@ -34,7 +34,7 @@ export const SYLLABUS_DATA: GradeSyllabus[] = [
         name: 'English',
         icon: 'fa-font',
         topics: [
-          { id: 'e1-1', title: 'Greetings', description: 'How to say hello.' },
+          { id: 'e1-1', title: 'Greetings', description: 'How to say hello.', videoUrl: 'https://www.youtube.com/embed/gVIFEVLzP4o' },
           { id: 'e1-2', title: 'My Family', description: 'Naming family members.' },
           { id: 'e1-3', title: 'Colors', description: 'Red, Blue, Green, etc.' },
           { id: 'e1-4', title: 'My School', description: 'Objects found in school.' }

@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 
-const apiKey = process.env.API_KEY || '';
+const apiKey = process.env.GEMINI_API_KEY || '';
 
 // Safely initialize the client
 let ai: GoogleGenAI | null = null;
@@ -17,7 +17,7 @@ export const sendMessageToYun = async (
   }
 
   try {
-    const model = 'gemini-2.5-flash';
+    const model = 'gemini-3-flash-preview';
     
     // Construct history for context
     const recentHistory = history.slice(-10).map(msg => ({
@@ -69,7 +69,7 @@ export const generateQuizQuestion = async (
     };
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
