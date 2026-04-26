@@ -26,7 +26,7 @@ import { UserProgress } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const auth = getAuth();
 
 const googleProvider = new GoogleAuthProvider();
 

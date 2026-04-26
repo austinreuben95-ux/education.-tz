@@ -306,6 +306,17 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const handleLogin = async () => {
+    setLoginError(null);
+    try {
+      await loginWithGoogle();
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      setLoginError(error.message || "Failed to login. Please try again.");
+    }
+  };
 
   // User State 
   const [user, setUser] = useState<UserProgress>({
@@ -322,42 +333,48 @@ const App: React.FC = () => {
   // Sync with Firebase Auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setCurrentUser(firebaseUser);
-      setAuthLoading(false);
-      
-      if (firebaseUser) {
-        // Check Admin
-        const adminStatus = await checkIsAdmin(firebaseUser.uid);
-        setIsAdmin(adminStatus);
-
-        // Load progress from Firestore
-        const progress = await getUserProgress(firebaseUser.uid);
-        if (progress) {
-          const updatedProgress = { ...progress, email: firebaseUser.email || undefined };
-          if (firebaseUser.email === 'austinreuben95@gmail.com') {
-            updatedProgress.credits = 999999;
+      setAuthLoading(true);
+      try {
+        setCurrentUser(firebaseUser);
+        
+        if (firebaseUser) {
+          // Check Admin
+          const adminStatus = await checkIsAdmin(firebaseUser.uid);
+          setIsAdmin(adminStatus);
+  
+          // Load progress from Firestore
+          const progress = await getUserProgress(firebaseUser.uid);
+          if (progress) {
+            const updatedProgress = { ...progress, email: firebaseUser.email || undefined };
+            if (firebaseUser.email === 'austinreuben95@gmail.com') {
+              updatedProgress.credits = 999999;
+            }
+            setUser(updatedProgress);
+          } else {
+            // Initialize default progress for new user
+            const initialProgress: UserProgress = {
+              points: 100,
+              credits: firebaseUser.email === 'austinreuben95@gmail.com' ? 999999 : 0,
+              streak: 1,
+              completedTopics: [],
+              level: 1,
+              email: firebaseUser.email || undefined
+            };
+            setUser(initialProgress);
+            await saveUserProgress(firebaseUser.uid, initialProgress);
           }
-          setUser(updatedProgress);
+          setIsInitialized(true);
         } else {
-          // Initialize default progress for new user
-          const initialProgress: UserProgress = {
-            points: 100,
-            credits: firebaseUser.email === 'austinreuben95@gmail.com' ? 999999 : 0,
-            streak: 1,
-            completedTopics: [],
-            level: 1,
-            email: firebaseUser.email || undefined
-          };
-          setUser(initialProgress);
-          await saveUserProgress(firebaseUser.uid, initialProgress);
+          setIsAdmin(false);
+          setIsInitialized(false);
         }
-        setIsInitialized(true);
-      } else {
-        setIsAdmin(false);
-        setIsInitialized(false);
+      } catch (error) {
+        console.error("Auth state change error:", error);
+      } finally {
+        setAuthLoading(false);
       }
     });
-
+  
     return () => unsubscribe();
   }, []);
 
@@ -555,12 +572,19 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-right-from-bracket"></i>
               </button>
           ) : (
+            <div className="flex flex-col items-end">
               <button 
-                onClick={loginWithGoogle}
+                onClick={handleLogin}
                 className="bg-tz-blue text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition flex items-center gap-2"
               >
                 <i className="fa-solid fa-user"></i> Login
               </button>
+              {loginError && (
+                <span className="text-[10px] text-red-500 font-bold mt-1 max-w-[150px] text-right">
+                  {loginError}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
