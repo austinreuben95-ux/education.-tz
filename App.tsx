@@ -6,7 +6,6 @@ import RadarChart, { SubjectProficiency } from './components/RadarChart';
 import ExamVault from './components/ExamVault';
 import TeachersHub from './components/TeachersHub';
 import ALevelGuide from './components/ALevelGuide';
-import AuthModal from './components/AuthModal';
 import Dictionary from './components/Dictionary';
 import NotesHub from './components/NotesHub';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
@@ -514,9 +513,6 @@ const App: React.FC = () => {
 
   // Subject Badge Filter State
   const [subjectBadgeFilter, setSubjectBadgeFilter] = useState<'ALL' | 'NEW' | 'VIDEO' | 'EXAM'>('ALL');
-
-  // Auth Modal State
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Student Proficiency Radar Data
   const studentProficiencyData: SubjectProficiency[] = useMemo(() => [
