@@ -285,8 +285,239 @@ const DEMO_NECTA_RESULTS: NectaCandidateResult[] = [
   }
 ];
 
+export interface ExamStrategyGuide {
+  level: 'PSLE' | 'CSEE' | 'ACSEE';
+  title: string;
+  badge: string;
+  subtitle: string;
+  targetAudience: string;
+  keyFocusAreas: string[];
+  commonPitfalls: {
+    id: string;
+    title: string;
+    subject: string;
+    description: string;
+    mistakeExample: string;
+    solution: string;
+    marksLost: string;
+  }[];
+  scoringTips: {
+    title: string;
+    tip: string;
+    actionableStep: string;
+  }[];
+}
+
+const EXAM_STRATEGY_DATA: Record<'PSLE' | 'CSEE' | 'ACSEE', ExamStrategyGuide> = {
+  PSLE: {
+    level: 'PSLE',
+    title: 'Primary School Leaving Examination (PSLE / Standard 7) Strategy',
+    badge: 'Std 7 National Exam',
+    subtitle: 'Master multiple-choice speed, OMR shading accuracy, and word-problem comprehension for top secondary school selection.',
+    targetAudience: 'Standard 7 Candidates, Primary Teachers & Parents',
+    keyFocusAreas: [
+      'OMR Sheet Error Prevention',
+      'Hisabati (Math) Word Problem Parsing',
+      'Kiswahili & English Grammar Precision',
+      'Sayansi Diagram Identification'
+    ],
+    commonPitfalls: [
+      {
+        id: 'psle-1',
+        title: 'Misinterpreting Hisabati Word Problems & Unit Confusion',
+        subject: 'Hisabati (Mathematics)',
+        description: 'Candidates confuse perimeter and area formulas or calculate answers without converting units (e.g. centimeters to meters).',
+        mistakeExample: 'Calculating Area = 2 × (L + W) instead of Area = L × W, or adding 50cm and 2m without converting.',
+        solution: 'Always underline key terms ("Mzunguko" vs "Eneo") and convert all measurements to the same unit before computing.',
+        marksLost: 'Up to 20% of Math Paper Marks'
+      },
+      {
+        id: 'psle-2',
+        title: 'OMR Answer Sheet Shading & Double Marking Errors',
+        subject: 'All Subjects (OMR Sheet)',
+        description: 'Light or incomplete pencil marks, or accidentally shading two circles for a single question causes optical scanners to invalidate the answer.',
+        mistakeExample: 'Using a hard HB/2H pencil lightly, or leaving erasure marks in another circle.',
+        solution: 'Use a soft HB pencil, shade fully inside the circle, and erase completely if changing an answer.',
+        marksLost: '1-5 Entire Questions Invalidated'
+      },
+      {
+        id: 'psle-3',
+        title: 'Passage Comprehension Rushing in English & Kiswahili',
+        subject: 'Languages (English & Kiswahili)',
+        description: 'Answering comprehension questions based on general knowledge or assumptions rather than facts stated directly in the text passage.',
+        mistakeExample: 'Choosing an answer that sounds logically true in real life but is not supported by the passage.',
+        solution: 'Read the comprehension passage TWICE. Locate and underline the exact sentence that proves your chosen option.',
+        marksLost: '4-8 Marks per Language Paper'
+      },
+      {
+        id: 'psle-4',
+        title: 'Misidentifying Organ Functions in Sayansi na Teknolojia',
+        subject: 'Sayansi (Science & Tech)',
+        description: 'Confusing digestive system organs, plant reproduction parts, or simple circuit polarity.',
+        mistakeExample: 'Mixing up the role of small intestine (Ufyonzaji) with stomach (Umenyaji).',
+        solution: 'Memorize clear primary functions for each biological system using visual flashcards and diagrams.',
+        marksLost: '3-6 Key Science Marks'
+      }
+    ],
+    scoringTips: [
+      {
+        title: 'Process of Elimination for 4-Option MCQs',
+        tip: 'Cross off the two obviously incorrect options first.',
+        actionableStep: 'If stuck between two choices, re-read the precise wording in the question stem.'
+      },
+      {
+        title: 'Time Allocation Rule (1 Minute Per Question)',
+        tip: 'Do not spend more than 2 minutes on a single difficult math question.',
+        actionableStep: 'Circle hard questions and return to them after completing all easy questions.'
+      },
+      {
+        title: 'Final 10-Minute OMR Audit',
+        tip: 'Verify that question number 25 on your question paper matches bubble 25 on the answer sheet.',
+        actionableStep: 'Check for offset shading slips that shift your answers down by one row.'
+      }
+    ]
+  },
+  CSEE: {
+    level: 'CSEE',
+    title: 'Form 4 CSEE Examination Strategy & Examiner Pitfall Guide',
+    badge: 'Form 4 National Exam',
+    subtitle: 'Learn exact NECTA marking criteria, unit deduction rules, essay structure frameworks, and practical data handling.',
+    targetAudience: 'Form 4 Candidates, Teachers & Subject Department Heads',
+    keyFocusAreas: [
+      'NECTA Unit & Formula Penalty Prevention',
+      'Structured Essay Formatting (Arts & Humanities)',
+      'Science Practical Data & Graph Precision',
+      'Command Verbs Decoding (State vs Explain vs Evaluate)'
+    ],
+    commonPitfalls: [
+      {
+        id: 'csee-1',
+        title: 'Omitting Units & Skipping Intermediate Working in Math & Physics',
+        subject: 'Basic Mathematics & Physics',
+        description: 'NECTA marking schemes strictly penalize missing units (e.g., N, m/s², cm³) and un-boxed final answers.',
+        mistakeExample: 'Writing "Velocity = 25" without "m/s", or writing down only the final answer without showing the formula used.',
+        solution: 'Follow the 4-step answer format: 1. Formula, 2. Values Substituted, 3. Calculation Steps, 4. Answer with Units in a Box.',
+        marksLost: '0.5 to 1.5 Marks per Calculation Question'
+      },
+      {
+        id: 'csee-2',
+        title: 'Unstructured Essays Without Introduction & Local Examples in History/Geography',
+        subject: 'History, Geography & Civics',
+        description: 'Writing wall-of-text paragraphs without a clear thesis statement, distinct paragraph breaks, or relevant Tanzanian case studies.',
+        mistakeExample: 'Writing a 2-page continuous essay without headings, introduction, or citing examples like Mchuchuma, Stiegler’s Gorge, or SADC.',
+        solution: 'Use the 1+5+1 Essay Rule: 1 Paragraph Intro (definition + scope), 5 Point Paragraphs (Point + Explanation + Example), 1 Conclusion.',
+        marksLost: 'Up to 40% of Section C Essay Marks'
+      },
+      {
+        id: 'csee-3',
+        title: 'Incorrect Diagram Labeling in Biology & Chemistry',
+        subject: 'Biology & Chemistry',
+        description: 'Drawing biological diagrams using freehand unruled pointer lines, crossing lines, or omitting capitalized diagram titles.',
+        mistakeExample: 'Drawing a cell diagram without a title like "DIAGRAM OF A PLANT CELL" or drawing slanted, crossing label lines.',
+        solution: 'Use a ruler for horizontal label lines, never cross lines, write titles in BLOCK CAPITALS, and draw with a sharp pencil.',
+        marksLost: '2-4 Marks per Diagram Question'
+      },
+      {
+        id: 'csee-4',
+        title: 'Chemistry Titration Data & Rounding Anomalies',
+        subject: 'Chemistry Practical & Alternative to Practical',
+        description: 'Recording titration volumes with inconsistent decimal places or reporting titre values that vary by more than 0.2 cm³.',
+        mistakeExample: 'Writing burette readings as "24.5" instead of "24.50" or averaging non-concordant titres.',
+        solution: 'Record all burette readings to 2 decimal places ending in .00 or .50, and ensure concordant values within 0.20 cm³.',
+        marksLost: 'Full Practical Table Marks (5-8 Marks)'
+      }
+    ],
+    scoringTips: [
+      {
+        title: 'Decode NECTA Command Verbs',
+        tip: '"State" = brief phrase; "Explain" = statement + cause + effect; "Evaluate" = pros + cons + verdict.',
+        actionableStep: 'Never write a 1-page essay when the prompt says "State 3 factors". Match answer depth to verb & marks.'
+      },
+      {
+        title: 'Section Strategy for Division 1 Points',
+        tip: 'Section A & B carry compulsory foundation marks; secure 100% of short-answer marks before tackling Section C.',
+        actionableStep: 'Complete Section A multiple choice and short answers in the first 45 minutes.'
+      },
+      {
+        title: 'Calculation Partial Credit Safety Net',
+        tip: 'Even if your arithmetic is wrong, writing the correct formula earns up to 50% method marks.',
+        actionableStep: 'Always state the general formula (e.g., F = ma) before plugging in numbers.'
+      }
+    ]
+  },
+  ACSEE: {
+    level: 'ACSEE',
+    title: 'Form 6 ACSEE Advanced Level Strategy & Examiner Masterclass',
+    badge: 'Form 6 High School Exam',
+    subtitle: 'Master university-entrance combination strategies, deep analytical essays, advanced proof rigor, and practical error analysis.',
+    targetAudience: 'Form 6 Candidates, High School Combination Tutors & Head Teachers',
+    keyFocusAreas: [
+      'Advanced Essay Rigor in GS & Humanities',
+      'Rigorous Mathematical Proofs & Differentiation',
+      'Practical Paper Error Analysis & Line of Best Fit Graphs',
+      'Combination Point Optimization (PCB, PCM, EGM, HGL, HKL)'
+    ],
+    commonPitfalls: [
+      {
+        id: 'acsee-1',
+        title: 'Shallow Policy References in General Studies (GS) & Economics',
+        subject: 'General Studies (GS) & Economics',
+        description: 'Candidates write generic opinions without citing official national policies, UN/AU frameworks, or economic data.',
+        mistakeExample: 'Discussing industrialization without referencing Tanzania Development Vision 2025, FYDP III, or SADC trade agreements.',
+        solution: 'Incorporate named policy frameworks, statistics, and current global/regional socio-economic events into every major essay.',
+        marksLost: '5-10 Marks on GS & Economics Essays'
+      },
+      {
+        id: 'acsee-2',
+        title: 'Skipping Proof Steps & Sign Errors in Advanced Mathematics',
+        subject: 'Advanced Mathematics & BAM',
+        description: 'Skipping intermediate algebraic steps in calculus, integration by parts, or complex number derivations.',
+        mistakeExample: 'Jumping straight from integration setup to final answer without showing substitution or limits evaluation.',
+        solution: 'Show every step explicitly. High level examiners award marks per logical line of mathematical deduction.',
+        marksLost: '3-6 Marks on 10-Mark Math Questions'
+      },
+      {
+        id: 'acsee-3',
+        title: 'Flawed Graph Axis Scaling & Best Fit Lines in Physics Paper 3',
+        subject: 'Physics Practical (Paper 3A/3B)',
+        description: 'Using awkward graph scale ratios (e.g. 1 unit = 3 cm), plotting points inaccurately, or drawing forced best-fit lines.',
+        mistakeExample: 'Choosing scales like 1:3 or 1:7 that make plotting points difficult, or drawing a zig-zag line instead of a smooth straight line.',
+        solution: 'Use standard scale factors (1:1, 1:2, 1:5, 1:10), ensure plotted points cover >50% of graph paper, and calculate slope using large triangles.',
+        marksLost: '6-10 Marks on Physics Practical Graphs'
+      },
+      {
+        id: 'acsee-4',
+        title: 'Omitting Electron Push Arrows & Reaction Intermediate States in Organic Chemistry',
+        subject: 'Chemistry Paper 1 & 2',
+        description: 'Writing overall organic reactions without showing mechanism electron flow, carbocation intermediates, or catalyst conditions.',
+        mistakeExample: 'Writing electrophilic addition of HBr to alkene without drawing the curved electron movement arrows.',
+        solution: 'Practice step-by-step mechanism mechanisms showing full arrow movements from electron-rich to electron-poor centers.',
+        marksLost: '4-8 Marks in Organic Chemistry'
+      }
+    ],
+    scoringTips: [
+      {
+        title: 'Precision in Practical Data Tables',
+        tip: 'In Science Paper 3, record raw measurements to the exact precision of the instrument.',
+        actionableStep: 'Burette readings to 2 decimal places; stopwatches to 1 or 2 decimal places; micrometer screw gauge to 0.01 mm.'
+      },
+      {
+        title: 'Master Advanced Command Verbs',
+        tip: '"Critically Analyze" requires analyzing underlying assumptions, counter-arguments, and synthesizing a balanced conclusion.',
+        actionableStep: 'Structure advanced essays with a clear thematic framework rather than random list points.'
+      },
+      {
+        title: 'Combination Strategy & Principal Pass Planning',
+        tip: 'Ensure all 3 combination subjects score Grade C or higher to secure university direct entry cut-offs.',
+        actionableStep: 'Balance study hours according to subject credit weights and weak topics identified in Mocks.'
+      }
+    ]
+  }
+};
+
 const ExamVault: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'PAPERS' | 'RESULTS' | 'CALCULATOR'>('PAPERS');
+  const [activeTab, setActiveTab] = useState<'PAPERS' | 'RESULTS' | 'CALCULATOR' | 'STRATEGY'>('PAPERS');
+  const [selectedStrategyLevel, setSelectedStrategyLevel] = useState<'PSLE' | 'CSEE' | 'ACSEE'>('CSEE');
   const [selectedLevel, setSelectedLevel] = useState<string>('ALL');
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL');
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
@@ -420,6 +651,16 @@ const ExamVault: React.FC = () => {
           }`}
         >
           <i className="fa-solid fa-calculator"></i> NECTA Division & Points Calculator
+        </button>
+        <button
+          onClick={() => setActiveTab('STRATEGY')}
+          className={`px-5 py-3 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+            activeTab === 'STRATEGY'
+              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-200 scale-105'
+              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+          }`}
+        >
+          <i className="fa-solid fa-lightbulb"></i> Exam Strategy & Examiner Pitfalls
         </button>
       </div>
 
@@ -647,6 +888,152 @@ const ExamVault: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: NECTA Level Exam Strategy Guides & Examiner Pitfalls */}
+      {activeTab === 'STRATEGY' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-amber-500/30 shadow-xl space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider">
+                  <i className="fa-solid fa-shield-halved text-amber-400"></i> NECTA Examiner Pitfall Prevention
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                  NECTA Exam Strategy & Pitfall Guides
+                </h2>
+                <p className="text-gray-300 text-xs sm:text-sm leading-relaxed">
+                  Toggle between NECTA exam levels (<strong className="text-amber-300">PSLE</strong>, <strong className="text-cyan-300">CSEE</strong>, <strong className="text-purple-300">ACSEE</strong>) to discover real examiner marking insights, penalization traps, unit error rules, and high-scoring essay techniques.
+                </p>
+              </div>
+
+              {/* Level Switcher Pills */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white/10 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md self-start md:self-center">
+                {(['PSLE', 'CSEE', 'ACSEE'] as const).map((lvl) => (
+                  <button
+                    key={lvl}
+                    onClick={() => setSelectedStrategyLevel(lvl)}
+                    className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                      selectedStrategyLevel === lvl
+                        ? 'bg-amber-400 text-slate-950 shadow-md scale-105'
+                        : 'text-gray-300 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {lvl} Level
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Guide Content */}
+          {(() => {
+            const guide = EXAM_STRATEGY_DATA[selectedStrategyLevel];
+            return (
+              <div className="space-y-6">
+                {/* Level Title & Focus Areas */}
+                <div className="bg-white rounded-3xl p-6 border-2 border-amber-100 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-black text-[10px] uppercase tracking-wider">
+                        {guide.badge}
+                      </span>
+                      <span className="text-xs font-bold text-gray-400">Target: {guide.targetAudience}</span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-gray-900">{guide.title}</h3>
+                    <p className="text-xs text-gray-600 font-medium leading-relaxed">{guide.subtitle}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {guide.keyFocusAreas.map((area, idx) => (
+                      <span key={idx} className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 font-extrabold text-[11px] border border-slate-200">
+                        <i className="fa-solid fa-check text-emerald-600 mr-1.5"></i> {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Common Examiner Pitfalls Cards */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                      <i className="fa-solid fa-triangle-exclamation text-amber-500"></i> Critical NECTA Examiner Pitfalls ({guide.level})
+                    </h4>
+                    <span className="text-xs font-bold text-gray-500">Deducting points identified in CIRA reports</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {guide.commonPitfalls.map((pitfall) => (
+                      <div key={pitfall.id} className="bg-white rounded-3xl p-6 border-2 border-red-100 shadow-sm space-y-4 hover:border-red-300 transition-all">
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="px-3 py-1 rounded-full bg-red-50 text-red-700 font-black text-[10px] uppercase border border-red-200">
+                            {pitfall.subject}
+                          </span>
+                          <span className="text-[11px] font-black text-red-600 bg-red-100/80 px-2.5 py-0.5 rounded-lg">
+                            Loss: {pitfall.marksLost}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h5 className="font-black text-gray-900 text-base mb-1">{pitfall.title}</h5>
+                          <p className="text-xs text-gray-600 font-medium leading-relaxed">{pitfall.description}</p>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200 text-xs space-y-1">
+                          <strong className="text-red-900 font-black block flex items-center gap-1.5">
+                            <i className="fa-solid fa-xmark text-red-600"></i> Common Mistake Example:
+                          </strong>
+                          <p className="text-red-800 font-medium italic">{pitfall.mistakeExample}</p>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-1">
+                          <strong className="text-emerald-950 font-black block flex items-center gap-1.5">
+                            <i className="fa-solid fa-circle-check text-emerald-600"></i> NECTA Examiner Solution:
+                          </strong>
+                          <p className="text-emerald-900 font-semibold">{pitfall.solution}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Scoring Tips & Checklist */}
+                <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+                  <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xl font-black flex items-center gap-2 text-amber-300">
+                        <i className="fa-solid fa-star"></i> Pro Scoring Action Checklist ({guide.level})
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-0.5">Key habits recommended by senior national examination markers</p>
+                    </div>
+                    <button
+                      onClick={() => alert(`Downloaded ${guide.level} Exam Strategy Guide & Pitfalls Checklist`)}
+                      className="px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-black text-xs hover:bg-amber-300 transition shrink-0"
+                    >
+                      <i className="fa-solid fa-download mr-1.5"></i> Download {guide.level} Strategy Guide
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {guide.scoringTips.map((tipItem, tIdx) => (
+                      <div key={tIdx} className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-3">
+                        <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-300 font-black flex items-center justify-center text-xs border border-amber-400/30">
+                          0{tIdx + 1}
+                        </div>
+                        <h5 className="font-black text-sm text-white">{tipItem.title}</h5>
+                        <p className="text-xs text-gray-300 font-medium leading-relaxed">{tipItem.tip}</p>
+                        <div className="pt-2 border-t border-slate-700/60 text-[11px] text-amber-300 font-bold">
+                          👉 {tipItem.actionableStep}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
