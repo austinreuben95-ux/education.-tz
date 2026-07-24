@@ -5,7 +5,10 @@ import {
   GoogleAuthProvider, 
   onAuthStateChanged, 
   User,
-  signOut
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -36,6 +39,29 @@ export async function loginWithGoogle() {
     return result.user;
   } catch (error) {
     console.error("Login failed:", error);
+    throw error;
+  }
+}
+
+export async function loginWithEmail(email: string, pass: string) {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    return result.user;
+  } catch (error) {
+    console.error("Email login failed:", error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmail(email: string, pass: string, name?: string) {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    if (name && result.user) {
+      await updateProfile(result.user, { displayName: name });
+    }
+    return result.user;
+  } catch (error) {
+    console.error("Sign up failed:", error);
     throw error;
   }
 }

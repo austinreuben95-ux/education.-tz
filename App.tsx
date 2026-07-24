@@ -1,35 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel } from './types';
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
+import RadarChart, { SubjectProficiency } from './components/RadarChart';
+import ExamVault from './components/ExamVault';
+import TeachersHub from './components/TeachersHub';
+import ALevelGuide from './components/ALevelGuide';
+import AuthModal from './components/AuthModal';
+import Dictionary from './components/Dictionary';
+import NotesHub from './components/NotesHub';
+import { getDeepLessonNote } from './src/data/deepTopicNotes';
+import { YunAvatar3D } from './components/YunAvatar3D';
 import { generateQuizQuestion } from './services/geminiService';
 import { 
   auth, 
-  loginWithGoogle, 
-  logout, 
+  loginWithGoogle,
   getUserProgress, 
   saveUserProgress,
   checkIsAdmin,
   updateUserCredits,
-  searchUserByEmail
+  searchUserByEmail,
+  getAllUsers
 } from './services/firebaseService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
-// --- Sub-Components ---
+// --- Vocabulary Generator for Language Subjects & General Topics ---
+const getTopicVocabulary = (subjectName: string, topicTitle: string) => {
+  const subLower = subjectName.toLowerCase();
+  
+  if (subLower.includes('french') || subLower.includes('kifaransa')) {
+    return [
+      { term: 'Bonjour', translation: 'Habari / Good Morning', phonetic: '[boh-zhoor]' },
+      { term: 'Merci beaucoup', translation: 'Asante sana / Thank you very much', phonetic: '[mahr-see boh-koo]' },
+      { term: 'S\'il vous plaît', translation: 'Tafadhali / Please', phonetic: '[seel voo pleh]' },
+      { term: 'Au revoir', translation: 'Kwaheri / Goodbye', phonetic: '[oh ruh-vwahr]' },
+      { term: 'Comment allez-vous?', translation: 'Habari gani? / How are you?', phonetic: '[koh-mah tah-lay voo]' },
+      { term: 'Je m\'appelle...', translation: 'Jina langu ni... / My name is...', phonetic: '[zhuh mah-pell]' }
+    ];
+  } else if (subLower.includes('arabic') || subLower.includes('kiarabu')) {
+    return [
+      { term: 'مرحباً (Marhaban)', translation: 'Habari / Hello', phonetic: '[Mar-ha-ban]' },
+      { term: 'شكراً (Shukran)', translation: 'Asante / Thank you', phonetic: '[Shuk-ran]' },
+      { term: 'من فضلك (Min fadlik)', translation: 'Tafadhali / Please', phonetic: '[Min fad-lik]' },
+      { term: 'مع السلامة (Ma\'a as-salamah)', translation: 'Kwaheri / Goodbye', phonetic: '[Ma-a as-sa-la-mah]' },
+      { term: 'كيف حالك؟ (Kayfa haluk?)', translation: 'Habari gani? / How are you?', phonetic: '[Kay-fa ha-luk]' },
+      { term: 'اسمى... (Ismee...)', translation: 'Jina langu ni... / My name is...', phonetic: '[Is-mee]' }
+    ];
+  } else if (subLower.includes('chinese') || subLower.includes('kichina')) {
+    return [
+      { term: '你好 (Nǐ hǎo)', translation: 'Habari / Hello', phonetic: '[Nee how]' },
+      { term: '谢谢 (Xièxie)', translation: 'Asante / Thank you', phonetic: '[Shyeh-shyeh]' },
+      { term: '再见 (Zàijiàn)', translation: 'Kwaheri / Goodbye', phonetic: '[Dzaye-jyen]' },
+      { term: '请 (Qǐng)', translation: 'Tafadhali / Please', phonetic: '[Cheeng]' },
+      { term: '对不起 (Duìbuqǐ)', translation: 'Samahani / Sorry', phonetic: '[Dway-boo-chee]' },
+      { term: '没关系 (Méi guānxi)', translation: 'Bila shaka / No problem', phonetic: '[May gwan-shee]' }
+    ];
+  } else if (subLower.includes('kiswahili')) {
+    return [
+      { term: 'Jambo', translation: 'Hello / Greetings', phonetic: '[Jah-mboh]' },
+      { term: 'Asante sana', translation: 'Thank you very much', phonetic: '[Ah-sahn-teh sah-nah]' },
+      { term: 'Fasihi', translation: 'Literature / Artistic works', phonetic: '[Fah-see-hee]' },
+      { term: 'Sarufi', translation: 'Grammar & Syntax', phonetic: '[Sah-roo-fee]' },
+      { term: 'Ufahamu', translation: 'Comprehension & Reading', phonetic: '[Oo-fah-ha-moo]' },
+      { term: 'Insha', translation: 'Essay / Composition', phonetic: '[Een-shah]' }
+    ];
+  } else {
+    return [
+      { term: 'Comprehension', translation: 'Ufahamu (Kuelewa maandishi)', phonetic: '[kom-pri-hen-shuhn]' },
+      { term: 'Vocabulary', translation: 'Msamiati (Maneno mapya)', phonetic: '[voh-kab-yuh-ler-ee]' },
+      { term: 'Syntax', translation: 'Muundo wa Sentensi', phonetic: '[sin-taks]' },
+      { term: 'Punctuation', translation: 'Alama za Uandishi', phonetic: '[pungk-choo-ey-shuhn]' },
+      { term: 'Grammar', translation: 'Sarufi ya Lugha', phonetic: '[gram-er]' },
+      { term: 'Pronunciation', translation: 'Katamka / Matamshi', phonetic: '[pruh-nuhn-see-ey-shuhn]' }
+    ];
+  }
+};
 
-const SubjectIcon = ({ icon }: { icon: string }) => (
+const speakWord = (text: string, langHint: string) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const cleanText = text.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const subLower = langHint.toLowerCase();
+    if (subLower.includes('french') || subLower.includes('kifaransa')) utterance.lang = 'fr-FR';
+    else if (subLower.includes('arabic') || subLower.includes('kiarabu')) utterance.lang = 'ar-SA';
+    else if (subLower.includes('chinese') || subLower.includes('kichina')) utterance.lang = 'zh-CN';
+    else if (subLower.includes('kiswahili')) utterance.lang = 'sw-TZ';
+    else utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+// --- Sub-Components (Memoized for high rendering efficiency) ---
+
+const SubjectIcon = React.memo(({ icon }: { icon: string }) => (
   <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-tz-blue text-xl mb-3 group-hover:bg-tz-blue group-hover:text-white transition-colors duration-300 border-2 border-gray-100">
     <i className={`fa-solid ${icon}`}></i>
   </div>
-);
+));
 
-const ProgressBar = ({ progress, color = "bg-tz-green" }: { progress: number, color?: string }) => (
+const ProgressBar = React.memo(({ progress, color = "bg-tz-green" }: { progress: number, color?: string }) => (
   <div className="w-full bg-gray-200 rounded-full h-3">
     <div className={`${color} h-3 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }}></div>
   </div>
-);
+));
 
-const LeaderboardRow = ({ rank, name, points, isUser }: { rank: number, name: string, points: number, isUser?: boolean }) => (
+const LeaderboardRow = React.memo(({ rank, name, points, isUser }: { rank: number, name: string, points: number, isUser?: boolean }) => (
   <div className={`flex items-center justify-between p-4 rounded-xl mb-2 ${isUser ? 'bg-blue-50 border-2 border-tz-blue' : 'bg-white border border-gray-100'}`}>
     <div className="flex items-center gap-4">
       <span className={`font-bold w-6 text-center ${rank <= 3 ? 'text-tz-yellow text-xl' : 'text-gray-500'}`}>
@@ -37,14 +113,14 @@ const LeaderboardRow = ({ rank, name, points, isUser }: { rank: number, name: st
       </span>
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isUser ? 'bg-tz-blue text-white' : 'bg-gray-200 text-gray-600'}`}>
-          {name.charAt(0)}
+          {name.charAt(0).toUpperCase()}
         </div>
-        <span className={`font-medium ${isUser ? 'text-tz-blue' : 'text-gray-700'}`}>{name}</span>
+        <span className={`font-medium ${isUser ? 'text-tz-blue font-bold' : 'text-gray-700'}`}>{name}</span>
       </div>
     </div>
     <span className="font-bold text-gray-600">{points} XP</span>
   </div>
-);
+));
 
 // --- Components ---
 
@@ -425,6 +501,23 @@ const App: React.FC = () => {
   const [parentPin, setParentPin] = useState('');
   const [isParentUnlocked, setIsParentUnlocked] = useState(false);
 
+  // Data Saver & Bilingual States
+  const [dataSaver, setDataSaver] = useState(false);
+  const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
+
+  // Auth Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Student Proficiency Radar Data
+  const studentProficiencyData: SubjectProficiency[] = useMemo(() => [
+    { subject: 'Mathematics', score: 82, classAverage: 65, icon: 'fa-calculator', color: 'bg-indigo-600' },
+    { subject: 'Science', score: 88, classAverage: 70, icon: 'fa-flask', color: 'bg-emerald-600' },
+    { subject: 'Kiswahili', score: 92, classAverage: 78, icon: 'fa-book-bookmark', color: 'bg-amber-600' },
+    { subject: 'English', score: 75, classAverage: 68, icon: 'fa-language', color: 'bg-sky-600' },
+    { subject: 'Social Studies', score: 70, classAverage: 62, icon: 'fa-earth-africa', color: 'bg-purple-600' },
+    { subject: 'Physics/Tech', score: 85, classAverage: 60, icon: 'fa-atom', color: 'bg-rose-600' },
+  ], []);
+
   // --- Actions ---
 
   const handleLevelSelect = (level: EducationLevel) => {
@@ -507,68 +600,150 @@ const App: React.FC = () => {
     setSelectedTopic(null);
   };
 
+  // --- Memoized Search, Filters & Stats ---
+  const totalTopicsCount = useMemo(() => {
+    return SYLLABUS_DATA.reduce((acc, grade) => {
+      return acc + grade.subjects.reduce((sAcc, sub) => sAcc + sub.topics.length, 0);
+    }, 0);
+  }, []);
+
+  const filteredSubjects = useMemo(() => {
+    if (!selectedGrade) return [];
+    if (!searchQuery.trim()) return selectedGrade.subjects;
+    const q = searchQuery.toLowerCase();
+    return selectedGrade.subjects.filter(s => s.name.toLowerCase().includes(q));
+  }, [selectedGrade, searchQuery]);
+
+  const filteredTopics = useMemo(() => {
+    if (!selectedSubject) return [];
+    if (!searchQuery.trim()) return selectedSubject.topics;
+    const q = searchQuery.toLowerCase();
+    return selectedSubject.topics.filter(t => 
+      t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    );
+  }, [selectedSubject, searchQuery]);
+
   // --- Render Sections ---
 
   const renderHeader = () => (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition" onClick={goHome}>
-          <div className="w-10 h-10 bg-tz-blue rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-tz-blue/30">
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={goHome}>
+          <div className="w-11 h-11 bg-vibrant-gradient rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
             E
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl leading-none text-tz-dark tracking-tight">Education<span className="text-tz-blue">TZ</span></span>
-            <span className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Global Learning</span>
+            <span className="font-black text-2xl leading-none text-tz-dark tracking-tight">Education<span className="gradient-text">TZ</span></span>
+            <span className="text-[10px] text-indigo-600 font-extrabold tracking-widest uppercase flex items-center gap-1">
+              <i className="fa-solid fa-sparkles text-[8px]"></i> {totalTopicsCount}+ Topics & Videos
+            </span>
           </div>
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">
-          {currentUser && (
-            <div className="hidden lg:flex items-center gap-4">
-              <button 
-                onClick={() => setCurrentView(AppView.EXAMS)}
-                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.EXAMS ? 'bg-tz-blue text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-              >
-                <i className="fa-solid fa-file-invoice mr-2"></i> Exams
-              </button>
-              <button 
-                onClick={() => setCurrentView(AppView.WALLET)}
-                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.WALLET ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-              >
-                <i className="fa-solid fa-wallet mr-2"></i> Wallet
-              </button>
-              <button 
-                onClick={() => setCurrentView(AppView.CALCULATOR)}
-                className={`px-3 py-1.5 rounded-full font-bold text-sm transition ${currentView === AppView.CALCULATOR ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-              >
-                <i className="fa-solid fa-calculator mr-2"></i> Calculator
-              </button>
-            </div>
-          )}
-          {/* Stats */}
-          {currentUser && (
-            <div className="hidden md:flex items-center gap-2">
-              <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
-                 {user.streak} <i className="fa-solid fa-fire"></i>
-              </div>
-              <div 
-                onClick={() => setCurrentView(AppView.WALLET)}
-                className="cursor-pointer flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition"
-              >
-                {user.points} EP
-              </div>
-            </div>
-          )}
-
-          {currentUser && (
+          <div className="hidden lg:flex items-center gap-1.5">
             <button 
-              onClick={() => setCurrentView(AppView.PARENTS)}
-              className="text-gray-400 hover:text-gray-600 transition"
-              title="Parent Dashboard"
+              onClick={() => setCurrentView(AppView.EXAMS)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.EXAMS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="NECTA Results Statement & Past Papers"
             >
-              <i className="fa-solid fa-user-shield text-lg"></i>
+              <i className="fa-solid fa-square-poll-vertical text-emerald-500"></i> NECTA Results & Exams
             </button>
-          )}
+            <button 
+              onClick={() => {
+                setSelectedLevel(EducationLevel.SECONDARY);
+                setSelectedGrade(null);
+                setSelectedSubject(null);
+                setCurrentView(AppView.SYLLABUS);
+              }}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.SYLLABUS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Browse All Subjects (Std 1 - Form 6)"
+            >
+              <i className="fa-solid fa-layer-group text-indigo-500"></i> All Subjects
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.NOTES)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.NOTES ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Study Notes & Notebooks"
+            >
+              <i className="fa-solid fa-note-sticky text-emerald-600"></i> Notes
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.DICTIONARY)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.DICTIONARY ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Bilingual Dictionary & Vocabulary Builder"
+            >
+              <i className="fa-solid fa-book-bookmark text-amber-500"></i> Vocabulary & Dictionary
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.TEACHERS)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.TEACHERS ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="fa-solid fa-chalkboard-user"></i> Teachers
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.ALEVEL_GUIDE)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.ALEVEL_GUIDE ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="fa-solid fa-compass-drafting"></i> A-Level
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.CALCULATOR)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.CALCULATOR ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="fa-solid fa-calculator"></i> Calc
+            </button>
+
+            {/* Low-MB Data Saver Toggle */}
+            <button
+              onClick={() => setDataSaver(!dataSaver)}
+              className={`ml-1 px-3 py-1.5 rounded-full font-extrabold text-[11px] border transition flex items-center gap-1.5 ${
+                dataSaver 
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse-glow'
+                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+              }`}
+              title="Low-Bandwidth Mode for 3G & Limited Data"
+            >
+              <i className="fa-solid fa-bolt"></i> {dataSaver ? 'Low MB (ON)' : 'Data Saver'}
+            </button>
+          </div>
+
+          {/* Stats */}
+          <div className="hidden md:flex items-center gap-2">
+            <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+               {user.streak} <i className="fa-solid fa-fire"></i>
+            </div>
+            <div 
+              onClick={() => setCurrentView(AppView.WALLET)}
+              className="cursor-pointer flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition"
+            >
+              {user.points} EP
+            </div>
+          </div>
+
+          {/* Sign In / Sign Out Header Button */}
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className={`px-3 py-1.5 rounded-full font-black text-xs transition flex items-center gap-1.5 border ${
+              currentUser 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 shadow-sm'
+            }`}
+            title={currentUser ? `Logged in as ${currentUser.email}` : 'Sign in to save progress'}
+          >
+            <i className={`fa-solid ${currentUser ? 'fa-user-check' : 'fa-right-to-bracket'}`}></i>
+            <span className="hidden sm:inline">
+              {currentUser ? (currentUser.displayName || currentUser.email?.split('@')[0] || 'Account') : 'Sign In'}
+            </span>
+          </button>
+
+          <button 
+            onClick={() => setCurrentView(AppView.PARENTS)}
+            className="text-gray-400 hover:text-gray-600 transition p-2 rounded-lg hover:bg-gray-50"
+            title="Parent Dashboard"
+          >
+            <i className="fa-solid fa-user-shield text-lg"></i>
+          </button>
 
           {isAdmin && (
             <button 
@@ -581,16 +756,13 @@ const App: React.FC = () => {
             </button>
           )}
 
-          {currentUser && (
-            <button 
-              onClick={startChat}
-              className="bg-tz-yellow text-tz-dark px-4 py-2 rounded-xl font-bold shadow-[0_4px_0_rgb(217,119,6)] hover:shadow-[0_2px_0_rgb(217,119,6)] hover:translate-y-[2px] transition-all flex items-center gap-2 border-2 border-yellow-500"
-            >
-              <i className="fa-solid fa-robot"></i> <span className="hidden sm:inline">Ask Yun</span>
-            </button>
-          )}
-
-          {/* Auth buttons removed */}
+          <button 
+            onClick={startChat}
+            className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-4 py-2 rounded-xl font-black shadow-[0_4px_0_rgb(30,27,75)] hover:translate-y-[2px] transition-all flex items-center gap-2.5 border border-cyan-400/50"
+          >
+            <YunAvatar3D size="sm" />
+            <span className="hidden sm:inline text-xs uppercase tracking-wider text-cyan-300">Ask Yun</span>
+          </button>
         </div>
       </div>
     </header>
@@ -657,24 +829,170 @@ const App: React.FC = () => {
 
             {/* Content Display */}
             <div className="bg-white rounded-3xl p-8 border border-gray-100 min-h-[400px] shadow-sm">
-              {activeTab === 'notes' && (
-                <div className="prose lg:prose-xl text-gray-700">
-                  <h3 className="text-xl font-bold mb-4 text-tz-blue">Key Concepts</h3>
-                  <p>Here is where the detailed lesson content for <strong>{selectedTopic.title}</strong> would go. In a real app, this would be fetched from a database or generated by Yun.</p>
-                  <ul className="list-disc pl-5 mt-4 space-y-2">
-                    <li>Understanding the core principles of {selectedTopic.title}.</li>
-                    <li>Real-world examples in the Tanzanian context.</li>
-                    <li>Step-by-step problem solving.</li>
-                  </ul>
-                  <div className="mt-8 p-4 bg-yellow-50 rounded-xl border border-yellow-100 flex gap-4">
-                    <div className="w-12 h-12 bg-tz-yellow rounded-full flex items-center justify-center text-white font-bold shrink-0">Y</div>
-                    <div>
-                      <h4 className="font-bold text-gray-800">Yun says:</h4>
-                      <p className="text-sm">Don't forget to take notes! Writing things down helps you remember better.</p>
+              {activeTab === 'notes' && (() => {
+                const deepNote = getDeepLessonNote(selectedSubject.name, selectedTopic.title, selectedGrade?.grade);
+                return (
+                  <div className="space-y-6 not-prose">
+                    {/* Bilingual Language Switcher */}
+                    <div className="flex items-center justify-between p-4 bg-indigo-50/80 rounded-2xl border border-indigo-100">
+                      <div className="flex items-center gap-2">
+                        <i className="fa-solid fa-language text-indigo-600 text-lg"></i>
+                        <div>
+                          <span className="font-extrabold text-xs text-indigo-950 uppercase tracking-wider block">Bilingual Language Bridge</span>
+                          <span className="text-[11px] text-indigo-800 font-medium">Switch between English & Kiswahili explanations</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center bg-white p-1 rounded-xl border border-indigo-200">
+                        <button
+                          onClick={() => setBilingualLang('EN')}
+                          className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'EN' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          English
+                        </button>
+                        <button
+                          onClick={() => setBilingualLang('SW')}
+                          className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'SW' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          Kiswahili
+                        </button>
+                      </div>
+                    </div>
+
+                    {bilingualLang === 'EN' ? (
+                      <div className="space-y-6">
+                        {/* 🌟 Curiosity Spark / Did You Know? Hook */}
+                        <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/10 p-5 rounded-2xl border-2 border-amber-300/60 shadow-sm relative overflow-hidden">
+                          <div className="flex items-start gap-3">
+                            <span className="p-2 bg-amber-400 text-slate-950 rounded-xl text-lg font-black shrink-0">
+                              <i className="fa-solid fa-lightbulb"></i>
+                            </span>
+                            <div>
+                              <h4 className="font-black text-amber-950 text-sm uppercase tracking-wider">Curiosity Spark: Did You Know?</h4>
+                              <p className="text-sm font-bold text-amber-900 mt-1 leading-relaxed">
+                                {deepNote.curiosityHook}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 🧠 Deep Concept Breakdown */}
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                          <h3 className="text-xl font-black text-tz-blue flex items-center gap-2">
+                            <i className="fa-solid fa-brain text-indigo-600"></i> Deep Concept Breakdown
+                          </h3>
+                          <p className="text-gray-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-medium">
+                            {deepNote.deepOverview}
+                          </p>
+                        </div>
+
+                        {/* 📐 Core Principles & Laws */}
+                        <div className="space-y-3">
+                          <h4 className="font-black text-base text-slate-900 flex items-center gap-2">
+                            <i className="fa-solid fa-layer-group text-cyan-600"></i> Fundamental Principles & Rules
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {deepNote.corePrinciples.map((p, idx) => (
+                              <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm hover:border-tz-blue transition">
+                                <h5 className="font-extrabold text-sm text-tz-blue">{p.title}</h5>
+                                <p className="text-xs text-gray-600 mt-1 font-medium leading-relaxed">{p.detail}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 🇹🇿 Tanzania Connection */}
+                        <div className="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200 space-y-2">
+                          <h4 className="font-black text-xs uppercase tracking-wider text-emerald-900 flex items-center gap-2">
+                            <i className="fa-solid fa-earth-africa text-emerald-600"></i> Real-World Tanzania Connection
+                          </h4>
+                          <p className="text-xs sm:text-sm text-emerald-950 font-medium leading-relaxed">
+                            {deepNote.realWorldTanzaniaConnection}
+                          </p>
+                        </div>
+
+                        {/* 📐 Worked Step-by-Step Examples */}
+                        {deepNote.workedExamples.length > 0 && (
+                          <div className="bg-indigo-950 text-white p-6 rounded-2xl space-y-3 shadow-md">
+                            <h4 className="font-black text-sm uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+                              <i className="fa-solid fa-calculator"></i> Step-by-Step Worked Example
+                            </h4>
+                            {deepNote.workedExamples.map((ex, i) => (
+                              <div key={i} className="space-y-2 border-t border-indigo-800/80 pt-3">
+                                <p className="text-xs font-bold text-indigo-200">Problem: {ex.problem}</p>
+                                <pre className="bg-slate-900/90 p-3 rounded-xl text-xs font-mono text-cyan-200 whitespace-pre-wrap leading-relaxed">
+                                  {ex.solution}
+                                </pre>
+                                <span className="inline-block text-[11px] font-extrabold text-yellow-300 bg-yellow-400/10 px-2.5 py-1 rounded-md border border-yellow-400/20">
+                                  💡 Takeaway: {ex.keyTakeaway}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 💡 Probing Curiosity Questions */}
+                        <div className="bg-purple-50 p-5 rounded-2xl border border-purple-200 space-y-2">
+                          <h4 className="font-black text-xs uppercase tracking-wider text-purple-900 flex items-center gap-2">
+                            <i className="fa-solid fa-circle-question text-purple-600"></i> Probing Curiosity Questions (Deep Inquiry)
+                          </h4>
+                          <ul className="list-disc pl-5 text-xs sm:text-sm text-purple-950 space-y-1.5 font-medium">
+                            {deepNote.probingQuestions.map((q, i) => (
+                              <li key={i}>{q}</li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* 📝 NECTA Exam Pro-Tips */}
+                        <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 space-y-2">
+                          <h4 className="font-black text-xs uppercase tracking-wider text-blue-900 flex items-center gap-2">
+                            <i className="fa-solid fa-graduation-cap text-blue-600"></i> NECTA Exam Secrets & Common Traps
+                          </h4>
+                          <ul className="list-disc pl-5 text-xs text-blue-950 space-y-1 font-medium">
+                            {deepNote.nectaExamTips.map((tip, i) => (
+                              <li key={i}>{tip}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="bg-emerald-50/90 p-6 rounded-2xl border border-emerald-200 space-y-4">
+                          <h3 className="text-xl font-black text-emerald-900">{deepNote.bilingualSwahiliNote.heading}</h3>
+                          <p className="text-emerald-950 text-sm leading-relaxed font-medium">
+                            {deepNote.bilingualSwahiliNote.overview}
+                          </p>
+                          <div className="pt-3 border-t border-emerald-200 space-y-2">
+                            <h4 className="font-extrabold text-xs uppercase tracking-wider text-emerald-800">Mambo Makuu ya Kukumbuka:</h4>
+                            <ul className="list-disc pl-5 text-xs text-emerald-950 space-y-1.5 font-medium">
+                              {deepNote.bilingualSwahiliNote.keyPoints.map((pt, i) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Yun Callout Banner */}
+                    <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl border border-indigo-500/30 text-white flex items-center justify-between gap-4 shadow-lg">
+                      <div className="flex items-center gap-3">
+                        <YunAvatar3D size="md" state="idle" />
+                        <div>
+                          <h4 className="font-black text-sm text-cyan-300">Have a deep question about {selectedTopic.title}?</h4>
+                          <p className="text-xs text-slate-300 mt-0.5">Ask Yun AI for a step-by-step breakdown or real-world experiment!</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={startChat}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition shrink-0"
+                      >
+                        Ask Yun
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {activeTab === 'video' && (
                 <div className="flex flex-col items-center justify-center h-full text-center py-6">
@@ -705,23 +1023,46 @@ const App: React.FC = () => {
               )}
 
               {activeTab === 'language' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="col-span-full mb-4">
-                     <h3 className="font-bold text-lg text-tz-blue">Vocabulary Builder</h3>
-                     <p className="text-gray-500">Learn key terms in English and Kiswahili</p>
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50/60 p-6 rounded-2xl border border-blue-100">
+                    <div>
+                      <h3 className="font-extrabold text-xl text-tz-blue flex items-center gap-2">
+                        <i className="fa-solid fa-language"></i> Vocabulary & Practice Engine
+                      </h3>
+                      <p className="text-gray-600 text-sm mt-1">
+                        Master essential terms for <strong>{selectedSubject.name}</strong> ({selectedTopic.title}). Click the speaker to listen to native pronunciation!
+                      </p>
+                    </div>
                   </div>
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="perspective-1000 h-32 group cursor-pointer">
-                      <div className="relative w-full h-full text-center transition-transform duration-500 transform-style-3d group-hover:rotate-y-180">
-                        <div className="absolute inset-0 w-full h-full bg-blue-50 border-2 border-tz-blue/20 rounded-xl flex items-center justify-center backface-hidden shadow-sm">
-                           <span className="font-bold text-lg text-gray-700">Concept {i} (English)</span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {getTopicVocabulary(selectedSubject.name, selectedTopic.title).map((item, idx) => (
+                      <div key={idx} className="bg-white rounded-2xl p-6 border-2 border-gray-100 hover:border-tz-blue transition-all shadow-sm hover:shadow-md relative group flex flex-col justify-between h-44">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-2xl font-black text-gray-800 tracking-tight">{item.term}</span>
+                            <button
+                              onClick={() => speakWord(item.term, selectedSubject.name)}
+                              className="w-10 h-10 rounded-full bg-blue-50 text-tz-blue hover:bg-tz-blue hover:text-white transition flex items-center justify-center shadow-sm active:scale-95"
+                              title="Listen to pronunciation"
+                            >
+                              <i className="fa-solid fa-volume-high text-sm"></i>
+                            </button>
+                          </div>
+                          <span className="inline-block text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded mb-3">
+                            Phonetic: {item.phonetic}
+                          </span>
                         </div>
-                        <div className="absolute inset-0 w-full h-full bg-tz-blue text-white rounded-xl flex items-center justify-center backface-hidden rotate-y-180 shadow-md">
-                           <span className="font-bold text-lg">Concept {i} (Kiswahili)</span>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <span className="text-sm font-bold text-tz-blue">{item.translation}</span>
+                          <span className="text-xs text-green-600 font-bold bg-green-50 px-2.5 py-1 rounded-full">
+                            +10 XP
+                          </span>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -848,6 +1189,11 @@ const App: React.FC = () => {
                </div>
             </div>
 
+            {/* Visual Radar Chart Component */}
+            <div className="pt-4">
+              <RadarChart data={studentProficiencyData} />
+            </div>
+
             <div>
               <h3 className="font-bold text-lg mb-4">Weekly Activity</h3>
               <div className="h-40 flex items-end justify-between gap-2 px-4">
@@ -882,36 +1228,59 @@ const App: React.FC = () => {
   const renderHome = () => (
     <div className="animate-fade-in space-y-12 py-8">
       {/* Hero */}
-      <div className="text-center space-y-4 max-w-3xl mx-auto px-4">
-         <h1 className="text-4xl md:text-6xl font-extrabold text-tz-dark tracking-tight leading-tight">
-           Your AI Classroom for <span className="text-tz-blue">Every Stage</span>
+      <div className="text-center space-y-6 max-w-4xl mx-auto px-4 relative">
+         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-extrabold text-xs tracking-wider uppercase shadow-sm animate-pulse-glow">
+            <i className="fa-solid fa-sparkles text-amber-500"></i> Over {totalTopicsCount}+ Topics & Video Classes
+         </div>
+         <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-tz-dark tracking-tight leading-tight">
+           Your AI Classroom for <span className="gradient-text">Every Stage</span>
          </h1>
-         <p className="text-gray-500 text-lg md:text-xl font-medium">
-           Choose your level to access tailored textbooks, interactive quizzes, and your AI study buddy, Yun.
+         <p className="text-gray-600 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+           Explore over <span className="font-extrabold text-indigo-600">{totalTopicsCount}+ syllabus-aligned topics</span> with embedded video lessons, interactive quizzes, vocabulary engines, and your AI study buddy, Yun.
          </p>
+         
+         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+           <span className="px-3.5 py-1.5 rounded-xl bg-sky-50 text-sky-700 font-bold text-xs border border-sky-100 flex items-center gap-1.5">
+             <i className="fa-solid fa-video text-sky-500"></i> Video Classes
+           </span>
+           <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100 flex items-center gap-1.5">
+             <i className="fa-solid fa-circle-check text-emerald-500"></i> NECTA Syllabus
+           </span>
+           <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-purple-700 font-bold text-xs border border-purple-100 flex items-center gap-1.5">
+             <i className="fa-solid fa-language text-purple-500"></i> Multilingual Vocabulary
+           </span>
+           <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs border border-amber-100 flex items-center gap-1.5">
+             <i className="fa-solid fa-robot text-amber-500"></i> Yun AI Tutor
+           </span>
+         </div>
       </div>
 
       {/* Level Selection Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-green-500', desc: 'Standard 1 - 7' },
-              { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-tz-blue', desc: 'Form 1 - 4' },
-              { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-purple-600', desc: 'Advanced Level' }
+              { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-emerald-gradient', desc: 'Standard 1 - 7', badge: 'Primary School' },
+              { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-vibrant-gradient', desc: 'Form 1 - 4', badge: 'O-Level' },
+              { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-sunset-gradient', desc: 'Advanced Level', badge: 'A-Level' }
             ].map((level) => (
               <button 
                 key={level.type}
                 id={`level-select-${level.type.toLowerCase().replace(/\s+/g, '-')}`}
                 onClick={() => handleLevelSelect(level.type)}
-                className="group bg-white rounded-3xl p-8 shadow-xl border-2 border-gray-50 hover:border-tz-blue transition-all duration-300 text-left"
+                className="group glass-card-vibrant rounded-3xl p-8 border-2 border-white/80 hover:border-indigo-400 transition-all duration-300 text-left hover:-translate-y-1.5 hover:shadow-2xl relative overflow-hidden"
               >
-                  <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-lg shadow-${level.color}/20 group-hover:scale-110 transition`}>
-                    <i className={`fa-solid ${level.icon}`}></i>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl shadow-xl shadow-indigo-500/20 group-hover:scale-110 transition-transform`}>
+                      <i className={`fa-solid ${level.icon}`}></i>
+                    </div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+                      {level.badge}
+                    </span>
                   </div>
-                  <h3 className="text-2xl font-bold text-tz-dark mb-2">{level.type}</h3>
-                  <p className="text-gray-500 font-medium">{level.desc}</p>
-                  <div className="mt-6 flex items-center text-tz-blue font-bold gap-2 group-hover:gap-4 transition-all">
-                    Start Learning <i className="fa-solid fa-arrow-right"></i>
+                  <h3 className="text-2xl font-black text-tz-dark mb-2 group-hover:text-tz-blue transition-colors">{level.type}</h3>
+                  <p className="text-gray-500 font-medium text-sm mb-6">{level.desc}</p>
+                  <div className="flex items-center text-indigo-600 font-extrabold gap-2 group-hover:gap-4 transition-all text-sm">
+                    Explore Syllabus <i className="fa-solid fa-arrow-right"></i>
                   </div>
               </button>
             ))}
@@ -923,43 +1292,104 @@ const App: React.FC = () => {
       </div>
 
       {/* Featured Stats */}
-      <div className="bg-tz-dark rounded-[3rem] p-12 text-white max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-         <div>
-            <h2 className="text-3xl font-bold mb-2">Join the Community</h2>
-            <p className="text-gray-400">Track your progress, earn badges, and compete with friends across Tanzania.</p>
-         </div>
-         <div className="flex gap-8">
-            <div className="text-center">
-               <div className="text-4xl font-black text-tz-yellow">50k+</div>
-               <div className="text-xs uppercase tracking-widest text-gray-400 font-bold">Students</div>
+      <div className="bg-tz-dark rounded-[3rem] p-10 md:p-12 text-white max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-2xl border border-slate-800">
+         <div className="relative z-10">
+            <div className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-3 border border-cyan-500/30">
+               Interactive Platform
             </div>
-            <div className="text-center">
-               <div className="text-4xl font-black text-tz-blue">120+</div>
-               <div className="text-xs uppercase tracking-widest text-gray-400 font-bold">Exams</div>
+            <h2 className="text-3xl font-extrabold mb-2">Join Tanzania's Digital Learning Revolution</h2>
+            <p className="text-slate-300 max-w-xl text-sm leading-relaxed">Access hundreds of video lessons, past exams, study notes, and real-time AI guidance from primary school to high school.</p>
+         </div>
+         <div className="flex gap-8 relative z-10 shrink-0">
+            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
+               <div className="text-4xl font-black text-amber-400">{totalTopicsCount}+</div>
+               <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Video Topics</div>
+            </div>
+            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
+               <div className="text-4xl font-black text-cyan-400">120+</div>
+               <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Past Exams</div>
             </div>
          </div>
       </div>
 
-      {/* Quick Tools */}
-      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-         <div className="bg-blue-50 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-blue-100 transition border border-blue-100" onClick={() => setCurrentView(AppView.CALCULATOR)}>
+      {/* Quick Access Portals Grid */}
+      <div className="max-w-6xl mx-auto px-4 space-y-4 mb-12">
+        <h2 className="text-2xl font-black text-tz-dark flex items-center gap-2">
+          <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Portal 1: NECTA Results */}
+          <div
+            className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.EXAMS)}
+          >
             <div>
-               <h4 className="text-2xl font-black text-tz-dark mb-1">Average & Sum</h4>
-               <p className="text-gray-500 font-medium">Quickly calculate your grade averages.</p>
+              <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
+                <i className="fa-solid fa-square-poll-vertical"></i>
+              </div>
+              <h4 className="text-lg font-black text-emerald-950 mb-1">NECTA Results Portal</h4>
+              <p className="text-xs text-emerald-800 font-medium leading-relaxed">Check index statements, candidate results, and calculate division points.</p>
             </div>
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-tz-blue text-2xl shadow-sm group-hover:scale-110 transition">
-               <i className="fa-solid fa-calculator"></i>
+            <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
+              <span>Access Results</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
             </div>
-         </div>
-         <div className="bg-orange-50 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-orange-100 transition border border-orange-100" onClick={() => setCurrentView(AppView.EXAMS)}>
+          </div>
+
+          {/* Portal 2: Vocabulary & Dictionary */}
+          <div
+            className="bg-amber-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-100/80 transition border-2 border-amber-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.DICTIONARY)}
+          >
             <div>
-               <h4 className="text-2xl font-black text-tz-dark mb-1">National Exams</h4>
-               <p className="text-gray-500 font-medium">Browse the latest past papers.</p>
+              <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-200">
+                <i className="fa-solid fa-book-bookmark"></i>
+              </div>
+              <h4 className="text-lg font-black text-amber-950 mb-1">Vocabulary & Kamusi</h4>
+              <p className="text-xs text-amber-800 font-medium leading-relaxed">Swahili & English academic term definitions, audio pronunciation, and flashcards.</p>
             </div>
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-orange-500 text-2xl shadow-sm group-hover:scale-110 transition">
-               <i className="fa-solid fa-file-contract"></i>
+            <div className="pt-4 mt-2 border-t border-amber-200/60 flex items-center justify-between text-xs font-black text-amber-700">
+              <span>Open Dictionary</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
             </div>
-         </div>
+          </div>
+
+          {/* Portal 3: Notes Hub */}
+          <div
+            className="bg-indigo-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-100/80 transition border-2 border-indigo-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.NOTES)}
+          >
+            <div>
+              <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-200">
+                <i className="fa-solid fa-note-sticky"></i>
+              </div>
+              <h4 className="text-lg font-black text-indigo-950 mb-1">Study Notes Hub</h4>
+              <p className="text-xs text-indigo-800 font-medium leading-relaxed">Create personal subject notebooks, save Yun AI summaries, and export PDFs.</p>
+            </div>
+            <div className="pt-4 mt-2 border-t border-indigo-200/60 flex items-center justify-between text-xs font-black text-indigo-700">
+              <span>Open Notebooks</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
+
+          {/* Portal 4: Grade Calculator */}
+          <div
+            className="bg-purple-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-purple-100/80 transition border-2 border-purple-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.CALCULATOR)}
+          >
+            <div>
+              <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-purple-200">
+                <i className="fa-solid fa-calculator"></i>
+              </div>
+              <h4 className="text-lg font-black text-purple-950 mb-1">Grade Calculator</h4>
+              <p className="text-xs text-purple-800 font-medium leading-relaxed">Calculate subject grade averages, sum scores, and academic percentages.</p>
+            </div>
+            <div className="pt-4 mt-2 border-t border-purple-200/60 flex items-center justify-between text-xs font-black text-purple-700">
+              <span>Calculate Grades</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1219,45 +1649,115 @@ const App: React.FC = () => {
            </div>
         )}
 
-        {/* SYLLABUS VIEW */}
+        {/* SYLLABUS VIEW - SUBJECTS LISTING */}
         {currentView === AppView.SYLLABUS && selectedGrade && !selectedSubject && (
-           <div className="animate-fade-in">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+           <div className="animate-fade-in space-y-6">
+              {/* Header & Search Bar Bar */}
+              <div className="bg-white rounded-3xl p-6 border-2 border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                  <button onClick={goHome} className="mb-2 flex items-center text-gray-500 hover:text-tz-blue transition font-bold text-sm">
-                    <i className="fa-solid fa-arrow-left mr-2"></i> Back to Home
+                  <button onClick={goHome} className="mb-2 flex items-center text-gray-500 hover:text-indigo-600 transition font-extrabold text-xs uppercase tracking-wider">
+                    <i className="fa-solid fa-arrow-left mr-2"></i> Back to Grade Levels
                   </button>
-                  <h1 className="text-4xl font-extrabold text-tz-dark">{selectedGrade.grade} Subjects</h1>
+                  <h1 className="text-3xl sm:text-4xl font-black text-tz-dark flex items-center gap-3">
+                    {selectedGrade.grade} <span className="gradient-text">Subjects</span>
+                  </h1>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Select a subject to explore syllabus-aligned topics, video lessons, and NECTA practice quizzes.
+                  </p>
                 </div>
                 
-                <div className="relative group">
-                   <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-tz-blue transition"></i>
-                   <input 
-                      type="text" 
-                      placeholder="Search subjects..." 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-white border-2 border-gray-100 rounded-2xl py-3 pl-12 pr-6 outline-none focus:border-tz-blue transition w-full md:w-80 shadow-sm font-bold"
-                   />
+                {/* Search Bar Component */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                  <div className="relative group min-w-[280px] sm:min-w-[320px]">
+                     <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition"></i>
+                     <input 
+                        type="text" 
+                        placeholder="Search subjects by name..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-gray-50/80 border-2 border-gray-100 rounded-2xl py-3 pl-11 pr-10 outline-none focus:bg-white focus:border-indigo-500 transition w-full shadow-sm text-sm font-bold text-gray-800 placeholder-gray-400"
+                     />
+                     {searchQuery && (
+                       <button 
+                         onClick={() => setSearchQuery('')}
+                         className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 flex items-center justify-center text-xs transition"
+                         title="Clear search"
+                       >
+                         <i className="fa-solid fa-xmark"></i>
+                       </button>
+                     )}
+                  </div>
                 </div>
               </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {selectedGrade.subjects.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((subject) => (
-          <div 
-            key={subject.id}
-            id={`subject-card-${subject.id}`}
-            onClick={() => setSelectedSubject(subject)}
-            className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-lg border border-gray-100 cursor-pointer transition-all hover:-translate-y-1"
-          >
-                    <SubjectIcon icon={subject.icon} />
-                    <h3 className="text-xl font-bold text-gray-800 mb-1">{subject.name}</h3>
-                    <p className="text-sm text-gray-500">{subject.topics.length} Topics</p>
-                    <div className="mt-4 flex items-center text-tz-blue font-bold text-sm">
-                       Start Learning <i className="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                    </div>
-                  </div>
-                ))}
+
+              {/* Stats & Quick Subject Filter Chips */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+                <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-black border border-indigo-100">
+                    {filteredSubjects.length} of {selectedGrade.subjects.length}
+                  </span>
+                  <span>subjects found</span>
+                </div>
+
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition"
+                  >
+                    <i className="fa-solid fa-rotate-left"></i> Reset Filter
+                  </button>
+                )}
               </div>
+
+              {/* Subject Cards Grid */}
+              {filteredSubjects.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredSubjects.map((subject) => (
+                    <div 
+                      key={subject.id}
+                      id={`subject-card-${subject.id}`}
+                      onClick={() => setSelectedSubject(subject)}
+                      className="group glass-card-vibrant rounded-3xl p-6 shadow-sm hover:shadow-xl border-2 border-gray-100 hover:border-indigo-400 cursor-pointer transition-all duration-300 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between h-52"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <SubjectIcon icon={subject.icon} />
+                          <span className="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                            {subject.topics.length} Topics
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
+                          {subject.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">
+                          Interactive study notes, quizzes & videos
+                        </p>
+                      </div>
+
+                      <div className="flex items-center text-indigo-600 font-extrabold text-xs group-hover:gap-2 transition-all">
+                        Explore Topics <i className="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition-transform"></i>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Empty Search Results Feedback */
+                <div className="bg-white rounded-3xl p-12 border-2 border-dashed border-gray-200 text-center space-y-4 max-w-lg mx-auto my-8">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mx-auto">
+                    <i className="fa-solid fa-magnifying-glass"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900">No Subjects Match "{searchQuery}"</h3>
+                    <p className="text-xs text-gray-500 mt-1">Try checking for spelling errors or search for another subject name like Mathematics or Physics.</p>
+                  </div>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition inline-flex items-center gap-2"
+                  >
+                    <i className="fa-solid fa-xmark"></i> Clear Search Filter
+                  </button>
+                </div>
+              )}
            </div>
         )}
 
@@ -1288,7 +1788,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <div className="divide-y divide-gray-100">
-                    {selectedSubject.topics.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.description.toLowerCase().includes(searchQuery.toLowerCase())).map((topic, index) => (
+                    {filteredTopics.map((topic, index) => (
                       <div key={topic.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
                           <div className="flex gap-4">
                              <div className="flex flex-col items-center">
@@ -1318,11 +1818,22 @@ const App: React.FC = () => {
         )}
 
     {currentView === AppView.WALLET && renderWallet()}
-    {currentView === AppView.EXAMS && renderExamsDash()}
+    {currentView === AppView.EXAMS && <ExamVault />}
+    {currentView === AppView.DICTIONARY && <Dictionary />}
+    {currentView === AppView.NOTES && <NotesHub />}
+    {currentView === AppView.TEACHERS && <TeachersHub />}
+    {currentView === AppView.ALEVEL_GUIDE && <ALevelGuide />}
     {currentView === AppView.CALCULATOR && <Calculator goHome={goHome} />}
     {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
     {currentView === AppView.PARENTS && renderParentDashboard()}
     {currentView === AppView.ADMIN && <AdminPanel onBack={goHome} />}
+
+    {/* Auth Modal */}
+    <AuthModal
+      isOpen={isAuthModalOpen}
+      onClose={() => setIsAuthModalOpen(false)}
+      currentUser={currentUser}
+    />
 
         {currentView === AppView.CHAT && (
           <div className="animate-fade-in flex flex-col items-center justify-center h-full">
