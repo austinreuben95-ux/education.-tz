@@ -8,6 +8,7 @@ import TeachersHub from './components/TeachersHub';
 import ALevelGuide from './components/ALevelGuide';
 import Dictionary from './components/Dictionary';
 import NotesHub from './components/NotesHub';
+import StudyPlanner from './components/StudyPlanner';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { YunAvatar3D } from './components/YunAvatar3D';
 import { generateQuizQuestion } from './services/geminiService';
@@ -502,6 +503,7 @@ const App: React.FC = () => {
 
   // Content Tab State
   const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'exams' | 'language'>('notes');
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
   // Parents State
   const [parentPin, setParentPin] = useState('');
@@ -513,6 +515,7 @@ const App: React.FC = () => {
 
   // Subject Badge Filter State
   const [subjectBadgeFilter, setSubjectBadgeFilter] = useState<'ALL' | 'NEW' | 'VIDEO' | 'EXAM'>('ALL');
+  const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
 
   // Student Proficiency Radar Data
   const studentProficiencyData: SubjectProficiency[] = useMemo(() => [
@@ -555,6 +558,7 @@ const App: React.FC = () => {
 
   const enterTopic = (topic: Topic) => {
     setSelectedTopic(topic);
+    setActiveVideoIndex(0);
     setYunContext(`Topic: ${topic.title}. ${topic.description}`);
     setCurrentView(AppView.TOPIC_CONTENT);
   };
@@ -675,6 +679,13 @@ const App: React.FC = () => {
               title="Browse All Subjects (Std 1 - Form 6)"
             >
               <i className="fa-solid fa-layer-group text-indigo-500"></i> All Subjects
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.PLANNER)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.PLANNER ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Weekly Study Planner & Automated Reminders"
+            >
+              <i className="fa-solid fa-calendar-days text-amber-500"></i> Study Planner
             </button>
             <button 
               onClick={() => setCurrentView(AppView.NOTES)}
@@ -993,33 +1004,110 @@ const App: React.FC = () => {
                 );
               })()}
 
-              {activeTab === 'video' && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-6">
-                   {selectedTopic.videoUrl ? (
-                      <div className="w-full aspect-video bg-tz-dark rounded-2xl overflow-hidden shadow-2xl mb-6">
-                        <iframe 
-                          width="100%" 
-                          height="100%" 
-                          src={selectedTopic.videoUrl}
-                          title={`YouTube video player - ${selectedTopic.title}`}
-                          frameBorder="0" 
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                          allowFullScreen
-                        ></iframe>
+              {activeTab === 'video' && (() => {
+                const videoList = (selectedTopic.videos && selectedTopic.videos.length > 0)
+                  ? selectedTopic.videos
+                  : [{ id: 'default-v1', title: `Lesson: ${selectedTopic.title}`, url: selectedTopic.videoUrl || 'https://www.youtube.com/embed/0TgLtF3PMOc', duration: '12:00', channel: 'Education TZ', badge: 'Main Lesson' }];
+
+                const currentVideo = videoList[activeVideoIndex] || videoList[0];
+
+                return (
+                  <div className="space-y-6 animate-fade-in text-left">
+                    {/* Header Banner */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-red-50/80 p-4 sm:p-5 rounded-2xl border border-red-200">
+                      <div>
+                        <span className="text-[11px] font-black uppercase text-red-700 tracking-wider flex items-center gap-1.5">
+                          <i className="fa-solid fa-circle-play text-red-600"></i> Video Class Library ({videoList.length} Lessons Available)
+                        </span>
+                        <h3 className="text-lg font-black text-gray-900 mt-0.5">{currentVideo.title}</h3>
                       </div>
-                   ) : (
-                      <div className="w-full aspect-video bg-gray-900 rounded-2xl flex flex-col items-center justify-center mb-6 relative group cursor-pointer">
-                        <i className="fa-brands fa-youtube text-7xl text-red-500 group-hover:scale-110 transition-transform mb-4"></i>
-                        <p className="text-gray-400 font-bold">Video Lesson Coming Soon</p>
-                        <div className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                      <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-xs shadow-sm self-start sm:self-center shrink-0">
+                        {currentVideo.badge || 'Featured Video'}
+                      </span>
+                    </div>
+
+                    {/* Main Video Player */}
+                    <div className="w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-800 relative group">
+                      <iframe 
+                        width="100%" 
+                        height="100%" 
+                        src={currentVideo.url}
+                        title={currentVideo.title}
+                        frameBorder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+
+                    {/* Active Video Info */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                      <div>
+                        <h4 className="font-extrabold text-gray-900 text-base">{currentVideo.title}</h4>
+                        <p className="text-xs text-gray-500 font-bold mt-1 flex items-center gap-3">
+                          <span><i className="fa-solid fa-tv text-indigo-500 mr-1"></i> {currentVideo.channel || 'Education TZ'}</span>
+                          <span><i className="fa-solid fa-clock text-amber-500 mr-1"></i> {currentVideo.duration || '15 mins'}</span>
+                        </p>
                       </div>
-                   )}
-                   <h3 className="font-extrabold text-xl text-tz-dark">Watch: {selectedTopic.title}</h3>
-                   <p className="text-gray-500 font-medium max-w-lg mx-auto mt-2">
-                     A comprehensive video lesson perfectly aligned with the {selectedGrade?.grade} syllabus for {selectedSubject.name}.
-                   </p>
-                </div>
-              )}
+                      <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-start sm:self-center">
+                        <i className="fa-solid fa-circle-check text-emerald-600 mr-1"></i> Syllabus Aligned
+                      </span>
+                    </div>
+
+                    {/* Video Lessons Playlist Grid */}
+                    <div className="pt-2 space-y-3">
+                      <h4 className="font-black text-xs uppercase tracking-wider text-gray-700 flex items-center gap-2">
+                        <i className="fa-solid fa-list-ul text-red-600"></i> Switch Lesson ({videoList.length} Video Classes for {selectedTopic.title})
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {videoList.map((vid, idx) => {
+                          const isActive = activeVideoIndex === idx;
+                          return (
+                            <button
+                              key={vid.id || idx}
+                              onClick={() => setActiveVideoIndex(idx)}
+                              className={`p-4 rounded-2xl border-2 text-left transition flex items-start justify-between gap-3 ${
+                                isActive
+                                  ? 'border-red-600 bg-red-50/60 shadow-md ring-2 ring-red-500/20'
+                                  : 'border-gray-100 hover:border-red-300 bg-white hover:bg-red-50/20'
+                              }`}
+                            >
+                              <div className="space-y-1.5 flex-grow">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                                    isActive
+                                      ? 'bg-red-600 text-white border-red-700'
+                                      : 'bg-gray-100 text-gray-700 border-gray-200'
+                                  }`}>
+                                    {vid.badge || `Lesson ${idx + 1}`}
+                                  </span>
+                                  {vid.duration && (
+                                    <span className="text-[10px] font-bold text-gray-500">
+                                      <i className="fa-regular fa-clock text-[9px] mr-1"></i>{vid.duration}
+                                    </span>
+                                  )}
+                                </div>
+                                <h5 className={`text-xs font-black line-clamp-2 leading-snug ${isActive ? 'text-red-950' : 'text-gray-800'}`}>
+                                  {vid.title}
+                                </h5>
+                                <p className="text-[10px] text-gray-500 font-bold">{vid.channel}</p>
+                              </div>
+
+                              <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-xs transition ${
+                                isActive
+                                  ? 'bg-red-600 text-white shadow-sm'
+                                  : 'bg-gray-100 text-gray-500 group-hover:bg-red-100 group-hover:text-red-600'
+                              }`}>
+                                <i className={`fa-solid ${isActive ? 'fa-pause' : 'fa-play'}`}></i>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {activeTab === 'language' && (
                 <div className="space-y-6">
@@ -1747,56 +1835,142 @@ const App: React.FC = () => {
               {/* Subject Cards Grid */}
               {displayedSubjects.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {displayedSubjects.map((subject) => (
-                    <div 
-                      key={subject.id}
-                      id={`subject-card-${subject.id}`}
-                      onClick={() => setSelectedSubject(subject)}
-                      className="group glass-card-vibrant rounded-3xl p-6 shadow-sm hover:shadow-xl border-2 border-gray-100 hover:border-indigo-400 cursor-pointer transition-all duration-300 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between min-h-[16rem]"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <SubjectIcon icon={subject.icon} />
-                          <span className="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-                            {subject.topics.length} Topics
-                          </span>
+                  {displayedSubjects.map((subject) => {
+                    const isExpanded = expandedSubjectId === subject.id;
+                    return (
+                      <div 
+                        key={subject.id}
+                        id={`subject-card-${subject.id}`}
+                        onClick={() => setSelectedSubject(subject)}
+                        className={`group glass-card-vibrant rounded-3xl p-6 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/15 border-2 ${
+                          isExpanded ? 'border-indigo-500 bg-indigo-50/20' : 'border-gray-100 hover:border-indigo-500'
+                        } cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden flex flex-col justify-between min-h-[16rem]`}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <SubjectIcon icon={subject.icon} />
+                            
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedSubjectId(isExpanded ? null : subject.id);
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-black transition flex items-center gap-1 border ${
+                                  isExpanded
+                                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
+                                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
+                                }`}
+                                title="Expand summary & resources preview"
+                              >
+                                <span>{isExpanded ? 'Hide' : 'Quick Peek'}</span>
+                                <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[9px]`}></i>
+                              </button>
+
+                              <span className="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                                {subject.topics.length} Topics
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
+                              {subject.name}
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                              Interactive study notes, quizzes & video tutorials
+                            </p>
+                          </div>
+
+                          {/* Subject Visual Badges */}
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            {subject.isNewSyllabus && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-emerald-100/90 text-emerald-800 border border-emerald-300">
+                                <i className="fa-solid fa-sparkles text-emerald-600"></i> New Syllabus
+                              </span>
+                            )}
+                            {subject.hasVideo && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-red-100/90 text-red-800 border border-red-300">
+                                <i className="fa-solid fa-circle-play text-red-600"></i> Video Available
+                              </span>
+                            )}
+                            {subject.isExamFocused && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300">
+                                <i className="fa-solid fa-bullseye text-amber-700"></i> Exam Focused
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Expandable Preview Section */}
+                          {isExpanded && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()} 
+                              className="mt-3 pt-3 border-t border-indigo-100 space-y-3 animate-fade-in text-left bg-white/90 p-3.5 rounded-2xl border border-indigo-100 shadow-sm"
+                            >
+                              {/* Topic Summary List */}
+                              <div>
+                                <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider block mb-1.5 flex items-center gap-1">
+                                  <i className="fa-solid fa-list-check"></i> Key Syllabus Topics
+                                </span>
+                                <div className="space-y-1.5">
+                                  {subject.topics.slice(0, 3).map((tp, idx) => (
+                                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-gray-100">
+                                      <span className="font-bold text-gray-800 line-clamp-1">{tp.title}</span>
+                                      {tp.videoUrl && (
+                                        <span className="text-[9px] font-extrabold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-200 shrink-0 ml-1">
+                                          <i className="fa-solid fa-play text-[8px] mr-1"></i> Video
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {subject.topics.length > 3 && (
+                                    <p className="text-[10px] text-gray-500 font-bold italic text-center pt-0.5">
+                                      + {subject.topics.length - 3} more topics in full syllabus
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Teacher Resources Summary */}
+                              <div className="pt-2 border-t border-gray-100">
+                                <span className="text-[10px] font-black uppercase text-amber-800 tracking-wider block mb-1.5 flex items-center gap-1">
+                                  <i className="fa-solid fa-chalkboard-user"></i> Included Resources
+                                </span>
+                                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-extrabold text-gray-700">
+                                  <span className="bg-amber-50 text-amber-900 p-1.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                                    <i className="fa-solid fa-file-lines text-amber-600"></i> Lesson Plans
+                                  </span>
+                                  <span className="bg-emerald-50 text-emerald-900 p-1.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                                    <i className="fa-solid fa-clipboard-list text-emerald-600"></i> Scheme of Work
+                                  </span>
+                                  <span className="bg-blue-50 text-blue-900 p-1.5 rounded-lg border border-blue-200 flex items-center gap-1">
+                                    <i className="fa-solid fa-circle-question text-blue-600"></i> NECTA Quizzes
+                                  </span>
+                                  <span className="bg-purple-50 text-purple-900 p-1.5 rounded-lg border border-purple-200 flex items-center gap-1">
+                                    <i className="fa-solid fa-pen-ruler text-purple-600"></i> Solved Papers
+                                  </span>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => setSelectedSubject(subject)}
+                                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-2 mt-2 active:scale-95"
+                              >
+                                <span>Open Full Syllabus Topics</span>
+                                <i className="fa-solid fa-arrow-right text-xs"></i>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        <div>
-                          <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
-                            {subject.name}
-                          </h3>
-                          <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                            Interactive study notes, quizzes & video tutorials
-                          </p>
-                        </div>
-
-                        {/* Subject Visual Badges */}
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          {subject.isNewSyllabus && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-emerald-100/90 text-emerald-800 border border-emerald-300">
-                              <i className="fa-solid fa-sparkles text-emerald-600"></i> New Syllabus
-                            </span>
-                          )}
-                          {subject.hasVideo && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-red-100/90 text-red-800 border border-red-300">
-                              <i className="fa-solid fa-circle-play text-red-600"></i> Video Available
-                            </span>
-                          )}
-                          {subject.isExamFocused && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300">
-                              <i className="fa-solid fa-bullseye text-amber-700"></i> Exam Focused
-                            </span>
-                          )}
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-indigo-600 font-extrabold text-xs group-hover:gap-2 transition-all">
+                          <span>Explore Syllabus Topics</span>
+                          <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-indigo-600 font-extrabold text-xs group-hover:gap-2 transition-all">
-                        <span>Explore Syllabus Topics</span>
-                        <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Empty Search Results Feedback */
@@ -1877,6 +2051,7 @@ const App: React.FC = () => {
 
     {currentView === AppView.WALLET && renderWallet()}
     {currentView === AppView.EXAMS && <ExamVault />}
+    {currentView === AppView.PLANNER && <StudyPlanner />}
     {currentView === AppView.DICTIONARY && <Dictionary />}
     {currentView === AppView.NOTES && <NotesHub />}
     {currentView === AppView.TEACHERS && <TeachersHub />}

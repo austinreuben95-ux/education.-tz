@@ -23,11 +23,21 @@ export enum GradeLevel {
   Form6 = 'Form 6'
 }
 
+export interface VideoLesson {
+  id: string;
+  title: string;
+  url: string;
+  duration?: string;
+  channel?: string;
+  badge?: string;
+}
+
 export interface Topic {
   id: string;
   title: string;
   description: string;
   videoUrl?: string;
+  videos?: VideoLesson[];
 }
 
 export interface Subject {
@@ -69,7 +79,8 @@ export enum AppView {
   WALLET = 'WALLET',
   CALCULATOR = 'CALCULATOR',
   DICTIONARY = 'DICTIONARY',
-  NOTES = 'NOTES'
+  NOTES = 'NOTES',
+  PLANNER = 'PLANNER'
 }
 
 export interface UserProgress {

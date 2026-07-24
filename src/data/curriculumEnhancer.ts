@@ -1,4 +1,4 @@
-import { GradeLevel, EducationLevel, GradeSyllabus, Subject, Topic } from '../../types';
+import { GradeLevel, EducationLevel, GradeSyllabus, Subject, Topic, VideoLesson } from '../../types';
 
 // Curated Educational YouTube Embed IDs for subject domains
 const VIDEO_DATABASE: Record<string, string[]> = {
@@ -11,7 +11,35 @@ const VIDEO_DATABASE: Record<string, string[]> = {
     'https://www.youtube.com/embed/k32D2y7I5Jg',
     'https://www.youtube.com/embed/NybHckSEQBI',
     'https://www.youtube.com/embed/fNk_zzaMoSs',
-    'https://www.youtube.com/embed/5349I6o_e1U'
+    'https://www.youtube.com/embed/5349I6o_e1U',
+    'https://www.youtube.com/embed/V6yixyiJkos',
+    'https://www.youtube.com/embed/g8m5A_O1LMc',
+    'https://www.youtube.com/embed/3aA3_S83sXk',
+    'https://www.youtube.com/embed/aM_36z19k4c'
+  ],
+  physics: [
+    'https://www.youtube.com/embed/X3TAROotFfM',
+    'https://www.youtube.com/embed/8iqn3x8LwO8',
+    'https://www.youtube.com/embed/UBVV8pch1dM',
+    'https://www.youtube.com/embed/gZnv-8bA8lE',
+    'https://www.youtube.com/embed/xWJ8pInIidM',
+    'https://www.youtube.com/embed/89O5qGg760s',
+    'https://www.youtube.com/embed/1E_m3e5Y3_8',
+    'https://www.youtube.com/embed/bHIhgxav9LY'
+  ],
+  chemistry: [
+    'https://www.youtube.com/embed/FSyAehMdpyI',
+    'https://www.youtube.com/embed/cPDptc0wUYI',
+    'https://www.youtube.com/embed/gZnv-8bA8lE',
+    'https://www.youtube.com/embed/8iqn3x8LwO8',
+    'https://www.youtube.com/embed/3aA3_S83sXk'
+  ],
+  biology: [
+    'https://www.youtube.com/embed/89O5qGg760s',
+    'https://www.youtube.com/embed/1E_m3e5Y3_8',
+    'https://www.youtube.com/embed/X3TAROotFfM',
+    'https://www.youtube.com/embed/UBVV8pch1dM',
+    'https://www.youtube.com/embed/bHIhgxav9LY'
   ],
   science: [
     'https://www.youtube.com/embed/X3TAROotFfM',
@@ -25,12 +53,14 @@ const VIDEO_DATABASE: Record<string, string[]> = {
   kiswahili: [
     'https://www.youtube.com/embed/5mTo8XyQn2o',
     'https://www.youtube.com/embed/0TgLtF3PMOc',
-    'https://www.youtube.com/embed/qM7H5j9Y8U0'
+    'https://www.youtube.com/embed/qM7H5j9Y8U0',
+    'https://www.youtube.com/embed/3JZ_D3ELwOQ'
   ],
   english: [
     'https://www.youtube.com/embed/gVIFEVLzP4o',
     'https://www.youtube.com/embed/3JZ_D3ELwOQ',
-    'https://www.youtube.com/embed/lTRiuFIWV54'
+    'https://www.youtube.com/embed/lTRiuFIWV54',
+    'https://www.youtube.com/embed/rfscVS0vtbw'
   ],
   languages: [
     'https://www.youtube.com/embed/5mTo8XyQn2o',
@@ -40,20 +70,73 @@ const VIDEO_DATABASE: Record<string, string[]> = {
   humanities: [
     'https://www.youtube.com/embed/X3TAROotFfM',
     'https://www.youtube.com/embed/8iqn3x8LwO8',
-    'https://www.youtube.com/embed/UBVV8pch1dM'
+    'https://www.youtube.com/embed/UBVV8pch1dM',
+    'https://www.youtube.com/embed/gZnv-8bA8lE'
+  ],
+  commercial: [
+    'https://www.youtube.com/embed/0TgLtF3PMOc',
+    'https://www.youtube.com/embed/qM7H5j9Y8U0',
+    'https://www.youtube.com/embed/3JZ_D3ELwOQ'
   ]
 };
 
-function getVideoForSubject(subjectName: string, index: number): string {
+export function getVideosForTopic(subjectName: string, topicTitle: string, index: number): VideoLesson[] {
   const s = subjectName.toLowerCase();
   let list = VIDEO_DATABASE.math;
-  if (s.includes('sci') || s.includes('phy') || s.includes('chem') || s.includes('bio')) list = VIDEO_DATABASE.science;
+  if (s.includes('phy')) list = VIDEO_DATABASE.physics;
+  else if (s.includes('chem')) list = VIDEO_DATABASE.chemistry;
+  else if (s.includes('bio')) list = VIDEO_DATABASE.biology;
+  else if (s.includes('sci')) list = VIDEO_DATABASE.science;
   else if (s.includes('kisw')) list = VIDEO_DATABASE.kiswahili;
-  else if (s.includes('eng')) list = VIDEO_DATABASE.english;
+  else if (s.includes('eng') || s.includes('lit')) list = VIDEO_DATABASE.english;
   else if (s.includes('french') || s.includes('arabic') || s.includes('chinese')) list = VIDEO_DATABASE.languages;
   else if (s.includes('hist') || s.includes('geog') || s.includes('civic')) list = VIDEO_DATABASE.humanities;
-  
-  return list[index % list.length];
+  else if (s.includes('comm') || s.includes('book') || s.includes('econ')) list = VIDEO_DATABASE.commercial;
+
+  const url1 = list[index % list.length];
+  const url2 = list[(index + 1) % list.length];
+  const url3 = list[(index + 2) % list.length];
+  const url4 = list[(index + 3) % list.length];
+
+  return [
+    {
+      id: `vid-${index}-1`,
+      title: `Lesson 1: ${topicTitle} - Core Concepts & Fundamentals`,
+      url: url1,
+      duration: '12:45',
+      channel: 'Tanzania Digital Secondary School',
+      badge: 'Main Concept'
+    },
+    {
+      id: `vid-${index}-2`,
+      title: `Lesson 2: ${topicTitle} - Step-by-Step Solved Examples`,
+      url: url2,
+      duration: '15:20',
+      channel: 'NECTA Exam Mastery Hub',
+      badge: 'Worked Examples'
+    },
+    {
+      id: `vid-${index}-3`,
+      title: `Lesson 3: ${topicTitle} - Past Exam Paper Questions & Revision`,
+      url: url3,
+      duration: '18:10',
+      channel: 'Education TZ TV',
+      badge: 'NECTA Solutions'
+    },
+    {
+      id: `vid-${index}-4`,
+      title: `Lesson 4: ${topicTitle} - Animated Summary & Visual Guide`,
+      url: url4,
+      duration: '08:30',
+      channel: 'Global Science & Learning',
+      badge: 'Visual Guide'
+    }
+  ];
+}
+
+function getVideoForSubject(subjectName: string, index: number): string {
+  const vids = getVideosForTopic(subjectName, 'Overview', index);
+  return vids[0].url;
 }
 
 // Curriculum blueprints for expanding topic counts across all subjects
@@ -371,20 +454,29 @@ export function enhanceSyllabusWithTopics(baseSyllabus: GradeSyllabus[]): GradeS
       blueprint.forEach((bp, idx) => {
         if (!existingMap.has(bp.title.toLowerCase())) {
           const topicId = `${subject.id}-tp-${idx + 1}`;
+          const topicVideos = getVideosForTopic(subject.name, bp.title, idx);
           combinedTopics.push({
             id: topicId,
             title: bp.title,
             description: bp.desc,
-            videoUrl: getVideoForSubject(subject.name, idx)
+            videoUrl: topicVideos[0].url,
+            videos: topicVideos
           });
         }
       });
 
-      // Ensure every topic has a video URL attached
-      const enrichedTopics = combinedTopics.map((tp, idx) => ({
-        ...tp,
-        videoUrl: tp.videoUrl || getVideoForSubject(subject.name, idx)
-      }));
+      // Ensure every topic has videoUrl and videos list attached
+      const enrichedTopics = combinedTopics.map((tp, idx) => {
+        const topicVideos = tp.videos && tp.videos.length > 0
+          ? tp.videos
+          : getVideosForTopic(subject.name, tp.title, idx);
+
+        return {
+          ...tp,
+          videoUrl: tp.videoUrl || topicVideos[0].url,
+          videos: topicVideos
+        };
+      });
 
       const sName = subject.name.toLowerCase();
       
