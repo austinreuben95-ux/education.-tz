@@ -25,7 +25,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, currentUs
       await loginWithGoogle();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Google Sign-In failed. Please try again.');
+      if (err?.code === 'auth/popup-closed-by-user' || err?.message?.includes('popup-closed-by-user')) {
+        setErrorMsg('Sign-in window was closed before completion.');
+      } else if (err?.code === 'auth/popup-blocked' || err?.message?.includes('popup-blocked')) {
+        setErrorMsg('Pop-up window was blocked. Please allow pop-ups for this site.');
+      } else if (err?.code === 'auth/cancelled-popup-request') {
+        setErrorMsg('Sign-in request was cancelled.');
+      } else {
+        setErrorMsg(err?.message || 'Google Sign-In failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -49,12 +57,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, currentUs
       onClose();
     } catch (err: any) {
       let msg = err?.message || 'Authentication error occurred.';
-      if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password')) {
+      if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password') || msg.includes('auth/user-not-found')) {
         msg = 'Invalid email or password. Please check your credentials.';
       } else if (msg.includes('auth/email-already-in-use')) {
         msg = 'An account with this email already exists. Try signing in.';
       } else if (msg.includes('auth/weak-password')) {
-        msg = 'Password should be at least 6 characters.';
+        msg = 'Password should be at least 6 characters long.';
+      } else if (msg.includes('auth/invalid-email')) {
+        msg = 'Please enter a valid email address.';
       }
       setErrorMsg(msg);
     } finally {
@@ -63,12 +73,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, currentUs
   };
 
   const handleSignOut = async () => {
+    setErrorMsg('');
     setLoading(true);
     try {
       await logout();
       onClose();
     } catch (err: any) {
-      setErrorMsg('Failed to sign out.');
+      console.error('Sign out error:', err);
+      setErrorMsg('Failed to sign out. Please try again.');
     } finally {
       setLoading(false);
     }

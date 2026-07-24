@@ -446,6 +446,13 @@ const App: React.FC = () => {
         } else {
           setIsAdmin(false);
           setIsInitialized(false);
+          setUser({
+            points: 0,
+            credits: 0,
+            streak: 0,
+            completedTopics: [],
+            level: 1
+          });
         }
       } catch (error) {
         console.error("Auth state change error:", error);
@@ -504,6 +511,9 @@ const App: React.FC = () => {
   // Data Saver & Bilingual States
   const [dataSaver, setDataSaver] = useState(false);
   const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
+
+  // Subject Badge Filter State
+  const [subjectBadgeFilter, setSubjectBadgeFilter] = useState<'ALL' | 'NEW' | 'VIDEO' | 'EXAM'>('ALL');
 
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -614,6 +624,15 @@ const App: React.FC = () => {
     return selectedGrade.subjects.filter(s => s.name.toLowerCase().includes(q));
   }, [selectedGrade, searchQuery]);
 
+  const displayedSubjects = useMemo(() => {
+    return filteredSubjects.filter(s => {
+      if (subjectBadgeFilter === 'NEW') return !!s.isNewSyllabus;
+      if (subjectBadgeFilter === 'VIDEO') return !!s.hasVideo;
+      if (subjectBadgeFilter === 'EXAM') return !!s.isExamFocused;
+      return true;
+    });
+  }, [filteredSubjects, subjectBadgeFilter]);
+
   const filteredTopics = useMemo(() => {
     if (!selectedSubject) return [];
     if (!searchQuery.trim()) return selectedSubject.topics;
@@ -720,22 +739,6 @@ const App: React.FC = () => {
               {user.points} EP
             </div>
           </div>
-
-          {/* Sign In / Sign Out Header Button */}
-          <button
-            onClick={() => setIsAuthModalOpen(true)}
-            className={`px-3 py-1.5 rounded-full font-black text-xs transition flex items-center gap-1.5 border ${
-              currentUser 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 shadow-sm'
-            }`}
-            title={currentUser ? `Logged in as ${currentUser.email}` : 'Sign in to save progress'}
-          >
-            <i className={`fa-solid ${currentUser ? 'fa-user-check' : 'fa-right-to-bracket'}`}></i>
-            <span className="hidden sm:inline">
-              {currentUser ? (currentUser.displayName || currentUser.email?.split('@')[0] || 'Account') : 'Sign In'}
-            </span>
-          </button>
 
           <button 
             onClick={() => setCurrentView(AppView.PARENTS)}
@@ -1690,52 +1693,111 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stats & Quick Subject Filter Chips */}
-              <div className="flex flex-wrap items-center justify-between gap-3 px-2">
-                <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-black border border-indigo-100">
-                    {filteredSubjects.length} of {selectedGrade.subjects.length}
-                  </span>
-                  <span>subjects found</span>
+              {/* Stats & Quick Subject Badge Filter Chips */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setSubjectBadgeFilter('ALL')}
+                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                      subjectBadgeFilter === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <i className="fa-solid fa-layer-group text-indigo-400"></i> All ({filteredSubjects.length})
+                  </button>
+                  <button
+                    onClick={() => setSubjectBadgeFilter('NEW')}
+                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                      subjectBadgeFilter === 'NEW'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    <i className="fa-solid fa-sparkles text-emerald-400"></i> New Syllabus ({filteredSubjects.filter(s => s.isNewSyllabus).length})
+                  </button>
+                  <button
+                    onClick={() => setSubjectBadgeFilter('VIDEO')}
+                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                      subjectBadgeFilter === 'VIDEO'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                    }`}
+                  >
+                    <i className="fa-solid fa-circle-play text-red-400"></i> Video Lessons ({filteredSubjects.filter(s => s.hasVideo).length})
+                  </button>
+                  <button
+                    onClick={() => setSubjectBadgeFilter('EXAM')}
+                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                      subjectBadgeFilter === 'EXAM'
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    <i className="fa-solid fa-bullseye text-amber-600"></i> Exam Focused ({filteredSubjects.filter(s => s.isExamFocused).length})
+                  </button>
                 </div>
 
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition"
+                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition shrink-0"
                   >
-                    <i className="fa-solid fa-rotate-left"></i> Reset Filter
+                    <i className="fa-solid fa-rotate-left"></i> Reset Search
                   </button>
                 )}
               </div>
 
               {/* Subject Cards Grid */}
-              {filteredSubjects.length > 0 ? (
+              {displayedSubjects.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredSubjects.map((subject) => (
+                  {displayedSubjects.map((subject) => (
                     <div 
                       key={subject.id}
                       id={`subject-card-${subject.id}`}
                       onClick={() => setSelectedSubject(subject)}
-                      className="group glass-card-vibrant rounded-3xl p-6 shadow-sm hover:shadow-xl border-2 border-gray-100 hover:border-indigo-400 cursor-pointer transition-all duration-300 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between h-52"
+                      className="group glass-card-vibrant rounded-3xl p-6 shadow-sm hover:shadow-xl border-2 border-gray-100 hover:border-indigo-400 cursor-pointer transition-all duration-300 hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between min-h-[16rem]"
                     >
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
                           <SubjectIcon icon={subject.icon} />
                           <span className="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
                             {subject.topics.length} Topics
                           </span>
                         </div>
-                        <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
-                          {subject.name}
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">
-                          Interactive study notes, quizzes & videos
-                        </p>
+
+                        <div>
+                          <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors mb-1">
+                            {subject.name}
+                          </h3>
+                          <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                            Interactive study notes, quizzes & video tutorials
+                          </p>
+                        </div>
+
+                        {/* Subject Visual Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          {subject.isNewSyllabus && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-emerald-100/90 text-emerald-800 border border-emerald-300">
+                              <i className="fa-solid fa-sparkles text-emerald-600"></i> New Syllabus
+                            </span>
+                          )}
+                          {subject.hasVideo && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-red-100/90 text-red-800 border border-red-300">
+                              <i className="fa-solid fa-circle-play text-red-600"></i> Video Available
+                            </span>
+                          )}
+                          {subject.isExamFocused && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300">
+                              <i className="fa-solid fa-bullseye text-amber-700"></i> Exam Focused
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center text-indigo-600 font-extrabold text-xs group-hover:gap-2 transition-all">
-                        Explore Topics <i className="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition-transform"></i>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-indigo-600 font-extrabold text-xs group-hover:gap-2 transition-all">
+                        <span>Explore Syllabus Topics</span>
+                        <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                       </div>
                     </div>
                   ))}
@@ -1827,13 +1889,6 @@ const App: React.FC = () => {
     {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
     {currentView === AppView.PARENTS && renderParentDashboard()}
     {currentView === AppView.ADMIN && <AdminPanel onBack={goHome} />}
-
-    {/* Auth Modal */}
-    <AuthModal
-      isOpen={isAuthModalOpen}
-      onClose={() => setIsAuthModalOpen(false)}
-      currentUser={currentUser}
-    />
 
         {currentView === AppView.CHAT && (
           <div className="animate-fade-in flex flex-col items-center justify-center h-full">

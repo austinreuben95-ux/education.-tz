@@ -35,6 +35,9 @@ export interface Subject {
   name: string;
   icon: string; // FontAwesome class
   topics: Topic[];
+  isNewSyllabus?: boolean;
+  hasVideo?: boolean;
+  isExamFocused?: boolean;
 }
 
 export interface GradeSyllabus {

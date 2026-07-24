@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
 
 export interface StudyNote {
   id: string;
@@ -208,6 +209,7 @@ export const NotesHub: React.FC = () => {
   const [newSubject, setNewSubject] = useState('Mathematics');
   const [newContent, setNewContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('elimu_user_notes', JSON.stringify(customNotes));
@@ -251,6 +253,188 @@ export const NotesHub: React.FC = () => {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+  };
+
+  const downloadNoteAsPdf = (note: StudyNote) => {
+    try {
+      setIsPdfGenerating(true);
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - (margin * 2);
+
+      // --- Header Banner ---
+      doc.setFillColor(6, 78, 59); // Emerald 900
+      doc.rect(0, 0, pageWidth, 28, 'F');
+
+      // Accent Gold Stripe
+      doc.setFillColor(250, 204, 21); // Amber 400
+      doc.rect(0, 28, pageWidth, 2, 'F');
+
+      // Brand
+      doc.setTextColor(250, 204, 21);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('ElimuTanzania • TIE Syllabus Offline Study Note', margin, 9);
+
+      // Metadata
+      doc.setTextColor(209, 250, 229);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`${note.subject.toUpperCase()} | ${note.level} | Updated: ${note.updatedAt}`, margin, 15);
+
+      // Note Title
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      const titleLines = doc.splitTextToSize(note.title, contentWidth);
+      doc.text(titleLines[0] || note.title, margin, 22);
+
+      let currentY = 36;
+
+      // --- Key Takeaways Box ---
+      if (note.keyPoints && note.keyPoints.length > 0) {
+        doc.setFillColor(254, 243, 199);
+        doc.setDrawColor(251, 191, 36);
+        doc.setLineWidth(0.3);
+
+        let boxHeight = 11;
+        note.keyPoints.forEach(pt => {
+          const ptLines = doc.splitTextToSize(`• ${pt}`, contentWidth - 8);
+          boxHeight += ptLines.length * 4.5;
+        });
+
+        doc.roundedRect(margin, currentY, contentWidth, boxHeight, 2, 2, 'FD');
+
+        doc.setTextColor(146, 64, 14);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text('KEY REVISION TAKEAWAYS & FORMULAS:', margin + 4, currentY + 6);
+
+        let ptY = currentY + 11;
+        doc.setTextColor(69, 26, 3);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+
+        note.keyPoints.forEach(pt => {
+          const ptLines = doc.splitTextToSize(`• ${pt}`, contentWidth - 8);
+          ptLines.forEach((line: string) => {
+            doc.text(line, margin + 4, ptY);
+            ptY += 4.5;
+          });
+        });
+
+        currentY += boxHeight + 8;
+      }
+
+      // --- Main Note Content ---
+      doc.setTextColor(15, 23, 42);
+      const contentLines = note.content.split('\n');
+
+      for (let i = 0; i < contentLines.length; i++) {
+        const rawLine = contentLines[i].trim();
+        if (!rawLine) {
+          currentY += 3;
+          continue;
+        }
+
+        if (currentY > pageHeight - 20) {
+          doc.addPage();
+          currentY = 20;
+
+          // Header on Page 2+
+          doc.setFillColor(241, 245, 249);
+          doc.rect(0, 0, pageWidth, 12, 'F');
+          doc.setTextColor(100, 116, 139);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.text(`ElimuTanzania Study Vault: ${note.title.slice(0, 50)}...`, margin, 8);
+          doc.setDrawColor(226, 232, 240);
+          doc.line(0, 12, pageWidth, 12);
+          currentY = 18;
+        }
+
+        if (rawLine.startsWith('# ')) {
+          currentY += 2;
+          doc.setTextColor(6, 78, 59);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11.5);
+          const text = rawLine.replace('# ', '').trim();
+          const splitHeader = doc.splitTextToSize(text, contentWidth);
+          splitHeader.forEach((hLine: string) => {
+            doc.text(hLine, margin, currentY);
+            currentY += 5.5;
+          });
+          doc.setDrawColor(16, 185, 129);
+          doc.setLineWidth(0.3);
+          doc.line(margin, currentY - 1.5, margin + 35, currentY - 1.5);
+          currentY += 2;
+        } else if (rawLine.startsWith('## ')) {
+          currentY += 2;
+          doc.setTextColor(30, 41, 59);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9.5);
+          const text = rawLine.replace('## ', '').trim();
+          const splitSub = doc.splitTextToSize(text, contentWidth);
+          splitSub.forEach((sLine: string) => {
+            doc.text(sLine, margin, currentY);
+            currentY += 5;
+          });
+        } else if (rawLine.startsWith('### ') || rawLine.startsWith('- ')) {
+          doc.setTextColor(30, 41, 59);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          const text = rawLine.replace(/^###\s*|^-\s*/, '• ').trim();
+          const splitBullet = doc.splitTextToSize(text, contentWidth - 4);
+          splitBullet.forEach((bLine: string) => {
+            doc.text(bLine, margin + 3, currentY);
+            currentY += 4.5;
+          });
+        } else {
+          doc.setTextColor(51, 65, 85);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          const cleanText = rawLine.replace(/\*\*/g, '');
+          const wrapped = doc.splitTextToSize(cleanText, contentWidth);
+          wrapped.forEach((wLine: string) => {
+            doc.text(wLine, margin, currentY);
+            currentY += 4.5;
+          });
+        }
+      }
+
+      // --- Footer with Page Numbers ---
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+
+        doc.text('Official Offline Study Note • ElimuTanzania (EducationTZ)', margin, pageHeight - 7);
+        doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin - 15, pageHeight - 7);
+      }
+
+      const safeFilename = note.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      doc.save(`${safeFilename}_formatted_note.pdf`);
+    } catch (err) {
+      console.error('PDF Generation Error:', err);
+      alert('Failed to generate PDF. Falling back to plain text download.');
+      downloadNoteAsTxt(note);
+    } finally {
+      setIsPdfGenerating(false);
+    }
   };
 
   const currentNotesList = activeTab === 'syllabus' ? PREBUILT_STUDY_NOTES : customNotes;
@@ -478,13 +662,35 @@ export const NotesHub: React.FC = () => {
                   </span>
                 </div>
 
-                <button
-                  onClick={() => downloadNoteAsTxt(selectedNote)}
-                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs transition flex items-center gap-2"
-                  title="Download Note File for Offline Study"
-                >
-                  <i className="fa-solid fa-download"></i> Download Note (.txt)
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => downloadNoteAsPdf(selectedNote)}
+                    disabled={isPdfGenerating}
+                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-200 transition flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                    title="Download Formatted Compressed PDF for Offline Study"
+                  >
+                    {isPdfGenerating ? (
+                      <>
+                        <i className="fa-solid fa-spinner animate-spin"></i>
+                        <span>Generating PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-file-pdf text-amber-300"></i>
+                        <span>Download Formatted PDF</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => downloadNoteAsTxt(selectedNote)}
+                    className="px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs transition flex items-center gap-1.5"
+                    title="Download Plain Text Note (.txt)"
+                  >
+                    <i className="fa-solid fa-file-lines text-gray-500"></i>
+                    <span>.TXT</span>
+                  </button>
+                </div>
               </div>
 
               {/* Key Quick Takeaway Bullets */}

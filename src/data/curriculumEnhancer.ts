@@ -386,9 +386,32 @@ export function enhanceSyllabusWithTopics(baseSyllabus: GradeSyllabus[]): GradeS
         videoUrl: tp.videoUrl || getVideoForSubject(subject.name, idx)
       }));
 
+      const sName = subject.name.toLowerCase();
+      
+      const isExamFocused = subject.isExamFocused ?? (
+        sName.includes('math') || sName.includes('phy') || sName.includes('chem') || 
+        sName.includes('bio') || sName.includes('kisw') || sName.includes('eng') || 
+        sName.includes('civic') || sName.includes('geog') || sName.includes('hist') ||
+        sName.includes('comm') || sName.includes('book') || sName.includes('econ')
+      );
+
+      const hasVideo = subject.hasVideo ?? (
+        enrichedTopics.some(t => !!t.videoUrl)
+      );
+
+      const isNewSyllabus = subject.isNewSyllabus ?? (
+        sName.includes('ict') || sName.includes('tech') || sName.includes('voc') || 
+        sName.includes('comput') || sName.includes('french') || sName.includes('kifaransa') ||
+        sName.includes('art') || sName.includes('sci') ||
+        subject.id.includes('g1') || subject.id.includes('g4') || subject.id.includes('f1') || subject.id.includes('f5')
+      );
+
       return {
         ...subject,
-        topics: enrichedTopics
+        topics: enrichedTopics,
+        isNewSyllabus,
+        hasVideo,
+        isExamFocused
       };
     });
 
