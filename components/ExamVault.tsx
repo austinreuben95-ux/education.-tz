@@ -561,7 +561,7 @@ const ExamVault: React.FC = () => {
 
   const calculateCseePoints = () => {
     const gradeValues: Record<string, number> = { A: 1, B: 2, C: 3, D: 4, F: 5 };
-    const pointsList = Object.values(calcGrades).map(g => gradeValues[g] || 5);
+    const pointsList = Object.values(calcGrades).map(g => gradeValues[String(g)] || 5);
     pointsList.sort((a, b) => a - b);
     const best7 = pointsList.slice(0, 7);
     const sum = best7.reduce((acc, curr) => acc + curr, 0);

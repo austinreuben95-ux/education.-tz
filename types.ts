@@ -32,12 +32,49 @@ export interface VideoLesson {
   badge?: string;
 }
 
+export interface HomeworkQuestion {
+  id: string;
+  question: string;
+  type: 'multiple-choice' | 'short-answer';
+  options?: string[];
+  correctAnswer: string | number;
+  explanation: string;
+}
+
+export interface HomeworkItem {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  subjectId: string;
+  subjectName: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  targetScore: number; // e.g. 85%
+  maxScore: number; // e.g. 100
+  submitted?: boolean;
+  scoreAchieved?: number;
+  submissionText?: string;
+  questions: HomeworkQuestion[];
+}
+
+export interface TargetScore {
+  subjectId: string;
+  subjectName: string;
+  targetPercentage: number; // e.g. 85
+  gradeTarget: 'A' | 'B' | 'C' | 'S';
+  note?: string;
+}
+
 export interface Topic {
   id: string;
   title: string;
   description: string;
   videoUrl?: string;
   videos?: VideoLesson[];
+  homework?: HomeworkItem[];
+  targetScore?: number;
+  difficulty?: 'beginner' | 'easy' | 'amateur' | 'hard' | 'extreme';
 }
 
 export interface Subject {
@@ -48,6 +85,7 @@ export interface Subject {
   isNewSyllabus?: boolean;
   hasVideo?: boolean;
   isExamFocused?: boolean;
+  targetScore?: number;
 }
 
 export interface GradeSyllabus {

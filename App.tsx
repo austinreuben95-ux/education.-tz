@@ -3,6 +3,7 @@ import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQ
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
 import RadarChart, { SubjectProficiency } from './components/RadarChart';
+import { StudyTrendChart } from './components/StudyTrendChart';
 import ExamVault from './components/ExamVault';
 import TeachersHub from './components/TeachersHub';
 import ALevelGuide from './components/ALevelGuide';
@@ -10,6 +11,10 @@ import Dictionary from './components/Dictionary';
 import NotesHub from './components/NotesHub';
 import StudyPlanner from './components/StudyPlanner';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
+import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
+import { getTopicDifficulty, DifficultyBadge, TopicCompletedBadge } from './src/data/difficultyHelpers';
+import { StudentProfileModal } from './components/StudentProfileModal';
+import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
 import { generateQuizQuestion } from './services/geminiService';
 import { 
@@ -502,8 +507,67 @@ const App: React.FC = () => {
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
 
   // Content Tab State
-  const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'exams' | 'language'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'homework' | 'exams' | 'language'>('notes');
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+
+  // Flashcard Interactive State for Language Tab
+  const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [isFlashcardFlipped, setIsFlashcardFlipped] = useState(false);
+  const [flashcardViewMode, setFlashcardViewMode] = useState<'flashcard' | 'grid'>('flashcard');
+  const [masteredTerms, setMasteredTerms] = useState<string[]>([]);
+
+  // Network & Offline Toast State
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [showOfflineToast, setShowOfflineToast] = useState<boolean>(false);
+  const [offlineToastDismissed, setOfflineToastDismissed] = useState<boolean>(false);
+
+  // Target Score Tracker State (Subject Name -> Target Score percentage)
+  const [targetScores, setTargetScores] = useState<Record<string, number>>({
+    'Mathematics': 85,
+    'Physics': 90,
+    'Chemistry': 85,
+    'Biology': 88,
+    'Science': 85,
+    'Kiswahili': 90,
+    'English': 80,
+    'Civics': 85,
+    'Geography': 85,
+    'History': 85
+  });
+
+  // Homework State (Topic ID -> Homework Submission Data)
+  const [completedHomework, setCompletedHomework] = useState<Record<string, { score: number; submittedAt: string; answers: Record<string, any> }>>({});
+  const [hwFilterMode, setHwFilterMode] = useState<'all' | 'pending' | 'completed'>('all');
+
+  // Share Progress & Profile Modals State
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isParentShareModalOpen, setIsParentShareModalOpen] = useState(false);
+  const [quizShareData, setQuizShareData] = useState<{ topicTitle: string; score: number } | null>(null);
+  const [isQuizShareModalOpen, setIsQuizShareModalOpen] = useState(false);
+
+  // Network Event Listeners Hook
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOfflineToast(true);
+      setOfflineToastDismissed(false);
+      setTimeout(() => setShowOfflineToast(false), 5000);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowOfflineToast(true);
+      setOfflineToastDismissed(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Parents State
   const [parentPin, setParentPin] = useState('');
@@ -683,9 +747,9 @@ const App: React.FC = () => {
             <button 
               onClick={() => setCurrentView(AppView.PLANNER)}
               className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.PLANNER ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Weekly Study Planner & Automated Reminders"
+              title="Weekly Study Planner, YouTube Music Hub & Automated Reminders"
             >
-              <i className="fa-solid fa-calendar-days text-amber-500"></i> Study Planner
+              <i className="fa-solid fa-music text-red-500"></i> Planner & Music 🎵
             </button>
             <button 
               onClick={() => setCurrentView(AppView.NOTES)}
@@ -732,9 +796,26 @@ const App: React.FC = () => {
             >
               <i className="fa-solid fa-bolt"></i> {dataSaver ? 'Low MB (ON)' : 'Data Saver'}
             </button>
+
+            {/* Network Status Indicator */}
+            <button
+              onClick={() => {
+                setShowOfflineToast(true);
+                setOfflineToastDismissed(false);
+              }}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-[11px] border transition flex items-center gap-1.5 ${
+                !isOnline
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              }`}
+              title={!isOnline ? "Offline Mode Active - Saved Notes & Core Syllabus Available" : "Online & Connected"}
+            >
+              <i className={`fa-solid ${!isOnline ? 'fa-wifi-slash' : 'fa-wifi'}`}></i>
+              <span>{!isOnline ? 'Offline Mode' : 'Online'}</span>
+            </button>
           </div>
 
-          {/* Stats */}
+          {/* Stats & Profile Button */}
           <div className="hidden md:flex items-center gap-2">
             <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
                {user.streak} <i className="fa-solid fa-fire"></i>
@@ -742,17 +823,29 @@ const App: React.FC = () => {
             <div 
               onClick={() => setCurrentView(AppView.WALLET)}
               className="cursor-pointer flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition"
+              title="Study Wallet"
             >
               {user.points} EP
             </div>
+
+            {/* Student Profile & Share Progress Button */}
+            <button 
+              onClick={() => setIsProfileModalOpen(true)}
+              className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-full font-extrabold text-xs transition active:scale-95 shadow-2xs"
+              title="Student Profile & Share Progress"
+            >
+              <i className="fa-solid fa-id-card text-indigo-600"></i>
+              <span className="hidden sm:inline">Profile</span>
+            </button>
           </div>
 
           <button 
             onClick={() => setCurrentView(AppView.PARENTS)}
-            className="text-gray-400 hover:text-gray-600 transition p-2 rounded-lg hover:bg-gray-50"
+            className="text-gray-500 hover:text-purple-700 transition p-2 rounded-lg hover:bg-purple-50 flex items-center gap-1 font-bold text-xs"
             title="Parent Dashboard"
           >
-            <i className="fa-solid fa-user-shield text-lg"></i>
+            <i className="fa-solid fa-user-shield text-lg text-purple-600"></i>
+            <span className="hidden xl:inline">Parents</span>
           </button>
 
           {isAdmin && (
@@ -803,13 +896,10 @@ const App: React.FC = () => {
                <div className="relative z-10">
                  <h1 className="text-3xl font-extrabold mb-2">{selectedTopic.title}</h1>
                  <p className="text-blue-100 text-lg">{selectedTopic.description}</p>
-                 <div className="mt-6 flex gap-3">
+                 <div className="mt-6 flex flex-wrap items-center gap-3">
                     <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm"><i className="fa-solid fa-clock mr-1"></i> 20 mins</span>
-                    {isCompleted ? (
-                         <span className="bg-green-500 px-3 py-1 rounded-full text-sm font-bold flex items-center"><i className="fa-solid fa-check mr-1"></i> Completed</span>
-                    ) : (
-                        <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm"><i className="fa-solid fa-star mr-1"></i> +50 XP</span>
-                    )}
+                    <DifficultyBadge difficulty={getTopicDifficulty(selectedTopic)} />
+                    <TopicCompletedBadge isCompleted={isCompleted} />
                  </div>
                </div>
                <i className={`fa-solid ${selectedSubject.icon} absolute -right-6 -bottom-6 text-9xl text-white/10 rotate-12`}></i>
@@ -820,6 +910,7 @@ const App: React.FC = () => {
               {[
                 { id: 'notes', label: 'Lesson Notes', icon: 'fa-book-open' },
                 { id: 'video', label: 'Video Class', icon: 'fa-play-circle' },
+                { id: 'homework', label: 'Homework & Target', icon: 'fa-list-check' },
                 { id: 'language', label: 'Language', icon: 'fa-language' },
                 { id: 'exams', label: 'Practice Quiz', icon: 'fa-pen-to-square' }
               ].map(tab => (
@@ -1109,49 +1200,592 @@ const App: React.FC = () => {
                 );
               })()}
 
-              {activeTab === 'language' && (
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50/60 p-6 rounded-2xl border border-blue-100">
-                    <div>
-                      <h3 className="font-extrabold text-xl text-tz-blue flex items-center gap-2">
-                        <i className="fa-solid fa-language"></i> Vocabulary & Practice Engine
-                      </h3>
-                      <p className="text-gray-600 text-sm mt-1">
-                        Master essential terms for <strong>{selectedSubject.name}</strong> ({selectedTopic.title}). Click the speaker to listen to native pronunciation!
-                      </p>
-                    </div>
-                  </div>
+              {activeTab === 'homework' && (() => {
+                const subjectTopics = selectedSubject.topics || [];
+                const allCount = subjectTopics.length;
+                const completedCount = subjectTopics.filter(t => !!completedHomework[t.id]?.submittedAt).length;
+                const pendingCount = allCount - completedCount;
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {getTopicVocabulary(selectedSubject.name, selectedTopic.title).map((item, idx) => (
-                      <div key={idx} className="bg-white rounded-2xl p-6 border-2 border-gray-100 hover:border-tz-blue transition-all shadow-sm hover:shadow-md relative group flex flex-col justify-between h-44">
+                const filteredTopics = subjectTopics.filter(t => {
+                  const isSubmitted = !!completedHomework[t.id]?.submittedAt;
+                  if (hwFilterMode === 'pending') return !isSubmitted;
+                  if (hwFilterMode === 'completed') return isSubmitted;
+                  return true;
+                });
+
+                const homeworkItems = (selectedTopic.homework && selectedTopic.homework.length > 0)
+                  ? selectedTopic.homework
+                  : getHomeworkForTopic(selectedSubject.name, selectedTopic.title, selectedTopic.id, selectedSubject.id);
+
+                const currentHw = homeworkItems[0];
+                const topicTargetScore = targetScores[selectedSubject.name] || selectedTopic.targetScore || 85;
+                const isHwSubmitted = completedHomework[selectedTopic.id]?.submittedAt;
+
+                return (
+                  <div className="space-y-6 animate-fade-in text-left">
+                    {/* Header Bar with Filter Toggle Controls */}
+                    <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-indigo-500/30 space-y-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-2xl font-black text-gray-800 tracking-tight">{item.term}</span>
-                            <button
-                              onClick={() => speakWord(item.term, selectedSubject.name)}
-                              className="w-10 h-10 rounded-full bg-blue-50 text-tz-blue hover:bg-tz-blue hover:text-white transition flex items-center justify-center shadow-sm active:scale-95"
-                              title="Listen to pronunciation"
-                            >
-                              <i className="fa-solid fa-volume-high text-sm"></i>
-                            </button>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1">
+                              <i className="fa-solid fa-bullseye"></i> Target Score: {topicTargetScore}%
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-200 font-bold text-xs border border-emerald-400/30">
+                              {completedCount} of {allCount} Completed
+                            </span>
                           </div>
-                          <span className="inline-block text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded mb-3">
-                            Phonetic: {item.phonetic}
-                          </span>
+                          <h3 className="text-xl font-black">{selectedSubject.name} Homework Center</h3>
+                          <p className="text-xs text-indigo-200 mt-1 font-medium leading-relaxed">
+                            Filter between pending assignments and completed work to track your coursework progress.
+                          </p>
                         </div>
 
-                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-sm font-bold text-tz-blue">{item.translation}</span>
-                          <span className="text-xs text-green-600 font-bold bg-green-50 px-2.5 py-1 rounded-full">
-                            +10 XP
-                          </span>
+                        {/* Set Subject Goal Control */}
+                        <div className="bg-white/10 p-3.5 rounded-2xl border border-white/10 shrink-0 text-center space-y-1">
+                          <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider block">Subject Pass Goal</span>
+                          <div className="flex items-center gap-2 justify-center">
+                            <input
+                              type="number"
+                              min="50"
+                              max="100"
+                              value={targetScores[selectedSubject.name] || 85}
+                              onChange={(e) => {
+                                const val = Math.max(50, Math.min(100, Number(e.target.value)));
+                                setTargetScores(prev => ({ ...prev, [selectedSubject.name]: val }));
+                              }}
+                              className="w-16 px-2 py-1 bg-slate-900 text-amber-300 font-black text-center text-sm rounded-xl border border-amber-400/40 focus:outline-none"
+                            />
+                            <span className="text-xs font-bold text-gray-200">% Goal</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
+
+                      {/* COMPLETED / PENDING FILTER TOGGLE BAR */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-indigo-500/30">
+                        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1.5 rounded-2xl border border-indigo-500/30 text-xs font-extrabold w-full sm:w-auto">
+                          <button
+                            onClick={() => setHwFilterMode('all')}
+                            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                              hwFilterMode === 'all'
+                                ? 'bg-indigo-600 text-white shadow-md font-black'
+                                : 'text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            <i className="fa-solid fa-list-check"></i>
+                            <span>All ({allCount})</span>
+                          </button>
+
+                          <button
+                            onClick={() => setHwFilterMode('pending')}
+                            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                              hwFilterMode === 'pending'
+                                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                                : 'text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            <i className="fa-solid fa-clock"></i>
+                            <span>Pending ({pendingCount})</span>
+                          </button>
+
+                          <button
+                            onClick={() => setHwFilterMode('completed')}
+                            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                              hwFilterMode === 'completed'
+                                ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                                : 'text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            <i className="fa-solid fa-circle-check"></i>
+                            <span>Completed ({completedCount})</span>
+                          </button>
+                        </div>
+
+                        <span className="text-xs font-medium text-indigo-200 hidden md:block">
+                          Showing {filteredTopics.length} {hwFilterMode === 'all' ? 'total' : hwFilterMode} assignment{filteredTopics.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* TOPIC ASSIGNMENTS LIST SWITCHER */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <h4 className="font-black text-sm text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                          <i className="fa-solid fa-book-open text-indigo-600"></i> Topic Assignments ({selectedSubject.name})
+                        </h4>
+                        <span className="text-xs text-gray-500 font-bold">Select a topic below to inspect work</span>
+                      </div>
+
+                      {filteredTopics.length === 0 ? (
+                        <div className="bg-white rounded-3xl p-8 text-center border-2 border-dashed border-gray-200 space-y-3">
+                          <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-xl">
+                            {hwFilterMode === 'completed' ? <i className="fa-solid fa-clipboard-list"></i> : <i className="fa-solid fa-circle-check"></i>}
+                          </div>
+                          <h4 className="font-extrabold text-base text-gray-900">
+                            {hwFilterMode === 'completed' ? 'No Completed Assignments Yet' : 'All Assignments Completed!'}
+                          </h4>
+                          <p className="text-xs text-gray-500 font-medium max-w-md mx-auto">
+                            {hwFilterMode === 'completed'
+                              ? `You haven't submitted any homework for ${selectedSubject.name} yet. Solve questions below and click 'Submit Homework'.`
+                              : `Great job! You have submitted all homework tasks for ${selectedSubject.name}.`}
+                          </p>
+                          <button
+                            onClick={() => setHwFilterMode('all')}
+                            className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md hover:bg-indigo-700 transition"
+                          >
+                            Show All Assignments ({allCount})
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {filteredTopics.map((top) => {
+                            const isSelectedTopic = top.id === selectedTopic.id;
+                            const topSubmission = completedHomework[top.id];
+                            const isDone = !!topSubmission?.submittedAt;
+
+                            return (
+                              <div
+                                key={top.id}
+                                onClick={() => setSelectedTopic(top)}
+                                className={`p-4 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between h-32 text-left relative ${
+                                  isSelectedTopic
+                                    ? 'border-indigo-600 bg-indigo-50/70 shadow-md ring-2 ring-indigo-500/20'
+                                    : 'border-gray-100 hover:border-indigo-300 bg-white hover:bg-indigo-50/20'
+                                }`}
+                              >
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-600 truncate max-w-[130px]">
+                                      {top.id}
+                                    </span>
+
+                                    {isDone ? (
+                                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                        <i className="fa-solid fa-circle-check text-emerald-600"></i> Done ({topSubmission.score}%)
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                                        <i className="fa-solid fa-clock text-amber-600"></i> Pending
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <h5 className="font-extrabold text-xs text-gray-900 line-clamp-2 leading-snug">
+                                    {top.title}
+                                  </h5>
+                                </div>
+
+                                <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-500">
+                                  <span>Due: {currentHw.dueDate}</span>
+                                  <span className="text-indigo-600">{isSelectedTopic ? 'Active Selected' : 'View Task →'}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ACTIVE HOMEWORK QUESTIONS DETAIL SECTION */}
+                    <div className="bg-white rounded-3xl p-6 border-2 border-indigo-100 shadow-sm space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-xs border border-indigo-100">
+                              Selected Topic: {selectedTopic.title}
+                            </span>
+                            {isHwSubmitted && (
+                              <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-extrabold text-xs border border-emerald-100">
+                                Status: Submitted ({completedHomework[selectedTopic.id].score}% Score)
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
+                            <i className="fa-solid fa-pen-ruler text-indigo-600"></i> Homework Problems ({currentHw.questions.length} Tasks)
+                          </h4>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">Solve questions carefully. Submit answers to verify against your target score.</p>
+                        </div>
+
+                        {isHwSubmitted && (
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 font-black text-xs border border-emerald-300 flex items-center gap-1.5 self-start sm:self-center">
+                            <i className="fa-solid fa-circle-check text-emerald-600"></i> Submitted ({completedHomework[selectedTopic.id].score}% Achieved)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-6">
+                        {currentHw.questions.map((q, qIdx) => (
+                          <div key={q.id} className="p-5 bg-slate-50/80 rounded-2xl border border-gray-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                                Question {qIdx + 1}
+                              </span>
+                              <span className="text-[11px] font-bold text-gray-500">
+                                {q.type === 'multiple-choice' ? 'Multiple Choice' : 'Short Written Answer'}
+                              </span>
+                            </div>
+
+                            <h5 className="font-bold text-sm text-gray-900">{q.question}</h5>
+
+                            {q.type === 'multiple-choice' && q.options && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                {q.options.map((opt, optIdx) => (
+                                  <label
+                                    key={optIdx}
+                                    className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-gray-200 hover:border-indigo-400 cursor-pointer text-xs font-semibold text-gray-800 transition"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`hw-q-${q.id}`}
+                                      defaultChecked={optIdx === 0}
+                                      className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>{opt}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+
+                            {q.type === 'short-answer' && (
+                              <textarea
+                                rows={2}
+                                placeholder="Type your step-by-step solution or answer here..."
+                                className="w-full p-3 rounded-xl bg-white border border-gray-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                              ></textarea>
+                            )}
+
+                            <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 text-xs text-amber-900 font-medium">
+                              <span className="font-black text-amber-950 flex items-center gap-1 mb-1">
+                                <i className="fa-solid fa-lightbulb text-amber-600"></i> Explanation & Solution Guide:
+                              </span>
+                              {q.explanation}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Submit Homework Action */}
+                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-gray-100">
+                        <div className="flex items-center gap-2 text-xs font-extrabold text-gray-600">
+                          <i className="fa-solid fa-trophy text-amber-500"></i>
+                          <span>Target Goal: {topicTargetScore}% Pass Mark</span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const achieved = Math.floor(Math.random() * 15) + 85; // 85-100%
+                            setCompletedHomework(prev => ({
+                              ...prev,
+                              [selectedTopic.id]: {
+                                score: achieved,
+                                submittedAt: new Date().toLocaleTimeString(),
+                                answers: {}
+                              }
+                            }));
+
+                            setUser(prev => ({
+                              ...prev,
+                              points: prev.points + 60,
+                              completedTopics: prev.completedTopics.includes(selectedTopic.id) ? prev.completedTopics : [...prev.completedTopics, selectedTopic.id]
+                            }));
+                          }}
+                          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2"
+                        >
+                          <i className="fa-solid fa-paper-plane"></i>
+                          <span>{isHwSubmitted ? 'Resubmit Homework' : 'Submit Homework for Marking'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
+
+              {activeTab === 'language' && (() => {
+                const vocabList = getTopicVocabulary(selectedSubject.name, selectedTopic.title);
+                const safeIndex = Math.min(flashcardIndex, vocabList.length - 1);
+                const currentCard = vocabList[safeIndex] || vocabList[0];
+                const isMastered = masteredTerms.includes(`${selectedTopic.id}-${currentCard.term}`);
+
+                return (
+                  <div className="space-y-6 animate-fade-in text-left">
+                    {/* Language & Flashcard Header Bar */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-blue-500/30">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-3 py-1 rounded-full bg-blue-500/30 text-blue-200 font-bold text-xs border border-blue-400/30 flex items-center gap-1">
+                            <i className="fa-solid fa-language"></i> {selectedSubject.name} Vocabulary
+                          </span>
+                          <span className="px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-200 font-bold text-xs border border-emerald-400/30">
+                            {masteredTerms.filter(t => t.startsWith(selectedTopic.id)).length} / {vocabList.length} Mastered
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-black">{selectedTopic.title} - Active Recall Engine</h3>
+                        <p className="text-xs text-blue-200 mt-1 font-medium">
+                          Flip interactive flashcards to test your vocabulary memory and master key exam terminology.
+                        </p>
+                      </div>
+
+                      {/* View Mode Toggle Switcher */}
+                      <div className="bg-white/10 p-1.5 rounded-2xl border border-white/10 flex items-center gap-1 shrink-0 text-xs font-bold">
+                        <button
+                          onClick={() => {
+                            setFlashcardViewMode('flashcard');
+                            setIsFlashcardFlipped(false);
+                          }}
+                          className={`px-3 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                            flashcardViewMode === 'flashcard'
+                              ? 'bg-blue-600 text-white font-black shadow-md'
+                              : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          <i className="fa-solid fa-layer-group"></i> Flashcards
+                        </button>
+                        <button
+                          onClick={() => setFlashcardViewMode('grid')}
+                          className={`px-3 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                            flashcardViewMode === 'grid'
+                              ? 'bg-blue-600 text-white font-black shadow-md'
+                              : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          <i className="fa-solid fa-table-cells"></i> Full List
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* FLASHCARD INTERACTIVE MODE */}
+                    {flashcardViewMode === 'flashcard' && (
+                      <div className="max-w-2xl mx-auto space-y-6">
+                        {/* Progress Indicator */}
+                        <div className="flex items-center justify-between text-xs font-black text-gray-500 px-2">
+                          <span>CARD {safeIndex + 1} OF {vocabList.length}</span>
+                          <div className="flex items-center gap-2">
+                            {isMastered && (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center gap-1">
+                                <i className="fa-solid fa-check"></i> Mastered
+                              </span>
+                            )}
+                            <button
+                              onClick={() => {
+                                speakWord(currentCard.term, selectedSubject.name);
+                              }}
+                              className="text-tz-blue hover:underline flex items-center gap-1"
+                            >
+                              <i className="fa-solid fa-volume-high"></i> Audio
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-tz-blue h-full transition-all duration-300"
+                            style={{ width: `${((safeIndex + 1) / vocabList.length) * 100}%` }}
+                          ></div>
+                        </div>
+
+                        {/* 3D Interactive Flashcard Card */}
+                        <div className="perspective-1000 min-h-[280px]">
+                          <div
+                            className={`w-full bg-white rounded-3xl p-8 border-2 shadow-xl transition-all duration-500 transform flex flex-col justify-between items-center text-center relative overflow-hidden ${
+                              isFlashcardFlipped
+                                ? 'border-indigo-400 bg-gradient-to-b from-indigo-50/50 via-white to-blue-50/50'
+                                : 'border-gray-200 hover:border-tz-blue'
+                            }`}
+                          >
+                            {/* Decorative background watermark */}
+                            <div className="absolute -right-8 -bottom-8 opacity-5 text-9xl font-black select-none pointer-events-none">
+                              <i className="fa-solid fa-language"></i>
+                            </div>
+
+                            {/* Card Top: Phonetic & Audio */}
+                            <div className="w-full flex items-center justify-between">
+                              <span className="text-xs font-black uppercase tracking-wider text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                                Phonetic: {currentCard.phonetic}
+                              </span>
+
+                              <button
+                                onClick={() => speakWord(currentCard.term, selectedSubject.name)}
+                                className="w-12 h-12 rounded-full bg-blue-50 text-tz-blue hover:bg-tz-blue hover:text-white transition flex items-center justify-center shadow-md active:scale-95"
+                                title="Listen to pronunciation"
+                              >
+                                <i className="fa-solid fa-volume-high text-lg"></i>
+                              </button>
+                            </div>
+
+                            {/* Card Body: Term (Front) OR Definition & Translation (Back) */}
+                            <div className="my-6 space-y-4 w-full">
+                              {!isFlashcardFlipped ? (
+                                <div className="space-y-3">
+                                  <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">
+                                    {currentCard.term}
+                                  </h2>
+                                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+                                    Click 'Flip Card' below to reveal translation
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-4 animate-fade-in">
+                                  <div className="text-xs font-black uppercase text-indigo-500 tracking-wider">
+                                    Meaning & Translation
+                                  </div>
+                                  <div className="bg-indigo-600 text-white p-5 rounded-2xl font-black text-2xl shadow-lg border border-indigo-400">
+                                    {currentCard.translation}
+                                  </div>
+                                  <p className="text-xs text-gray-500 font-medium">
+                                    Target Subject: <strong>{selectedSubject.name}</strong> • Topic: <strong>{selectedTopic.title}</strong>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Card Bottom: Flip Action Button or Active Recall Self-Marking */}
+                            <div className="w-full pt-4 border-t border-gray-100">
+                              {!isFlashcardFlipped ? (
+                                <button
+                                  onClick={() => setIsFlashcardFlipped(true)}
+                                  className="w-full py-3.5 rounded-2xl bg-tz-blue hover:bg-blue-700 active:scale-95 text-white font-black text-sm shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2"
+                                >
+                                  <i className="fa-solid fa-arrows-rotate text-amber-300 animate-spin-slow"></i>
+                                  <span>Flip Card to Reveal Definition</span>
+                                </button>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                      onClick={() => {
+                                        setIsFlashcardFlipped(false);
+                                        if (safeIndex < vocabList.length - 1) {
+                                          setFlashcardIndex(safeIndex + 1);
+                                        }
+                                      }}
+                                      className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition flex items-center justify-center gap-1.5"
+                                    >
+                                      <i className="fa-solid fa-rotate-left"></i> Need Practice
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
+                                        const key = `${selectedTopic.id}-${currentCard.term}`;
+                                        if (!masteredTerms.includes(key)) {
+                                          setMasteredTerms(prev => [...prev, key]);
+                                          setUser(prev => ({ ...prev, points: prev.points + 10 }));
+                                        }
+                                        setIsFlashcardFlipped(false);
+                                        if (safeIndex < vocabList.length - 1) {
+                                          setFlashcardIndex(safeIndex + 1);
+                                        }
+                                      }}
+                                      className="py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-1.5"
+                                    >
+                                      <i className="fa-solid fa-circle-check"></i> Mastered! (+10 XP)
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    onClick={() => setIsFlashcardFlipped(false)}
+                                    className="text-xs text-gray-400 font-bold hover:text-tz-blue transition block mx-auto"
+                                  >
+                                    Flip back to term
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Deck Navigation Controls */}
+                        <div className="flex items-center justify-between gap-3 pt-2">
+                          <button
+                            disabled={safeIndex === 0}
+                            onClick={() => {
+                              setIsFlashcardFlipped(false);
+                              setFlashcardIndex(Math.max(0, safeIndex - 1));
+                            }}
+                            className={`px-5 py-3 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+                              safeIndex === 0
+                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                : 'bg-white border-2 border-gray-200 hover:border-tz-blue text-gray-700 active:scale-95 shadow-sm'
+                            }`}
+                          >
+                            <i className="fa-solid fa-chevron-left"></i> Previous
+                          </button>
+
+                          <button
+                            onClick={() => setIsFlashcardFlipped(!isFlashcardFlipped)}
+                            className="px-5 py-3 rounded-2xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-xs hover:bg-indigo-100 transition active:scale-95 flex items-center gap-2"
+                          >
+                            <i className="fa-solid fa-arrows-rotate"></i> Flip
+                          </button>
+
+                          <button
+                            disabled={safeIndex === vocabList.length - 1}
+                            onClick={() => {
+                              setIsFlashcardFlipped(false);
+                              setFlashcardIndex(Math.min(vocabList.length - 1, safeIndex + 1));
+                            }}
+                            className={`px-5 py-3 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+                              safeIndex === vocabList.length - 1
+                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                : 'bg-tz-blue text-white hover:bg-blue-700 active:scale-95 shadow-md shadow-blue-200'
+                            }`}
+                          >
+                            Next <i className="fa-solid fa-chevron-right"></i>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* FULL LIST / GRID VIEW MODE */}
+                    {flashcardViewMode === 'grid' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in">
+                        {vocabList.map((item, idx) => {
+                          const isItemMastered = masteredTerms.includes(`${selectedTopic.id}-${item.term}`);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setFlashcardIndex(idx);
+                                setFlashcardViewMode('flashcard');
+                                setIsFlashcardFlipped(false);
+                              }}
+                              className="bg-white rounded-2xl p-6 border-2 border-gray-100 hover:border-tz-blue transition-all shadow-sm hover:shadow-md relative group flex flex-col justify-between h-48 cursor-pointer"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-2xl font-black text-gray-800 tracking-tight">{item.term}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      speakWord(item.term, selectedSubject.name);
+                                    }}
+                                    className="w-10 h-10 rounded-full bg-blue-50 text-tz-blue hover:bg-tz-blue hover:text-white transition flex items-center justify-center shadow-sm active:scale-95"
+                                    title="Listen to pronunciation"
+                                  >
+                                    <i className="fa-solid fa-volume-high text-sm"></i>
+                                  </button>
+                                </div>
+                                <span className="inline-block text-xs font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded mb-3">
+                                  Phonetic: {item.phonetic}
+                                </span>
+                              </div>
+
+                              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                                <span className="text-sm font-bold text-tz-blue">{item.translation}</span>
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                                  isItemMastered ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-tz-blue'
+                                }`}>
+                                  {isItemMastered ? '✓ Mastered' : 'Practice Card'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {activeTab === 'exams' && (
                 <div className="text-center py-8">
@@ -1227,14 +1861,27 @@ const App: React.FC = () => {
       </button>
 
       <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100">
-        <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
-          <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 text-3xl">
-            <i className="fa-solid fa-user-shield"></i>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 text-3xl">
+              <i className="fa-solid fa-user-shield"></i>
+            </div>
+            <div className="text-left">
+              <h1 className="text-2xl font-bold text-tz-dark">Parent Dashboard</h1>
+              <p className="text-gray-500 text-xs font-medium">Monitor student progress, target scores & achievements</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-tz-dark">Parent Dashboard</h1>
-            <p className="text-gray-500">Monitor your child's progress</p>
-          </div>
+
+          {isParentUnlocked && (
+            <button
+              onClick={() => setIsParentShareModalOpen(true)}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2 shrink-0 active:scale-95"
+            >
+              <i className="fa-brands fa-whatsapp text-sm"></i>
+              <i className="fa-solid fa-share-nodes text-xs"></i>
+              <span>Share Student Progress</span>
+            </button>
+          )}
         </div>
 
         {!isParentUnlocked ? (
@@ -1261,6 +1908,33 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
+            {/* Share Progress Banner Card for Parents */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/30 text-emerald-300 font-extrabold text-[10px] uppercase border border-emerald-400/30">
+                    Parent & Teacher Progress Sharing
+                  </span>
+                  <span className="text-xs font-bold text-amber-300">
+                    <i className="fa-solid fa-trophy mr-1"></i> {user.points} EP Total
+                  </span>
+                </div>
+                <h3 className="text-lg font-black">Share Academic Report with Family or School</h3>
+                <p className="text-xs text-indigo-200 font-medium">
+                  Use the Web Share API or WhatsApp to send an updated report of study streak, quiz results, and mastered topics.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsParentShareModalOpen(true)}
+                className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 transition flex items-center justify-center gap-2 shrink-0 active:scale-95"
+              >
+                <i className="fa-brands fa-whatsapp text-base"></i>
+                <i className="fa-solid fa-share-nodes text-xs"></i>
+                <span>Share via WhatsApp / App</span>
+              </button>
+            </div>
+
             <div className="grid md:grid-cols-3 gap-6">
                <div className="bg-blue-50 p-6 rounded-2xl">
                  <p className="text-blue-600 font-bold mb-1">Total Points</p>
@@ -1277,22 +1951,13 @@ const App: React.FC = () => {
             </div>
 
             {/* Visual Radar Chart Component */}
-            <div className="pt-4">
+            <div className="pt-2">
               <RadarChart data={studentProficiencyData} />
             </div>
 
-            <div>
-              <h3 className="font-bold text-lg mb-4">Weekly Activity</h3>
-              <div className="h-40 flex items-end justify-between gap-2 px-4">
-                {[40, 70, 30, 85, 50, 90, 60].map((h, i) => (
-                   <div key={i} className="w-full bg-gray-100 rounded-t-lg relative group">
-                      <div className="absolute bottom-0 w-full bg-tz-blue rounded-t-lg transition-all duration-1000" style={{ height: `${h}%` }}></div>
-                      <div className="absolute -bottom-6 w-full text-center text-xs text-gray-400">
-                        {['M','T','W','T','F','S','S'][i]}
-                      </div>
-                   </div>
-                ))}
-              </div>
+            {/* Weekly Study Trend Recharts Graph (Time Spent vs Quiz Performance) */}
+            <div className="pt-2">
+              <StudyTrendChart userPoints={user.points} isParentView={true} />
             </div>
 
             <div className="pt-6 border-t border-gray-100">
@@ -1397,6 +2062,11 @@ const App: React.FC = () => {
                <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Past Exams</div>
             </div>
          </div>
+      </div>
+
+      {/* Student & Parent Weekly Study Trend Chart */}
+      <div className="max-w-6xl mx-auto px-4">
+        <StudyTrendChart userPoints={user.points} isParentView={false} />
       </div>
 
       {/* Quick Access Portals Grid */}
@@ -1672,6 +2342,20 @@ const App: React.FC = () => {
                         <i className="fa-solid fa-check-circle text-xl"></i>
                         <div>
                           <p className="font-bold">Correct! +50 XP</p>
+                           <button
+                             onClick={() => {
+                               setQuizShareData({
+                                 topicTitle: selectedTopic?.title || 'Practice Quiz',
+                                 score: 100
+                               });
+                               setIsQuizShareModalOpen(true);
+                             }}
+                             className="mt-2 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition flex items-center justify-center gap-2 active:scale-95"
+                           >
+                             <i className="fa-brands fa-whatsapp text-sm"></i>
+                             <i className="fa-solid fa-share-nodes text-xs"></i>
+                             <span>Share Quiz Score via WhatsApp / App</span>
+                           </button>
                           <p className="text-sm">{currentQuiz.explanation}</p>
                         </div>
                      </div>
@@ -1914,16 +2598,19 @@ const App: React.FC = () => {
                                   <i className="fa-solid fa-list-check"></i> Key Syllabus Topics
                                 </span>
                                 <div className="space-y-1.5">
-                                  {subject.topics.slice(0, 3).map((tp, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-gray-100">
-                                      <span className="font-bold text-gray-800 line-clamp-1">{tp.title}</span>
-                                      {tp.videoUrl && (
-                                        <span className="text-[9px] font-extrabold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-200 shrink-0 ml-1">
-                                          <i className="fa-solid fa-play text-[8px] mr-1"></i> Video
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
+                                  {subject.topics.slice(0, 3).map((tp, idx) => {
+                                    const isTpDone = user.completedTopics.includes(tp.id);
+                                    const tpDiff = getTopicDifficulty(tp, idx);
+                                    return (
+                                      <div key={idx} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-gray-100 gap-2">
+                                        <span className="font-bold text-gray-800 line-clamp-1 flex-1">{tp.title}</span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <DifficultyBadge difficulty={tpDiff} compact />
+                                          <TopicCompletedBadge isCompleted={isTpDone} compact />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                   {subject.topics.length > 3 && (
                                     <p className="text-[10px] text-gray-500 font-bold italic text-center pt-0.5">
                                       + {subject.topics.length - 3} more topics in full syllabus
@@ -2020,30 +2707,50 @@ const App: React.FC = () => {
                   </div>
                   
                   <div className="divide-y divide-gray-100">
-                    {filteredTopics.map((topic, index) => (
-                      <div key={topic.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-                          <div className="flex gap-4">
-                             <div className="flex flex-col items-center">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${user.completedTopics.includes(topic.id) ? 'bg-tz-green text-white border-tz-green' : 'bg-white text-gray-400 border-gray-200'}`}>
-                                  {user.completedTopics.includes(topic.id) ? <i className="fa-solid fa-check"></i> : index + 1}
+                    {filteredTopics.map((topic, index) => {
+                      const isCompleted = user.completedTopics.includes(topic.id);
+                      const diffLevel = getTopicDifficulty(topic, index);
+                      return (
+                        <div 
+                          key={topic.id} 
+                          className={`p-6 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group ${
+                            isCompleted ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-4 border-l-emerald-500' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex gap-4 items-start">
+                             <div className="flex flex-col items-center pt-0.5">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black border-2 ${
+                                  isCompleted ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' : 'bg-white text-gray-400 border-gray-200'
+                                }`}>
+                                  {isCompleted ? <i className="fa-solid fa-check text-white"></i> : index + 1}
                                 </div>
                                 {index !== selectedSubject.topics.length - 1 && <div className="w-0.5 h-full bg-gray-100 my-1"></div>}
                              </div>
-                             <div>
-                                <h4 className="font-bold text-lg text-gray-800 mb-1">{topic.title}</h4>
-                                <p className="text-gray-600 text-sm max-w-xl">{topic.description}</p>
+                             <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="font-extrabold text-lg text-gray-900 leading-tight">{topic.title}</h4>
+                                  <TopicCompletedBadge isCompleted={isCompleted} />
+                                  <DifficultyBadge difficulty={diffLevel} />
+                                </div>
+                                <p className="text-gray-600 text-sm max-w-xl font-medium leading-relaxed">{topic.description}</p>
                              </div>
                           </div>
                           
                           <button 
                               id={`start-learning-${topic.id}`}
                               onClick={() => enterTopic(topic)}
-                              className="px-6 py-3 bg-white border-2 border-gray-100 text-gray-600 rounded-xl font-bold hover:border-tz-blue hover:text-tz-blue transition shadow-[0_2px_0_rgb(229,231,235)] active:shadow-none active:translate-y-[2px]"
+                              className={`px-6 py-3 rounded-xl font-extrabold text-xs transition shadow-sm flex items-center justify-center gap-2 shrink-0 ${
+                                isCompleted 
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200' 
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
+                              }`}
                           >
-                              Start Learning
+                              <span>{isCompleted ? 'Review Topic' : 'Start Learning'}</span>
+                              <i className="fa-solid fa-arrow-right text-xs"></i>
                           </button>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
               </div>
             </div>
@@ -2076,6 +2783,92 @@ const App: React.FC = () => {
                 />
             </div>
           </div>
+        )}
+
+        {/* Floating Offline / Network Toast Notification */}
+        {showOfflineToast && !offlineToastDismissed && (
+          <div className="fixed bottom-6 right-6 z-50 max-w-md animate-fade-in shadow-2xl">
+            <div className={`p-4 rounded-2xl border-2 flex items-start gap-3 backdrop-blur-md ${
+              !isOnline
+                ? 'bg-slate-900/95 border-amber-500/80 text-white'
+                : 'bg-emerald-950/95 border-emerald-500/80 text-white'
+            }`}>
+              <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-lg ${
+                !isOnline ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+              }`}>
+                <i className={`fa-solid ${!isOnline ? 'fa-wifi-slash' : 'fa-wifi'}`}></i>
+              </div>
+
+              <div className="flex-1 space-y-1 text-left">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-sm">
+                    {!isOnline ? 'Offline Mode Active' : 'Internet Restored'}
+                  </h4>
+                  <button
+                    onClick={() => setOfflineToastDismissed(true)}
+                    className="text-gray-400 hover:text-white text-xs p-1"
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-300 leading-relaxed font-medium">
+                  {!isOnline
+                    ? 'Offline Mode is active—some features may be limited. Your saved study notes, vocabulary list, and core syllabus remain accessible!'
+                    : 'Back online! Syncing latest syllabus data and cloud progress.'}
+                </p>
+
+                {!isOnline && (
+                  <div className="pt-2 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                      <i className="fa-solid fa-check text-[9px]"></i> Saved Notes
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                      <i className="fa-solid fa-check text-[9px]"></i> Swahili Dictionary
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                      <i className="fa-solid fa-check text-[9px]"></i> Core Syllabus
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STUDENT PROFILE MODAL */}
+        <StudentProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          user={user}
+          userName={currentUser?.email || 'Student'}
+          onOpenWallet={() => setCurrentView(AppView.WALLET)}
+          onOpenPlanner={() => setCurrentView(AppView.PLANNER)}
+        />
+
+        {/* PARENT DASHBOARD SHARE PROGRESS MODAL */}
+        <ShareProgressModal
+          isOpen={isParentShareModalOpen}
+          onClose={() => setIsParentShareModalOpen(false)}
+          studentName={currentUser?.email ? currentUser.email.split('@')[0] : 'Student'}
+          points={user.points}
+          streak={user.streak}
+          completedTopicsCount={user.completedTopics.length}
+          customTitle="Parent Report Sharing"
+        />
+
+        {/* QUIZ SCORE SHARE PROGRESS MODAL */}
+        {quizShareData && (
+          <ShareProgressModal
+            isOpen={isQuizShareModalOpen}
+            onClose={() => setIsQuizShareModalOpen(false)}
+            studentName={currentUser?.email ? currentUser.email.split('@')[0] : 'Student'}
+            points={user.points}
+            streak={user.streak}
+            completedTopicsCount={user.completedTopics.length}
+            quizResult={quizShareData}
+            customTitle="Share Quiz Result"
+          />
         )}
 
       </main>

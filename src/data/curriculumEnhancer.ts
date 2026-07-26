@@ -1,4 +1,4 @@
-import { GradeLevel, EducationLevel, GradeSyllabus, Subject, Topic, VideoLesson } from '../../types';
+import { GradeLevel, EducationLevel, GradeSyllabus, Subject, Topic, VideoLesson, HomeworkItem } from '../../types';
 
 // Curated Educational YouTube Embed IDs for subject domains
 const VIDEO_DATABASE: Record<string, string[]> = {
@@ -80,55 +80,131 @@ const VIDEO_DATABASE: Record<string, string[]> = {
   ]
 };
 
+export function getHomeworkForTopic(subjectName: string, topicTitle: string, topicId: string, subjectId: string): HomeworkItem[] {
+  return [
+    {
+      id: `hw-${topicId}-1`,
+      topicId,
+      topicTitle,
+      subjectId,
+      subjectName,
+      title: `${topicTitle} - Weekly Homework & Practice Task`,
+      description: `Test your mastery of ${topicTitle}. Solve these core NECTA syllabus questions to reach your Target Score of 85%+!`,
+      dueDate: 'Friday, 8:00 PM',
+      targetScore: 85,
+      maxScore: 100,
+      submitted: false,
+      questions: [
+        {
+          id: `q-${topicId}-1`,
+          question: `What is the primary core principle in ${topicTitle}?`,
+          type: 'multiple-choice',
+          options: [
+            `Fundamental concepts and practical calculations of ${topicTitle}`,
+            `Historical trivia without active problem solving`,
+            `Unrelated theoretical definitions`,
+            `Random numerical guessing`
+          ],
+          correctAnswer: 0,
+          explanation: `In ${subjectName}, ${topicTitle} focuses on fundamental concepts and practical application steps.`
+        },
+        {
+          id: `q-${topicId}-2`,
+          question: `Which method is required when answering NECTA exam questions for ${topicTitle}?`,
+          type: 'multiple-choice',
+          options: [
+            `Ignoring standard units and formulas`,
+            `Listing given data, selecting the correct formula, and showing step-by-step working with SI units`,
+            `Only writing down the final answer without steps`,
+            `Leaving calculations blank`
+          ],
+          correctAnswer: 1,
+          explanation: `NECTA examiners award full marks for writing given parameters, formula substitution, and correct SI units.`
+        },
+        {
+          id: `q-${topicId}-3`,
+          question: `Describe how mastering ${topicTitle} builds key analytical skills for your final national exams.`,
+          type: 'short-answer',
+          correctAnswer: 'Critical thinking, formula application, and systematic step-by-step problem solving.',
+          explanation: `Regular homework practice builds confidence and speed during national examination questions.`
+        }
+      ]
+    }
+  ];
+}
+
 export function getVideosForTopic(subjectName: string, topicTitle: string, index: number): VideoLesson[] {
   const s = subjectName.toLowerCase();
   let list = VIDEO_DATABASE.math;
-  if (s.includes('phy')) list = VIDEO_DATABASE.physics;
-  else if (s.includes('chem')) list = VIDEO_DATABASE.chemistry;
-  else if (s.includes('bio')) list = VIDEO_DATABASE.biology;
-  else if (s.includes('sci')) list = VIDEO_DATABASE.science;
-  else if (s.includes('kisw')) list = VIDEO_DATABASE.kiswahili;
-  else if (s.includes('eng') || s.includes('lit')) list = VIDEO_DATABASE.english;
-  else if (s.includes('french') || s.includes('arabic') || s.includes('chinese')) list = VIDEO_DATABASE.languages;
-  else if (s.includes('hist') || s.includes('geog') || s.includes('civic')) list = VIDEO_DATABASE.humanities;
-  else if (s.includes('comm') || s.includes('book') || s.includes('econ')) list = VIDEO_DATABASE.commercial;
+  let channelName = 'Tanzania Digital Learning Hub';
+
+  if (s.includes('phy')) {
+    list = VIDEO_DATABASE.physics;
+    channelName = 'Physics Simplified TZ';
+  } else if (s.includes('chem')) {
+    list = VIDEO_DATABASE.chemistry;
+    channelName = 'Chemistry Lab & Formulas';
+  } else if (s.includes('bio')) {
+    list = VIDEO_DATABASE.biology;
+    channelName = 'Biology Visuals & Experiments';
+  } else if (s.includes('sci')) {
+    list = VIDEO_DATABASE.science;
+    channelName = 'Primary Science Lab';
+  } else if (s.includes('kisw')) {
+    list = VIDEO_DATABASE.kiswahili;
+    channelName = 'Kiswahili Form / Darasa Channel';
+  } else if (s.includes('eng') || s.includes('lit')) {
+    list = VIDEO_DATABASE.english;
+    channelName = 'English & Literature Mastery';
+  } else if (s.includes('french') || s.includes('arabic') || s.includes('chinese')) {
+    list = VIDEO_DATABASE.languages;
+    channelName = 'Global Language Hub';
+  } else if (s.includes('hist') || s.includes('geog') || s.includes('civic')) {
+    list = VIDEO_DATABASE.humanities;
+    channelName = 'Humanities & Civics Academy';
+  } else if (s.includes('comm') || s.includes('book') || s.includes('econ')) {
+    list = VIDEO_DATABASE.commercial;
+    channelName = 'Business & Financial Studies';
+  }
 
   const url1 = list[index % list.length];
   const url2 = list[(index + 1) % list.length];
   const url3 = list[(index + 2) % list.length];
   const url4 = list[(index + 3) % list.length];
 
+  const prefix = s.includes('phy') ? 'Physics Class' : `${subjectName} Class`;
+
   return [
     {
       id: `vid-${index}-1`,
-      title: `Lesson 1: ${topicTitle} - Core Concepts & Fundamentals`,
+      title: `${prefix}: ${topicTitle} - Core Concepts & Live Demonstration`,
       url: url1,
       duration: '12:45',
-      channel: 'Tanzania Digital Secondary School',
-      badge: 'Main Concept'
+      channel: channelName,
+      badge: 'Main Lecture'
     },
     {
       id: `vid-${index}-2`,
-      title: `Lesson 2: ${topicTitle} - Step-by-Step Solved Examples`,
+      title: `${prefix}: ${topicTitle} - Step-by-Step Solved Calculations & Examples`,
       url: url2,
       duration: '15:20',
-      channel: 'NECTA Exam Mastery Hub',
+      channel: `${channelName} (NECTA Prep)`,
       badge: 'Worked Examples'
     },
     {
       id: `vid-${index}-3`,
-      title: `Lesson 3: ${topicTitle} - Past Exam Paper Questions & Revision`,
+      title: `${prefix}: ${topicTitle} - Past Exam Paper Questions & Revision Solutions`,
       url: url3,
       duration: '18:10',
-      channel: 'Education TZ TV',
+      channel: 'NECTA Exam Revision TV',
       badge: 'NECTA Solutions'
     },
     {
       id: `vid-${index}-4`,
-      title: `Lesson 4: ${topicTitle} - Animated Summary & Visual Guide`,
+      title: `${prefix}: ${topicTitle} - Animated Visual Guide & Quick Summary`,
       url: url4,
       duration: '08:30',
-      channel: 'Global Science & Learning',
+      channel: 'Global STEM Visuals',
       badge: 'Visual Guide'
     }
   ];
@@ -465,16 +541,22 @@ export function enhanceSyllabusWithTopics(baseSyllabus: GradeSyllabus[]): GradeS
         }
       });
 
-      // Ensure every topic has videoUrl and videos list attached
+      // Ensure every topic has videoUrl, videos list, homework items, and target scores attached
       const enrichedTopics = combinedTopics.map((tp, idx) => {
         const topicVideos = tp.videos && tp.videos.length > 0
           ? tp.videos
           : getVideosForTopic(subject.name, tp.title, idx);
 
+        const homeworkItems = tp.homework && tp.homework.length > 0
+          ? tp.homework
+          : getHomeworkForTopic(subject.name, tp.title, tp.id, subject.id);
+
         return {
           ...tp,
           videoUrl: tp.videoUrl || topicVideos[0].url,
-          videos: topicVideos
+          videos: topicVideos,
+          homework: homeworkItems,
+          targetScore: tp.targetScore || 85
         };
       });
 
@@ -503,7 +585,8 @@ export function enhanceSyllabusWithTopics(baseSyllabus: GradeSyllabus[]): GradeS
         topics: enrichedTopics,
         isNewSyllabus,
         hasVideo,
-        isExamFocused
+        isExamFocused,
+        targetScore: subject.targetScore || 85
       };
     });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
+import StudyMusicPlayer from './StudyMusicPlayer';
 
 export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
@@ -82,6 +83,9 @@ export const StudyPlanner: React.FC = () => {
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerTaskTitle, setTimerTaskTitle] = useState<string | null>(null);
+
+  // YouTube Music Area Toggle State
+  const [showMusicPlayer, setShowMusicPlayer] = useState<boolean>(true);
 
   // Web Audio Synth for Reminder Chimes
   const playChime = (type: 'reminder' | 'success') => {
@@ -469,6 +473,19 @@ export const StudyPlanner: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setShowMusicPlayer(!showMusicPlayer)}
+              className={`px-3.5 py-2.5 rounded-xl font-extrabold text-xs transition border flex items-center gap-1.5 shadow-md ${
+                showMusicPlayer
+                  ? 'bg-red-500/20 text-red-300 border-red-400/50 hover:bg-red-500/30'
+                  : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+              }`}
+              title="Toggle YouTube Music & Study Songs Engine"
+            >
+              <i className="fa-brands fa-youtube text-red-500 text-sm"></i>
+              <span>{showMusicPlayer ? 'Music Hub Active 🎵' : 'YouTube Music Area'}</span>
+            </button>
+
+            <button
               onClick={downloadPlannerPdf}
               className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs transition flex items-center gap-1.5 shadow-md"
             >
@@ -662,6 +679,11 @@ export const StudyPlanner: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* YOUTUBE STUDY MUSIC HUB AREA */}
+      {showMusicPlayer && (
+        <StudyMusicPlayer onClose={() => setShowMusicPlayer(false)} />
+      )}
 
       {/* Main Weekly Schedule Board */}
       <div className="bg-white rounded-3xl p-6 border-2 border-gray-100 shadow-sm space-y-6">
