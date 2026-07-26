@@ -10,6 +10,7 @@ interface StudentProfileModalProps {
   userName?: string;
   onOpenWallet?: () => void;
   onOpenPlanner?: () => void;
+  onOpenBadges?: () => void;
 }
 
 export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
@@ -19,6 +20,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   userName = 'EducationTZ Scholar',
   onOpenWallet,
   onOpenPlanner,
+  onOpenBadges,
 }) => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -147,6 +149,31 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 className="w-full sm:w-auto px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-sm transition shrink-0 text-center"
               >
                 Open Wallet
+              </button>
+            </div>
+
+            {/* Badges & Trophies Showcase Card */}
+            <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center text-lg font-bold shadow-xs">
+                  <i className="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-xs text-slate-900">Scholar Awards & Badges</h4>
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    View streak awards, subject trophies, and bonus EP rewards!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  onClose();
+                  if (onOpenBadges) onOpenBadges();
+                }}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-xs transition shrink-0 text-center"
+              >
+                View Badges
               </button>
             </div>
 

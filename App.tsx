@@ -10,9 +10,22 @@ import ALevelGuide from './components/ALevelGuide';
 import Dictionary from './components/Dictionary';
 import NotesHub from './components/NotesHub';
 import StudyPlanner from './components/StudyPlanner';
+import { SchoolAdmissionPredictor } from './components/SchoolAdmissionPredictor';
+import { AssignmentsAndTestsBank } from './components/AssignmentsAndTestsBank';
+import { NectaCountdownTimer } from './components/NectaCountdownTimer';
+import { Badges } from './components/Badges';
+import { GradeChecker } from './components/GradeChecker';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
-import { getTopicDifficulty, DifficultyBadge, TopicCompletedBadge } from './src/data/difficultyHelpers';
+import { 
+  getTopicDifficulty, 
+  DifficultyBadge, 
+  TopicCompletedBadge,
+  getSubjectDifficulty,
+  getSubjectCategory,
+  SubjectDifficultyBadge,
+  SubjectDifficulty
+} from './src/data/difficultyHelpers';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
@@ -505,6 +518,7 @@ const App: React.FC = () => {
   const [currentQuiz, setCurrentQuiz] = useState<QuizQuestion | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
+  const [selectedQuizOptionIndex, setSelectedQuizOptionIndex] = useState<number | null>(null);
 
   // Content Tab State
   const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'homework' | 'exams' | 'language'>('notes');
@@ -577,8 +591,9 @@ const App: React.FC = () => {
   const [dataSaver, setDataSaver] = useState(false);
   const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
 
-  // Subject Badge Filter State
-  const [subjectBadgeFilter, setSubjectBadgeFilter] = useState<'ALL' | 'NEW' | 'VIDEO' | 'EXAM'>('ALL');
+  // Subject Filter States (Difficulty & Type)
+  const [subjectDifficultyFilter, setSubjectDifficultyFilter] = useState<'ALL' | 'EASY' | 'HARD' | 'EXTREME'>('ALL');
+  const [subjectTypeFilter, setSubjectTypeFilter] = useState<'ALL' | 'EXAM' | 'VIDEO' | 'NEW' | 'STEM' | 'ARTS'>('ALL');
   const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
 
   // Student Proficiency Radar Data
@@ -633,6 +648,7 @@ const App: React.FC = () => {
     setIsQuizModalOpen(true);
     setQuizLoading(true);
     setQuizResult('none');
+    setSelectedQuizOptionIndex(null);
     
     const q = await generateQuizQuestion(selectedGrade.grade, selectedSubject.name, selectedTopic.title);
     setCurrentQuiz(q);
@@ -641,6 +657,7 @@ const App: React.FC = () => {
 
   const handleQuizAnswer = (index: number) => {
     if (!currentQuiz || !selectedTopic) return;
+    setSelectedQuizOptionIndex(index);
     
     if (index === currentQuiz.correctIndex) {
       setQuizResult('correct');
@@ -656,7 +673,7 @@ const App: React.FC = () => {
       // Close after delay
       setTimeout(() => {
         setIsQuizModalOpen(false);
-      }, 2000);
+      }, 2500);
     } else {
       setQuizResult('incorrect');
     }
@@ -690,12 +707,22 @@ const App: React.FC = () => {
 
   const displayedSubjects = useMemo(() => {
     return filteredSubjects.filter(s => {
-      if (subjectBadgeFilter === 'NEW') return !!s.isNewSyllabus;
-      if (subjectBadgeFilter === 'VIDEO') return !!s.hasVideo;
-      if (subjectBadgeFilter === 'EXAM') return !!s.isExamFocused;
+      // 1. Difficulty filter check
+      const diff = getSubjectDifficulty(s);
+      if (subjectDifficultyFilter === 'EASY' && diff !== 'easy') return false;
+      if (subjectDifficultyFilter === 'HARD' && diff !== 'hard') return false;
+      if (subjectDifficultyFilter === 'EXTREME' && diff !== 'extreme') return false;
+
+      // 2. Type filter check
+      if (subjectTypeFilter === 'EXAM' && !s.isExamFocused) return false;
+      if (subjectTypeFilter === 'VIDEO' && !s.hasVideo) return false;
+      if (subjectTypeFilter === 'NEW' && !s.isNewSyllabus) return false;
+      if (subjectTypeFilter === 'STEM' && getSubjectCategory(s) !== 'stem') return false;
+      if (subjectTypeFilter === 'ARTS' && getSubjectCategory(s) !== 'arts') return false;
+
       return true;
     });
-  }, [filteredSubjects, subjectBadgeFilter]);
+  }, [filteredSubjects, subjectDifficultyFilter, subjectTypeFilter]);
 
   const filteredTopics = useMemo(() => {
     if (!selectedSubject) return [];
@@ -772,6 +799,34 @@ const App: React.FC = () => {
               <i className="fa-solid fa-chalkboard-user"></i> Teachers
             </button>
             <button 
+              onClick={() => setCurrentView(AppView.PREDICTOR)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.PREDICTOR ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Predict School & University Admission Cutoffs"
+            >
+              <i className="fa-solid fa-graduation-cap text-emerald-600"></i> Admission Predictor 🇹🇿
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.ASSIGNMENTS_TESTS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Assignments, Speed Tests & NECTA Exam Papers"
+            >
+              <i className="fa-solid fa-list-check text-indigo-500"></i> Assignments & Tests 📝
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.BADGES)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.BADGES ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="Scholar Badges, Streaks & Subject Mastery Trophies"
+            >
+              <i className="fa-solid fa-trophy text-amber-500"></i> Badges 🏆
+            </button>
+            <button 
+              onClick={() => setCurrentView(AppView.GRADE_CHECKER)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.GRADE_CHECKER ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="NECTA Grade Check (50-Mark & 100-Mark Scales: 41-50 A, 31-40 B, 21-30 C, 11-20 D, 0-10 F)"
+            >
+              <i className="fa-solid fa-check-double text-emerald-500"></i> Grade Check 📊
+            </button>
+            <button 
               onClick={() => setCurrentView(AppView.ALEVEL_GUIDE)}
               className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.ALEVEL_GUIDE ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
             >
@@ -817,7 +872,11 @@ const App: React.FC = () => {
 
           {/* Stats & Profile Button */}
           <div className="hidden md:flex items-center gap-2">
-            <div className="flex items-center gap-2 text-orange-500 font-bold bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+            <div 
+              onClick={() => setCurrentView(AppView.BADGES)}
+              className="cursor-pointer flex items-center gap-2 text-orange-500 font-bold bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-100 transition"
+              title="Study Streak - View Streak Badges"
+            >
                {user.streak} <i className="fa-solid fa-fire"></i>
             </div>
             <div 
@@ -827,6 +886,14 @@ const App: React.FC = () => {
             >
               {user.points} EP
             </div>
+            <button 
+              onClick={() => setCurrentView(AppView.BADGES)}
+              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-full font-extrabold text-xs transition active:scale-95 shadow-2xs cursor-pointer"
+              title="Scholar Badges & Awards"
+            >
+              <i className="fa-solid fa-award text-amber-600"></i>
+              <span className="hidden sm:inline">Badges</span>
+            </button>
 
             {/* Student Profile & Share Progress Button */}
             <button 
@@ -1979,6 +2046,19 @@ const App: React.FC = () => {
 
   const renderHome = () => (
     <div className="animate-fade-in space-y-12 py-8">
+      {/* NECTA National Final Examinations Countdown Timer */}
+      <div className="max-w-7xl mx-auto px-4">
+        <NectaCountdownTimer
+          initialGrade={selectedGrade ? selectedGrade.grade : (selectedLevel ? selectedLevel : 'Form 4')}
+          onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
+          onNavigateToPlanner={() => setCurrentView(AppView.PLANNER)}
+          onOpenYunAI={(prompt) => {
+            setYunContext(prompt);
+            setCurrentView(AppView.CHAT);
+          }}
+        />
+      </div>
+
       {/* Hero */}
       <div className="text-center space-y-6 max-w-4xl mx-auto px-4 relative">
          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-extrabold text-xs tracking-wider uppercase shadow-sm animate-pulse-glow">
@@ -2143,6 +2223,42 @@ const App: React.FC = () => {
             </div>
             <div className="pt-4 mt-2 border-t border-purple-200/60 flex items-center justify-between text-xs font-black text-purple-700">
               <span>Calculate Grades</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
+
+          {/* Portal 5: School Admission Predictor */}
+          <div
+            className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.PREDICTOR)}
+          >
+            <div>
+              <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
+                <i className="fa-solid fa-graduation-cap"></i>
+              </div>
+              <h4 className="text-lg font-black text-emerald-950 mb-1">School & University Predictor</h4>
+              <p className="text-xs text-emerald-800 font-medium leading-relaxed">Predict exactly which Special National Schools, A-Level Combos, or University programs (UDSM, MUHAS) you qualify for!</p>
+            </div>
+            <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
+              <span>Predict School Admission</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
+
+          {/* Portal 6: Assignments & Practice Test Center */}
+          <div
+            className="bg-sky-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-sky-100/80 transition border-2 border-sky-100 shadow-sm hover:shadow-md"
+            onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
+          >
+            <div>
+              <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-sky-200">
+                <i className="fa-solid fa-list-check"></i>
+              </div>
+              <h4 className="text-lg font-black text-sky-950 mb-1">Assignments & Practice Tests</h4>
+              <p className="text-xs text-sky-800 font-medium leading-relaxed">Practice weekly homework tasks, timed speed tests, and past papers with model answer keys.</p>
+            </div>
+            <div className="pt-4 mt-2 border-t border-sky-200/60 flex items-center justify-between text-xs font-black text-sky-700">
+              <span>Open Test Bank</span>
               <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
             </div>
           </div>
@@ -2317,54 +2433,116 @@ const App: React.FC = () => {
                    </h3>
 
                    <div className="space-y-3">
-                     {currentQuiz.options.map((opt, idx) => (
-                       <button
-                         key={idx}
-                         disabled={quizResult !== 'none'}
-                         onClick={() => handleQuizAnswer(idx)}
-                         className={`w-full p-4 rounded-xl text-left font-medium transition-all border-2 ${
-                            quizResult === 'none' 
-                              ? 'border-gray-100 hover:border-tz-blue hover:bg-blue-50'
-                              : idx === currentQuiz.correctIndex 
-                                ? 'border-green-500 bg-green-50 text-green-700'
-                                : quizResult === 'incorrect' && idx !== currentQuiz.correctIndex // Simple logic: highlight correct, dim others? Actually let's just highlight clicked red if wrong
-                                  ? 'border-gray-100 opacity-50'
-                                  : 'border-gray-100'
-                         } ${quizResult === 'incorrect' && 'shake-animation'}`}
-                       >
-                         {opt}
-                       </button>
-                     ))}
+                     {currentQuiz.options.map((opt, idx) => {
+                       let btnStyle = 'border-gray-100 hover:border-tz-blue hover:bg-blue-50 text-gray-800';
+                       if (quizResult !== 'none') {
+                         if (idx === currentQuiz.correctIndex) {
+                           btnStyle = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold';
+                         } else if (idx === selectedQuizOptionIndex && quizResult === 'incorrect') {
+                           btnStyle = 'border-red-500 bg-red-50 text-red-900 font-bold';
+                         } else {
+                           btnStyle = 'border-gray-100 opacity-50 text-gray-400';
+                         }
+                       }
+
+                       return (
+                         <button
+                           key={idx}
+                           disabled={quizResult !== 'none'}
+                           onClick={() => handleQuizAnswer(idx)}
+                           className={`w-full p-4 rounded-2xl text-left font-semibold text-xs sm:text-sm transition-all border-2 flex items-center justify-between ${btnStyle} ${
+                             quizResult === 'incorrect' && idx === selectedQuizOptionIndex ? 'shake-animation' : ''
+                           }`}
+                         >
+                           <span>{opt}</span>
+                           {quizResult !== 'none' && idx === currentQuiz.correctIndex && (
+                             <i className="fa-solid fa-circle-check text-emerald-600 text-base ml-2 shrink-0"></i>
+                           )}
+                           {quizResult === 'incorrect' && idx === selectedQuizOptionIndex && (
+                             <i className="fa-solid fa-circle-xmark text-red-600 text-base ml-2 shrink-0"></i>
+                           )}
+                         </button>
+                       );
+                     })}
                    </div>
 
                    {quizResult === 'correct' && (
-                     <div className="mt-6 p-4 bg-green-100 rounded-xl text-green-800 flex items-center gap-3 animate-bounce-short">
-                        <i className="fa-solid fa-check-circle text-xl"></i>
-                        <div>
-                          <p className="font-bold">Correct! +50 XP</p>
-                           <button
-                             onClick={() => {
-                               setQuizShareData({
-                                 topicTitle: selectedTopic?.title || 'Practice Quiz',
-                                 score: 100
-                               });
-                               setIsQuizShareModalOpen(true);
-                             }}
-                             className="mt-2 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition flex items-center justify-center gap-2 active:scale-95"
-                           >
-                             <i className="fa-brands fa-whatsapp text-sm"></i>
-                             <i className="fa-solid fa-share-nodes text-xs"></i>
-                             <span>Share Quiz Score via WhatsApp / App</span>
-                           </button>
-                          <p className="text-sm">{currentQuiz.explanation}</p>
+                     <div className="mt-6 p-5 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 space-y-3 animate-fade-in text-left">
+                        <div className="flex items-center gap-2">
+                          <i className="fa-solid fa-circle-check text-emerald-600 text-xl"></i>
+                          <span className="font-black text-sm text-emerald-900">Correct Answer! (+50 XP)</span>
                         </div>
+                        <p className="text-xs text-emerald-800 font-medium leading-relaxed">{currentQuiz.explanation}</p>
+                        
+                        <button
+                          onClick={() => {
+                            setQuizShareData({
+                              topicTitle: selectedTopic?.title || 'Practice Quiz',
+                              score: 100
+                            });
+                            setIsQuizShareModalOpen(true);
+                          }}
+                          className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-95"
+                        >
+                          <i className="fa-brands fa-whatsapp text-sm"></i>
+                          <i className="fa-solid fa-share-nodes text-xs"></i>
+                          <span>Share Quiz Score via WhatsApp / App</span>
+                        </button>
                      </div>
                    )}
                    
                    {quizResult === 'incorrect' && (
-                     <div className="mt-6 p-4 bg-red-50 rounded-xl text-red-800 text-center">
-                        <p className="font-bold">Not quite right.</p>
-                        <button onClick={() => setIsQuizModalOpen(false)} className="mt-2 text-sm underline">Review topic and try again</button>
+                     <div className="mt-6 p-5 bg-red-50/90 rounded-2xl border-2 border-red-200 text-red-950 space-y-4 animate-fade-in text-left">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center text-lg shrink-0 shadow-md">
+                            <i className="fa-solid fa-triangle-exclamation"></i>
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-red-950">Not Quite Right!</h4>
+                            <p className="text-xs text-red-800 font-medium mt-0.5 leading-relaxed">
+                              Don't worry! Review the lesson note to master this concept, then try again.
+                            </p>
+                          </div>
+                        </div>
+
+                        {currentQuiz.explanation && (
+                          <div className="p-3 bg-white/80 rounded-xl border border-red-200 text-xs text-slate-800 font-medium leading-relaxed">
+                            <strong className="text-red-950 font-black flex items-center gap-1 mb-1">
+                              <i className="fa-solid fa-lightbulb text-amber-500"></i> Explanation & Concept Guide:
+                            </strong>
+                            {currentQuiz.explanation}
+                          </div>
+                        )}
+
+                        {/* Action Buttons: Review Note & Try Again */}
+                        <div className="pt-1 flex flex-col sm:flex-row items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setIsQuizModalOpen(false);
+                              if (selectedTopic && selectedSubject) {
+                                setCurrentView(AppView.TOPIC_CONTENT);
+                                setActiveTab('notes');
+                              }
+                            }}
+                            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                            title={`Deep-link to ${selectedTopic?.title || 'Topic'} Lesson Notes`}
+                          >
+                            <i className="fa-solid fa-book-open text-cyan-300"></i>
+                            <span>Review Note 📖</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setQuizResult('none');
+                              setSelectedQuizOptionIndex(null);
+                            }}
+                            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-300/50 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                            title="Re-attempt this Quiz Question"
+                          >
+                            <i className="fa-solid fa-rotate-right"></i>
+                            <span>Try Again 🔄</span>
+                          </button>
+                        </div>
                      </div>
                    )}
                 </div>
@@ -2462,58 +2640,174 @@ const App: React.FC = () => {
               </div>
 
               {/* Stats & Quick Subject Badge Filter Chips */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setSubjectBadgeFilter('ALL')}
-                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
-                      subjectBadgeFilter === 'ALL'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <i className="fa-solid fa-layer-group text-indigo-400"></i> All ({filteredSubjects.length})
-                  </button>
-                  <button
-                    onClick={() => setSubjectBadgeFilter('NEW')}
-                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
-                      subjectBadgeFilter === 'NEW'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                    }`}
-                  >
-                    <i className="fa-solid fa-sparkles text-emerald-400"></i> New Syllabus ({filteredSubjects.filter(s => s.isNewSyllabus).length})
-                  </button>
-                  <button
-                    onClick={() => setSubjectBadgeFilter('VIDEO')}
-                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
-                      subjectBadgeFilter === 'VIDEO'
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-                    }`}
-                  >
-                    <i className="fa-solid fa-circle-play text-red-400"></i> Video Lessons ({filteredSubjects.filter(s => s.hasVideo).length})
-                  </button>
-                  <button
-                    onClick={() => setSubjectBadgeFilter('EXAM')}
-                    className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
-                      subjectBadgeFilter === 'EXAM'
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-                    }`}
-                  >
-                    <i className="fa-solid fa-bullseye text-amber-600"></i> Exam Focused ({filteredSubjects.filter(s => s.isExamFocused).length})
-                  </button>
+              <div className="bg-white rounded-3xl p-5 border-2 border-gray-100 shadow-sm space-y-4">
+                {/* Header Row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">
+                      <i className="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-gray-900 leading-tight">Filter & Sort Subjects</h4>
+                      <p className="text-[11px] text-gray-500 font-medium">
+                        Showing <span className="font-extrabold text-indigo-600">{displayedSubjects.length}</span> of {filteredSubjects.length} subjects
+                      </p>
+                    </div>
+                  </div>
+
+                  {(subjectDifficultyFilter !== 'ALL' || subjectTypeFilter !== 'ALL' || searchQuery) && (
+                    <button
+                      onClick={() => {
+                        setSubjectDifficultyFilter('ALL');
+                        setSubjectTypeFilter('ALL');
+                        setSearchQuery('');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-xs transition flex items-center gap-1.5"
+                    >
+                      <i className="fa-solid fa-rotate-left text-gray-500"></i> Clear Filters
+                    </button>
+                  )}
                 </div>
 
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition shrink-0"
-                  >
-                    <i className="fa-solid fa-rotate-left"></i> Reset Search
-                  </button>
-                )}
+                {/* Filter Pill Group 1: Difficulty */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                      <i className="fa-solid fa-gauge-high text-amber-500"></i> Filter by Difficulty:
+                    </span>
+                    {subjectDifficultyFilter !== 'ALL' && (
+                      <span className="text-[10px] font-extrabold text-indigo-600 uppercase">
+                        Active: {subjectDifficultyFilter}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setSubjectDifficultyFilter('ALL')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectDifficultyFilter === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-sm ring-2 ring-slate-900'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-layer-group text-slate-400"></i> All ({filteredSubjects.length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectDifficultyFilter('EASY')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectDifficultyFilter === 'EASY'
+                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600'
+                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-leaf text-emerald-500"></i> Easy ({filteredSubjects.filter(s => getSubjectDifficulty(s) === 'easy').length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectDifficultyFilter('HARD')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectDifficultyFilter === 'HARD'
+                          ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-600'
+                          : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-fire text-amber-500"></i> Hard ({filteredSubjects.filter(s => getSubjectDifficulty(s) === 'hard').length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectDifficultyFilter('EXTREME')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectDifficultyFilter === 'EXTREME'
+                          ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-600'
+                          : 'bg-rose-50 text-rose-900 hover:bg-rose-100 border border-rose-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-bolt-lightning text-rose-500"></i> Extreme ({filteredSubjects.filter(s => getSubjectDifficulty(s) === 'extreme').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Pill Group 2: Type / Focus */}
+                <div className="space-y-2 pt-1 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                      <i className="fa-solid fa-shapes text-indigo-500"></i> Filter by Subject Type & Focus:
+                    </span>
+                    {subjectTypeFilter !== 'ALL' && (
+                      <span className="text-[10px] font-extrabold text-indigo-600 uppercase">
+                        Active: {subjectTypeFilter}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setSubjectTypeFilter('ALL')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'ALL'
+                          ? 'bg-indigo-900 text-white shadow-sm ring-2 ring-indigo-900'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-border-all text-indigo-300"></i> All Types
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectTypeFilter('EXAM')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'EXAM'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm ring-2 ring-amber-500'
+                          : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-bullseye text-amber-600"></i> Exam-Focused ({filteredSubjects.filter(s => s.isExamFocused).length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectTypeFilter('VIDEO')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'VIDEO'
+                          ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600'
+                          : 'bg-red-50 text-red-800 hover:bg-red-100 border border-red-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-circle-play text-red-500"></i> Video-Rich ({filteredSubjects.filter(s => s.hasVideo).length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectTypeFilter('NEW')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'NEW'
+                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600'
+                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-sparkles text-emerald-500"></i> 2024 Syllabus ({filteredSubjects.filter(s => s.isNewSyllabus).length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectTypeFilter('STEM')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'STEM'
+                          ? 'bg-sky-600 text-white shadow-sm ring-2 ring-sky-600'
+                          : 'bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-flask-vial text-sky-500"></i> STEM & Science ({filteredSubjects.filter(s => getSubjectCategory(s) === 'stem').length})
+                    </button>
+
+                    <button
+                      onClick={() => setSubjectTypeFilter('ARTS')}
+                      className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition flex items-center gap-1.5 ${
+                        subjectTypeFilter === 'ARTS'
+                          ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-600'
+                          : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200'
+                      }`}
+                    >
+                      <i className="fa-solid fa-book-open text-purple-500"></i> Arts & Humanities ({filteredSubjects.filter(s => getSubjectCategory(s) === 'arts').length})
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Subject Cards Grid */}
@@ -2569,9 +2863,10 @@ const App: React.FC = () => {
 
                           {/* Subject Visual Badges */}
                           <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            {subject.isNewSyllabus && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-emerald-100/90 text-emerald-800 border border-emerald-300">
-                                <i className="fa-solid fa-sparkles text-emerald-600"></i> New Syllabus
+                            <SubjectDifficultyBadge difficulty={getSubjectDifficulty(subject)} />
+                            {subject.isExamFocused && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300">
+                                <i className="fa-solid fa-bullseye text-amber-700"></i> Exam Focused
                               </span>
                             )}
                             {subject.hasVideo && (
@@ -2579,9 +2874,9 @@ const App: React.FC = () => {
                                 <i className="fa-solid fa-circle-play text-red-600"></i> Video Available
                               </span>
                             )}
-                            {subject.isExamFocused && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300">
-                                <i className="fa-solid fa-bullseye text-amber-700"></i> Exam Focused
+                            {subject.isNewSyllabus && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black text-[10px] bg-emerald-100/90 text-emerald-800 border border-emerald-300">
+                                <i className="fa-solid fa-sparkles text-emerald-600"></i> New Syllabus
                               </span>
                             )}
                           </div>
@@ -2756,7 +3051,27 @@ const App: React.FC = () => {
             </div>
         )}
 
+    {currentView === AppView.PREDICTOR && <SchoolAdmissionPredictor />}
+    {currentView === AppView.ASSIGNMENTS_TESTS && <AssignmentsAndTestsBank onScoreCompleted={(xp) => {
+      setUser(prev => ({ ...prev, points: prev.points + xp }));
+    }} />}
     {currentView === AppView.WALLET && renderWallet()}
+    {currentView === AppView.BADGES && (
+      <Badges
+        user={user}
+        onUpdateUserProgress={setUser}
+        onNavigateView={(v) => setCurrentView(v as AppView)}
+      />
+    )}
+    {currentView === AppView.GRADE_CHECKER && (
+      <GradeChecker
+        onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
+        onOpenYunAI={(prompt) => {
+          setYunContext(prompt);
+          setCurrentView(AppView.CHAT);
+        }}
+      />
+    )}
     {currentView === AppView.EXAMS && <ExamVault />}
     {currentView === AppView.PLANNER && <StudyPlanner />}
     {currentView === AppView.DICTIONARY && <Dictionary />}
@@ -2844,6 +3159,7 @@ const App: React.FC = () => {
           userName={currentUser?.email || 'Student'}
           onOpenWallet={() => setCurrentView(AppView.WALLET)}
           onOpenPlanner={() => setCurrentView(AppView.PLANNER)}
+          onOpenBadges={() => setCurrentView(AppView.BADGES)}
         />
 
         {/* PARENT DASHBOARD SHARE PROGRESS MODAL */}

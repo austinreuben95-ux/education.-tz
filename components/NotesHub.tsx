@@ -190,6 +190,125 @@ For every action, there is an equal and opposite reaction.
       'Filtration removes dirt particles',
       'Clean water prevents cholera and typhoid'
     ]
+  },
+  {
+    id: 'note-7',
+    title: 'Chemistry Form 3: Periodic Table & Chemical Bonding NECTA Notes',
+    subject: 'Chemistry',
+    level: 'Secondary (O-Level)',
+    updatedAt: '2026-07-22',
+    content: `
+# Periodic Table & Chemical Bonding
+
+## 1. Periodic Trends across Periods and Groups:
+- **Atomic Radius**: Decreases across a period (left to right due to increased nuclear charge pulling electrons closer); Increases down a group (due to additional electron shells).
+- **Electronegativity**: Tendency of an atom to attract shared electrons in a bond. Increases across a period, decreases down a group.
+- **Ionization Energy**: Energy required to remove the outermost electron from a gaseous atom.
+
+## 2. Types of Chemical Bonds:
+- **Ionic (Electrovalent) Bond**: Formed by the complete TRANSFER of valence electrons from a metal (electropositive) to a non-metal (electronegative). Example: NaCl, MgO. High melting points and soluble in water.
+- **Covalent Bond**: Formed by the SHARING of electron pairs between non-metal atoms. Example: H₂O, CO₂, CH₄.
+- **Metallic Bond**: Attraction between positive metal ions and a sea of delocalized free valence electrons. Conducts electricity in solid state.
+
+## 3. NECTA Exam Traps:
+- Always draw dot-and-cross diagrams showing outermost shell electrons only!
+- Note why ionic compounds conduct electricity in molten or aqueous state, but NOT in solid state (ions are fixed in rigid lattice).
+    `,
+    keyPoints: [
+      'Ionic Bond = Electron Transfer (Metals + Non-Metals)',
+      'Covalent Bond = Electron Sharing (Non-Metals)',
+      'Electronegativity increases left-to-right across periods',
+      'Ionic compounds conduct electricity when molten or dissolved in water'
+    ]
+  },
+  {
+    id: 'note-8',
+    title: 'Geography Form 4: Map Reading, Grid References & Bearing Calculations',
+    subject: 'Geography',
+    level: 'Secondary (O-Level)',
+    updatedAt: '2026-07-21',
+    content: `
+# Topographical Map Reading & Analysis
+
+## 1. Grid References (Eastings & Northings):
+- **Eastings**: Vertical grid lines numbered from West to East (read FIRST).
+- **Northings**: Horizontal grid lines numbered from South to North (read SECOND).
+- **Rule**: "Along the corridor, then up the stairs" (Eastings before Northings).
+- **6-Digit Grid Reference**: Divide grid square into 10 equal imaginary subdivisions.
+
+## 2. Calculating True Bearing & Back Bearing:
+- **True Bearing**: Angle measured clockwise from True North (0° to 360°).
+- **Back Bearing Formula**:
+  - If Forward Bearing < 180°: Back Bearing = Forward Bearing + 180°.
+  - If Forward Bearing ≥ 180°: Back Bearing = Forward Bearing - 180°.
+
+## 3. Gradient Calculation:
+- **Gradient = Vertical Interval (VI) / Horizontal Distance (HD)**.
+- Ensure both VI and HD are converted into the SAME unit (Meters) before dividing!
+    `,
+    keyPoints: [
+      'Eastings FIRST, Northings SECOND',
+      'Back Bearing = Forward Bearing ± 180°',
+      'Gradient = Vertical Interval / Horizontal Distance',
+      'Contours close together = Steep Slope; Far apart = Gentle Slope'
+    ]
+  },
+  {
+    id: 'note-9',
+    title: 'A-Level Pure Mathematics: Differential Calculus & Optimization',
+    subject: 'Mathematics',
+    level: 'High School (A-Level)',
+    updatedAt: '2026-07-20',
+    content: `
+# Advanced Differential Calculus & Curve Sketching
+
+## 1. Core Differentiation Rules:
+- **Power Rule**: d/dx [xⁿ] = n·xⁿ⁻¹
+- **Product Rule**: d/dx [u·v] = u·(dv/dx) + v·(du/dx)
+- **Quotient Rule**: d/dx [u / v] = [v·(du/dx) - u·(dv/dx)] / v²
+- **Chain Rule**: dy/dx = (dy/du) × (du/dx)
+
+## 2. Stationary Points & Curve Turning:
+- Set dy/dx = 0 to find stationary x-coordinates.
+- Evaluate second derivative d²y/dx²:
+  - If d²y/dx² > 0: Minimum Vertex
+  - If d²y/dx² < 0: Maximum Vertex
+  - If d²y/dx² = 0: Point of Inflexion
+
+## 3. Real-World Optimization Applications:
+- Maximizing volume of storage containers or minimizing structural material surface area in engineering.
+    `,
+    keyPoints: [
+      'Stationary points occur when first derivative dy/dx = 0',
+      'd²y/dx² > 0 indicates a Minimum point; < 0 indicates a Maximum point',
+      'Quotient Rule requires subtraction in numerator: (v u\' - u v\') / v²',
+      'Chain Rule is used for composite function differentiation'
+    ]
+  },
+  {
+    id: 'note-10',
+    title: 'University Studies: Development Studies & Tanzania Vision 2025',
+    subject: 'Development Studies',
+    level: 'Higher Education',
+    updatedAt: '2026-07-19',
+    content: `
+# Development Studies & Economic Transformation in Tanzania
+
+## 1. Tanzania Development Vision 2025 Core Pillars:
+- **High Quality Livelihood**: Eradication of poverty, access to clean water, quality education, and healthcare for all citizens.
+- **Good Governance & Rule of Law**: Corruption-free administration, transparent public finance, and strong institutional frameworks.
+- **Strong & Competitive Economy**: Diversification from subsistence agriculture to semi-industrialized economy with value-addition manufacturing.
+
+## 2. Key National Infrastructure Projects:
+- **Julius Nyerere Hydroelectric Power Project (JNHPP)**: 2,115 MW electricity capacity supporting manufacturing and power export across East Africa.
+- **Standard Gauge Railway (SGR)**: Electric railway line connecting Dar es Salaam port to Dodoma, Mwanza, Kigoma, and landlocked neighboring nations (Rwanda, Burundi, DRC).
+    `,
+    keyPoints: [
+      'Vision 2025 aims for a middle-income semi-industrialized country',
+      '3 Main Pillars: High Quality Livelihood, Good Governance, Strong Economy',
+      'JNHPP generates 2,115 MW power for industrial transformation',
+      'SGR enhances East African trade corridors'
+    ]
   }
 ];
 
