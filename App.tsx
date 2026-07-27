@@ -623,6 +623,59 @@ const App: React.FC = () => {
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [recentQuickSessions, recentSessionsSort]);
 
+  const downloadRecentSessionsLog = () => {
+    if (recentQuickSessions.length === 0) return;
+
+    const sessionItems = [...recentQuickSessions]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5)
+      .map((s, idx) => {
+        const dateStr = new Date(s.timestamp).toLocaleString('en-GB', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+        const completed = isSessionTopicCompleted(s) ? '[COMPLETED ✓]' : '[IN PROGRESS ⚡]';
+        const difficulty = s.difficulty || 'Moderate 🟡';
+        const estTime = s.timeEstimate || '15-25 min';
+        return `${idx + 1}. ${s.gradeName} - ${s.subjectName}: "${s.topicTitle}"
+   • Status: ${completed}
+   • Level & Est. Time: ${difficulty} | ${estTime}
+   • Session Date: ${dateStr}`;
+      })
+      .join('\n\n');
+
+    const content = `=======================================================
+TANZANIA NATIONAL SYLLABUS - REVISION SESSION LOG
+=======================================================
+Generated On: ${new Date().toLocaleString()}
+Total Recorded Sessions: ${recentQuickSessions.length}
+
+-------------------------------------------------------
+LAST 5 REVISION TOPICS SUMMARY:
+-------------------------------------------------------
+
+${sessionItems}
+
+-------------------------------------------------------
+OFFLINE STUDY GUIDANCE & RECOMMENDATIONS:
+- Review key definitions and NECTA exam command words for these topics.
+- Attempt 2-3 past paper questions for each subject listed above.
+- Test active recall without looking at reference notes.
+=======================================================
+Tanzania Educational Platform - Elimu Bora kwa Wote
+`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Syllabus_Study_Log_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Network Event Listeners Hook
   useEffect(() => {
     const handleOnline = () => {
@@ -2319,6 +2372,16 @@ const App: React.FC = () => {
                       <option value="difficulty" className="bg-slate-900 text-slate-200 font-medium">Difficulty Level</option>
                     </select>
                   </div>
+
+                  {/* Download Session Log Button */}
+                  <button
+                    onClick={downloadRecentSessionsLog}
+                    className="text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                    title="Download revision session log for offline reference (.txt)"
+                  >
+                    <i className="fa-solid fa-file-arrow-down text-[11px] text-amber-400"></i>
+                    <span>Log (.txt)</span>
+                  </button>
 
                   <button
                     onClick={() => {
