@@ -16,6 +16,8 @@ import { AssignmentsAndTestsBank } from './components/AssignmentsAndTestsBank';
 import { NectaCountdownTimer } from './components/NectaCountdownTimer';
 import { Badges } from './components/Badges';
 import { GradeChecker } from './components/GradeChecker';
+import StrategicRoadmap from './components/StrategicRoadmap';
+import { RoadmapModal } from './components/RoadmapModal';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
 import { 
@@ -516,6 +518,7 @@ const App: React.FC = () => {
 
   // Quiz State
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [isRoadmapModalOpen, setIsRoadmapModalOpen] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<QuizQuestion | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
@@ -1066,6 +1069,13 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
               className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.CALCULATOR ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
             >
               <i className="fa-solid fa-calculator"></i> Calc
+            </button>
+            <button 
+              onClick={() => setIsRoadmapModalOpen(true)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/30 hover:bg-amber-300 border border-amber-300 cursor-pointer`}
+              title="150 Strategic Ideas & Master Platform Roadmap"
+            >
+              <i className="fa-solid fa-rocket text-amber-900"></i> 150 Ideas 🚀
             </button>
 
             {/* Low-MB Data Saver Toggle */}
@@ -2653,6 +2663,27 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
               <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
             </div>
           </div>
+
+          {/* Portal 7: 150 Strategic Ideas & Master Blueprint */}
+          <div
+            className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/15 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:from-amber-500/20 hover:to-amber-400/10 transition border-2 border-amber-300 shadow-sm hover:shadow-md relative overflow-hidden"
+            onClick={() => setIsRoadmapModalOpen(true)}
+          >
+            <div>
+              <div className="w-12 h-12 bg-amber-500 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30 font-black">
+                <i className="fa-solid fa-rocket"></i>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/30 text-amber-900 font-extrabold text-[10px] uppercase mb-1 border border-amber-400/40">
+                <span>150 Strategic Features</span>
+              </div>
+              <h4 className="text-lg font-black text-slate-900 mb-1">150 Innovation Ideas & Blueprint</h4>
+              <p className="text-xs text-slate-700 font-medium leading-relaxed">Explore the complete 150-point master roadmap powering NECTA exam tech, STEM labs, low-bandwidth PWA, AI tools & Swahili localization.</p>
+            </div>
+            <div className="pt-4 mt-2 border-t border-amber-300/60 flex items-center justify-between text-xs font-black text-amber-900">
+              <span>Explore 150 Strategy Points</span>
+              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3463,6 +3494,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         }}
       />
     )}
+    {currentView === AppView.ROADMAP && <StrategicRoadmap onBackHome={goHome} />}
     {currentView === AppView.EXAMS && <ExamVault />}
     {currentView === AppView.PLANNER && <StudyPlanner />}
     {currentView === AppView.DICTIONARY && <Dictionary />}
@@ -3577,6 +3609,12 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             customTitle="Share Quiz Result"
           />
         )}
+
+        {/* ROADMAP 150 IDEAS MASTER MODAL */}
+        <RoadmapModal
+          isOpen={isRoadmapModalOpen}
+          onClose={() => setIsRoadmapModalOpen(false)}
+        />
 
       </main>
     </div>
