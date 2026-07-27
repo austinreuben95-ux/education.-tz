@@ -1,16 +1,17 @@
 {
-  "name": "Education TZ",
-  "description": "The ultimate primary education companion for Tanzania. Features interactive quizzes, gamified progress tracking, and Yun - your AI Tutor powered by Gemini.",
+  "name": "Education TZ - NECTA & EdTech Portal",
+  "description": "Comprehensive Tanzanian Secondary Education Portal featuring Form 1-6 curriculum notes, NECTA exam archives, Division GPA calculators, STEM labs, Kiswahili dictionary, and 150 Strategic Ideas roadmap.",
   "keywords": [
     "education",
     "tanzania",
-    "primary school",
+    "necta",
+    "secondary school",
+    "form 1-6",
     "ai tutor",
     "gemini",
     "swahili",
-    "math",
-    "science"
+    "stem"
   ],
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
