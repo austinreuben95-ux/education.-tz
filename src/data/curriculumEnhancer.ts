@@ -551,8 +551,21 @@ export function enhanceSyllabusWithTopics(baseSyllabus: GradeSyllabus[]): GradeS
           ? tp.homework
           : getHomeworkForTopic(subject.name, tp.title, tp.id, subject.id);
 
+        const gName = gradeData.grade.toLowerCase();
+        let topicDifficulty: 'easy' | 'amateur' | 'hard' | 'extreme' = 'amateur';
+        if (gName.includes('standard') || gName.includes('primary')) {
+          topicDifficulty = idx % 2 === 0 ? 'easy' : 'amateur';
+        } else if (gName.includes('form 1') || gName.includes('form 2')) {
+          topicDifficulty = idx % 3 === 0 ? 'easy' : 'amateur';
+        } else if (gName.includes('form 3') || gName.includes('form 4')) {
+          topicDifficulty = idx % 3 === 0 ? 'amateur' : 'hard';
+        } else if (gName.includes('form 5') || gName.includes('form 6')) {
+          topicDifficulty = idx % 2 === 0 ? 'hard' : 'extreme';
+        }
+
         return {
           ...tp,
+          difficulty: tp.difficulty || topicDifficulty,
           videoUrl: tp.videoUrl || topicVideos[0].url,
           videos: topicVideos,
           homework: homeworkItems,

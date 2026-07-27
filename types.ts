@@ -41,6 +41,17 @@ export interface HomeworkQuestion {
   explanation: string;
 }
 
+export interface QuickStudySession {
+  id: string;
+  topicId?: string;
+  gradeName: string;
+  subjectName: string;
+  topicTitle: string;
+  timestamp: number;
+  difficulty?: string;
+  timeEstimate?: string;
+}
+
 export interface HomeworkItem {
   id: string;
   topicId: string;

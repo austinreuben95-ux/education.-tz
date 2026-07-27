@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel } from './types';
+import confetti from 'canvas-confetti';
+import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel, QuickStudySession } from './types';
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
 import RadarChart, { SubjectProficiency } from './components/RadarChart';
@@ -559,6 +560,69 @@ const App: React.FC = () => {
   const [quizShareData, setQuizShareData] = useState<{ topicTitle: string; score: number } | null>(null);
   const [isQuizShareModalOpen, setIsQuizShareModalOpen] = useState(false);
 
+  // Recent Quick Study Sessions (max 5 items stored locally)
+  const [recentQuickSessions, setRecentQuickSessions] = useState<QuickStudySession[]>(() => {
+    try {
+      const saved = localStorage.getItem('tz_recent_quick_study_sessions');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [recentSessionsSort, setRecentSessionsSort] = useState<'newest' | 'shortest' | 'difficulty'>('newest');
+
+  // Check if a quick study session's topic is marked completed
+  const isSessionTopicCompleted = useCallback((session: QuickStudySession) => {
+    if (!user || !user.completedTopics) return false;
+    if (session.topicId && user.completedTopics.includes(session.topicId)) {
+      return true;
+    }
+    const g = SYLLABUS_DATA.find(item => item.grade.toLowerCase() === session.gradeName.toLowerCase() || item.grade.toLowerCase().includes(session.gradeName.toLowerCase()));
+    if (!g) return false;
+    const s = g.subjects.find(sub => sub.name.toLowerCase() === session.subjectName.toLowerCase());
+    if (!s) return false;
+    const t = s.topics.find(top => top.title.toLowerCase() === session.topicTitle.toLowerCase());
+    if (!t) return false;
+    return user.completedTopics.includes(t.id);
+  }, [user]);
+
+  // Determine the most recent session by timestamp
+  const mostRecentSession = useMemo(() => {
+    if (recentQuickSessions.length === 0) return null;
+    return [...recentQuickSessions].sort((a, b) => b.timestamp - a.timestamp)[0];
+  }, [recentQuickSessions]);
+
+  // Check if the most recent session is unfinished
+  const isMostRecentSessionUnfinished = useMemo(() => {
+    if (!mostRecentSession) return false;
+    return !isSessionTopicCompleted(mostRecentSession);
+  }, [mostRecentSession, isSessionTopicCompleted]);
+
+  const sortedRecentSessions = useMemo(() => {
+    const list = [...recentQuickSessions];
+    if (recentSessionsSort === 'shortest') {
+      const getShortestTimeValue = (s: QuickStudySession) => {
+        const te = s.timeEstimate || '15-25m';
+        const match = te.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 15;
+      };
+      return list.sort((a, b) => getShortestTimeValue(a) - getShortestTimeValue(b));
+    }
+    if (recentSessionsSort === 'difficulty') {
+      const getDifficultyRank = (s: QuickStudySession) => {
+        const d = (s.difficulty || '').toLowerCase();
+        if (d.includes('easy')) return 1;
+        if (d.includes('amateur') || d.includes('moderate')) return 2;
+        if (d.includes('hard')) return 3;
+        if (d.includes('extreme')) return 4;
+        return 2;
+      };
+      return list.sort((a, b) => getDifficultyRank(a) - getDifficultyRank(b));
+    }
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  }, [recentQuickSessions, recentSessionsSort]);
+
   // Network Event Listeners Hook
   useEffect(() => {
     const handleOnline = () => {
@@ -633,6 +697,118 @@ const App: React.FC = () => {
     if (currentUser) {
        await updateUserCredits(currentUser.uid, newCredits, newPoints);
     }
+  };
+
+  const getTopicTimeEstimate = (topic?: Topic | null, difficulty?: string, gradeName?: string) => {
+    const diff = (topic?.difficulty || difficulty || '').toLowerCase();
+    const g = (gradeName || selectedGrade?.grade || '').toLowerCase();
+
+    if (diff === 'extreme' || g.includes('form 5') || g.includes('form 6')) {
+      return { time: '~35-50 mins', level: 'Advanced A-Level', badge: 'Extreme 🔴', shortTime: '35-50 min' };
+    }
+    if (diff === 'hard' || g.includes('form 3') || g.includes('form 4')) {
+      return { time: '~25-35 mins', level: 'NECTA O-Level', badge: 'Hard 🟠', shortTime: '25-35 min' };
+    }
+    if (diff === 'easy' || g.includes('standard') || g.includes('primary')) {
+      return { time: '~10-15 mins', level: 'Primary Rapid', badge: 'Easy 🟢', shortTime: '10-15 min' };
+    }
+    return { time: '~15-25 mins', level: 'Secondary Standard', badge: 'Moderate 🟡', shortTime: '15-25 min' };
+  };
+
+  const recordQuickStudySession = (gradeName: string, subjectName: string, topicTitle: string, topic?: Topic | null) => {
+    const est = getTopicTimeEstimate(topic, topic?.difficulty, gradeName);
+    const newSession: QuickStudySession = {
+      id: `${gradeName}-${subjectName}-${topicTitle}-${Date.now()}`,
+      topicId: topic?.id,
+      gradeName,
+      subjectName,
+      topicTitle,
+      timestamp: Date.now(),
+      difficulty: topic?.difficulty || est.badge,
+      timeEstimate: est.shortTime
+    };
+
+    setRecentQuickSessions(prev => {
+      const filtered = prev.filter(
+        s => !(s.gradeName === gradeName && s.subjectName === subjectName && s.topicTitle === topicTitle)
+      );
+      const updated = [newSession, ...filtered].slice(0, 5);
+      try {
+        localStorage.setItem('tz_recent_quick_study_sessions', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  };
+
+  const handleQuickStudySession = () => {
+    // Confetti explosion effect
+    try {
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    let targetGrade = selectedGrade;
+    if (!targetGrade) {
+      const form4 = SYLLABUS_DATA.find(g => g.grade.toLowerCase().includes('form 4'));
+      targetGrade = form4 || SYLLABUS_DATA[Math.floor(Math.random() * SYLLABUS_DATA.length)];
+    }
+
+    if (!targetGrade || !targetGrade.subjects || targetGrade.subjects.length === 0) return;
+
+    const randomSubject = targetGrade.subjects[Math.floor(Math.random() * targetGrade.subjects.length)];
+    if (!randomSubject || !randomSubject.topics || randomSubject.topics.length === 0) return;
+
+    const randomTopic = randomSubject.topics[Math.floor(Math.random() * randomSubject.topics.length)];
+
+    // Record this session in local state & storage with topic metadata
+    recordQuickStudySession(targetGrade.grade, randomSubject.name, randomTopic.title, randomTopic);
+
+    setSelectedGrade(targetGrade);
+    setSelectedSubject(randomSubject);
+    setSelectedTopic(randomTopic);
+    setActiveVideoIndex(0);
+    setActiveTab('notes');
+    setYunContext(`Quick Study Session on ${randomTopic.title} in ${randomSubject.name} (${targetGrade.grade})`);
+    setCurrentView(AppView.TOPIC_CONTENT);
+  };
+
+  const resumeQuickStudySession = (session: QuickStudySession) => {
+    const targetGrade = SYLLABUS_DATA.find(g => g.grade.toLowerCase() === session.gradeName.toLowerCase()) || 
+                        SYLLABUS_DATA.find(g => g.grade.toLowerCase().includes(session.gradeName.toLowerCase()));
+    if (!targetGrade) return;
+
+    const targetSubject = targetGrade.subjects.find(s => s.name.toLowerCase() === session.subjectName.toLowerCase());
+    if (!targetSubject) return;
+
+    const targetTopic = targetSubject.topics.find(t => t.title.toLowerCase() === session.topicTitle.toLowerCase());
+    if (!targetTopic) return;
+
+    try {
+      confetti({
+        particleCount: 60,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    recordQuickStudySession(targetGrade.grade, targetSubject.name, targetTopic.title, targetTopic);
+
+    setSelectedGrade(targetGrade);
+    setSelectedSubject(targetSubject);
+    setSelectedTopic(targetTopic);
+    setActiveVideoIndex(0);
+    setActiveTab('notes');
+    setYunContext(`Resuming Quick Study Session on ${targetTopic.title} in ${targetSubject.name} (${targetGrade.grade})`);
+    setCurrentView(AppView.TOPIC_CONTENT);
   };
 
   const enterTopic = (topic: Topic) => {
@@ -2047,16 +2223,168 @@ const App: React.FC = () => {
   const renderHome = () => (
     <div className="animate-fade-in space-y-12 py-8">
       {/* NECTA National Final Examinations Countdown Timer */}
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 space-y-4">
         <NectaCountdownTimer
           initialGrade={selectedGrade ? selectedGrade.grade : (selectedLevel ? selectedLevel : 'Form 4')}
           onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
           onNavigateToPlanner={() => setCurrentView(AppView.PLANNER)}
+          onStartQuickStudy={handleQuickStudySession}
           onOpenYunAI={(prompt) => {
             setYunContext(prompt);
             setCurrentView(AppView.CHAT);
           }}
         />
+
+        {/* Start Quick Study Session Action Bar Below Timer */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border-2 border-indigo-500/30 shadow-xl flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3.5 text-left">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center text-xl font-black shrink-0 shadow-lg shadow-amber-400/20">
+                <i className="fa-solid fa-bolt text-slate-950"></i>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-xs font-black uppercase text-amber-300 tracking-wider">Instant Review</span>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-500/30 text-indigo-200 text-[10px] font-extrabold uppercase border border-indigo-400/30">NECTA Curriculum</span>
+                </div>
+                <h4 className="font-black text-sm sm:text-base text-white">
+                  Start Quick Study Session
+                </h4>
+                <p className="text-xs text-slate-300 font-medium">
+                  Jump directly into a random syllabus topic for rapid lesson notes, video tutorials & practice quizzes!
+                </p>
+              </div>
+            </div>
+
+          <div className="relative group/btn w-full sm:w-auto">
+            <button
+              id="start-quick-study-session-btn"
+              onClick={handleQuickStudySession}
+              className="w-full px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-amber-400/30 animate-subtle-pulse hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer"
+              title="Triggers a random, AI-selected syllabus topic review with lesson notes, videos & quizzes"
+            >
+              <i className="fa-solid fa-dice text-base text-slate-950"></i>
+              <span>Start Quick Study Session ⚡</span>
+            </button>
+
+            {/* Hover Tooltip Indicator with Time to Master estimate */}
+            {(() => {
+              const est = getTopicTimeEstimate(null, undefined, selectedGrade?.grade);
+              return (
+                <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/btn:opacity-100 transition-all duration-200 pointer-events-none z-30 whitespace-nowrap bg-slate-900 text-amber-300 font-bold text-[11px] px-3.5 py-2 rounded-2xl border border-amber-400/60 shadow-2xl flex flex-col items-center gap-1 scale-95 group-hover/btn:scale-100">
+                  <div className="flex items-center gap-2">
+                    <i className="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                    <span>Random AI Topic Review</span>
+                    <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 text-[10px] font-black uppercase border border-amber-400/40">
+                      ⏱️ Time to Master: {est.time}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
+                    <span>Est. based on {selectedGrade?.grade || 'Form 4'} topic difficulty ({est.level})</span>
+                  </div>
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 border-r border-b border-amber-400/60 rotate-45"></div>
+                </div>
+              );
+            })()}
+          </div>
+          </div>
+
+          {/* Recent Quick Study Sessions Quick-Access List */}
+          {recentQuickSessions.length > 0 && (
+            <div className="pt-4 border-t border-indigo-500/20 text-left w-full space-y-2.5 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <i className="fa-solid fa-clock-rotate-left text-amber-400 text-xs"></i>
+                  <span className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                    Recent Sessions ({recentQuickSessions.length}/5)
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">• Click any card to resume review</span>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  {/* Sort by dropdown */}
+                  <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-indigo-400/30 text-[11px] font-bold text-slate-300">
+                    <label htmlFor="recent-sessions-sort-select" className="text-amber-400/90 flex items-center gap-1 cursor-pointer">
+                      <i className="fa-solid fa-arrow-down-short-wide text-[10px]"></i>
+                      <span>Sort by:</span>
+                    </label>
+                    <select
+                      id="recent-sessions-sort-select"
+                      value={recentSessionsSort}
+                      onChange={(e) => setRecentSessionsSort(e.target.value as 'newest' | 'shortest' | 'difficulty')}
+                      className="bg-transparent text-amber-300 font-extrabold focus:outline-none cursor-pointer text-[11px] pr-1"
+                    >
+                      <option value="newest" className="bg-slate-900 text-slate-200 font-medium">Newest</option>
+                      <option value="shortest" className="bg-slate-900 text-slate-200 font-medium">Shortest Time</option>
+                      <option value="difficulty" className="bg-slate-900 text-slate-200 font-medium">Difficulty Level</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setRecentQuickSessions([]);
+                      try {
+                        localStorage.removeItem('tz_recent_quick_study_sessions');
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    className="text-[10px] font-bold text-slate-400 hover:text-red-400 transition flex items-center gap-1 cursor-pointer ml-auto"
+                    title="Clear recent study history"
+                  >
+                    <i className="fa-solid fa-trash-can text-[10px]"></i>
+                    <span>Clear History</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {sortedRecentSessions.map((session, index) => {
+                  const isUnfinishedResumeTarget = isMostRecentSessionUnfinished && session.id === mostRecentSession?.id;
+                  const isCompleted = isSessionTopicCompleted(session);
+
+                  return (
+                    <button
+                      key={session.id}
+                      onClick={() => resumeQuickStudySession(session)}
+                      style={{ animationDelay: `${Math.min(index * 60, 300)}ms` }}
+                      className={`px-3.5 py-2 rounded-xl transition group flex items-center gap-2 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer animate-slide-in-item ${
+                        isUnfinishedResumeTarget
+                          ? 'bg-slate-900 hover:bg-indigo-950 border-2 border-amber-400 text-white animate-subtle-pulse shadow-md shadow-amber-400/25 ring-2 ring-amber-400/40'
+                          : 'bg-slate-800/90 hover:bg-indigo-900/90 border border-indigo-400/25 hover:border-amber-400/60 text-slate-200 hover:text-white'
+                      }`}
+                      title={
+                        isUnfinishedResumeTarget
+                          ? `⚡ CONTINUE STUDYING (UNFINISHED): ${session.topicTitle} - ${session.subjectName} (${session.gradeName}) • Est. Time: ${session.timeEstimate || '15-25 min'}`
+                          : `Resume ${session.topicTitle} - ${session.subjectName} (${session.gradeName}) • Est. Time to Master: ${session.timeEstimate || '15-25 min'}`
+                      }
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform ${isUnfinishedResumeTarget ? 'bg-amber-300 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
+                      <span className="font-extrabold text-amber-300 group-hover:text-amber-200 shrink-0">{session.gradeName}</span>
+                      <span className="text-indigo-300 font-bold shrink-0">{session.subjectName}:</span>
+                      <span className="text-slate-100 font-medium truncate max-w-[120px] sm:max-w-[170px]">{session.topicTitle}</span>
+
+                      {isUnfinishedResumeTarget ? (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shrink-0 animate-pulse">
+                          <i className="fa-solid fa-play text-[8px]"></i> Resume
+                        </span>
+                      ) : isCompleted ? (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30 shrink-0">
+                          ✓ Done
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 text-[10px] font-extrabold border border-amber-400/25 shrink-0">
+                          ⏱️ {session.timeEstimate || '15-25m'}
+                        </span>
+                      )}
+                      <i className="fa-solid fa-rotate-right text-[10px] text-amber-400/80 group-hover:text-amber-300 transition-transform group-hover:rotate-45 ml-0.5 shrink-0"></i>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hero */}

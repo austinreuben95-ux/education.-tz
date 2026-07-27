@@ -153,7 +153,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
             <div className="flex items-center gap-2">
               <h2 className="font-black text-lg text-white tracking-wide">Yun AI 3D</h2>
               <span className="bg-gradient-to-r from-cyan-400 to-fuchsia-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                Gemini & ChatGPT Core
+                Yun AI Core
               </span>
             </div>
             <p className="text-xs text-cyan-300/80 font-medium flex items-center gap-1.5">
@@ -265,7 +265,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
           <div className="flex items-center gap-3">
             <YunAvatar3D size="sm" state="thinking" />
             <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl rounded-tl-sm px-5 py-4 shadow-lg flex items-center gap-3">
-              <span className="text-xs font-bold text-cyan-300 animate-pulse">Yun is reasoning like Gemini & ChatGPT...</span>
+              <span className="text-xs font-bold text-cyan-300 animate-pulse">Yun is reasoning...</span>
               <div className="flex gap-1.5">
                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-fuchsia-400 rounded-full animate-bounce delay-150"></div>
@@ -313,7 +313,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
-          <span>Yun uses Gemini AI models for deep inquiry & step-by-step logic.</span>
+          <span>Yun AI engine for deep inquiry & step-by-step logic.</span>
           <span className="text-cyan-400/80 font-semibold">Tanzania Curriculum Aligned</span>
         </div>
       </div>

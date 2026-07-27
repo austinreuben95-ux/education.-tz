@@ -5,6 +5,7 @@ export interface NectaCountdownTimerProps {
   onNavigateToExams?: () => void;
   onNavigateToPlanner?: () => void;
   onOpenYunAI?: (prompt: string) => void;
+  onStartQuickStudy?: () => void;
 }
 
 export interface NectaExamSpec {
@@ -128,7 +129,8 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
   initialGrade,
   onNavigateToExams,
   onNavigateToPlanner,
-  onOpenYunAI
+  onOpenYunAI,
+  onStartQuickStudy
 }) => {
   // Determine starting exam based on initialGrade
   const initialExamId = useMemo(() => {
@@ -355,6 +357,17 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
 
         {/* Quick Action Navigation Buttons */}
         <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+          {onStartQuickStudy && (
+            <button
+              onClick={onStartQuickStudy}
+              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-amber-400/30 active:scale-95"
+              title="Open a random syllabus topic for immediate study review"
+            >
+              <i className="fa-solid fa-bolt text-slate-950"></i>
+              <span>Quick Study Session ⚡</span>
+            </button>
+          )}
+
           {onNavigateToExams && (
             <button
               onClick={onNavigateToExams}
