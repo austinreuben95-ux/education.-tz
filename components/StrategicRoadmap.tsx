@@ -1704,7 +1704,10 @@ export const ALL_150_ROADMAP_POINTS: RoadmapPoint[] = [
   }
 ];
 
-export const StrategicRoadmap: React.FC<{ onBackHome?: () => void }> = ({ onBackHome }) => {
+export const StrategicRoadmap: React.FC<{
+  onBackHome?: () => void;
+  onLaunchFeature?: (point: RoadmapPoint) => void;
+}> = ({ onBackHome, onLaunchFeature }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -2029,18 +2032,31 @@ export const StrategicRoadmap: React.FC<{ onBackHome?: () => void }> = ({ onBack
               </div>
 
               {/* Card Footer */}
-              <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-extrabold text-[10px] flex items-center gap-1">
+              <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-extrabold text-[10px] flex items-center gap-1 shrink-0">
                   <i className="fa-solid fa-user text-[9px] text-gray-400"></i> {point.targetAudience}
                 </span>
 
-                <button
-                  onClick={() => setActiveItemModal(point)}
-                  className="text-xs font-black text-tz-blue hover:text-indigo-800 flex items-center gap-1 group-hover:translate-x-1 transition cursor-pointer"
-                >
-                  <span>Read Details</span>
-                  <i className="fa-solid fa-arrow-right text-[10px]"></i>
-                </button>
+                <div className="flex items-center gap-2">
+                  {onLaunchFeature && (
+                    <button
+                      onClick={() => onLaunchFeature(point)}
+                      className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] flex items-center gap-1 transition cursor-pointer shadow-sm"
+                      title="Launch this feature inside the website"
+                    >
+                      <i className="fa-solid fa-bolt text-[10px]"></i>
+                      <span>Launch Tool</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setActiveItemModal(point)}
+                    className="text-xs font-black text-tz-blue hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Details</span>
+                    <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -2113,24 +2129,38 @@ export const StrategicRoadmap: React.FC<{ onBackHome?: () => void }> = ({ onBack
               </p>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
               <button
                 onClick={() => {
                   toggleFavorite(activeItemModal.id);
                 }}
-                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   favorites.includes(activeItemModal.id)
                     ? 'bg-red-50 text-red-600 border border-red-200'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
                 <i className="fa-solid fa-heart"></i>
-                <span>{favorites.includes(activeItemModal.id) ? 'Favorited' : 'Add to Favorites'}</span>
+                <span>{favorites.includes(activeItemModal.id) ? 'Saved' : 'Save'}</span>
               </button>
+
+              {onLaunchFeature && (
+                <button
+                  onClick={() => {
+                    const itemToLaunch = activeItemModal;
+                    setActiveItemModal(null);
+                    onLaunchFeature(itemToLaunch);
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs cursor-pointer shadow-md shadow-amber-400/20 flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-bolt"></i>
+                  <span>Launch Feature in App</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setActiveItemModal(null)}
-                className="py-2.5 px-6 rounded-xl bg-tz-blue hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-blue-200 cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs cursor-pointer"
               >
                 Close
               </button>

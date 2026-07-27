@@ -5,12 +5,14 @@ interface RoadmapModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCategory?: string;
+  onLaunchFeature?: (point: RoadmapPoint) => void;
 }
 
 export const RoadmapModal: React.FC<RoadmapModalProps> = ({
   isOpen,
   onClose,
   initialCategory = 'all',
+  onLaunchFeature,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
@@ -355,19 +357,35 @@ Elimu Bora kwa Wote - Tanzania Educational Tech Roadmap
                     </div>
 
                     {/* Footer */}
-                    <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold text-[10px]">
+                    <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold text-[10px] shrink-0">
                         <i className="fa-solid fa-user text-[9px] mr-1 text-slate-400"></i>
                         {point.targetAudience}
                       </span>
 
-                      <button
-                        onClick={() => setActiveItem(point)}
-                        className="text-xs font-black text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Details</span>
-                        <i className="fa-solid fa-chevron-right text-[10px]"></i>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {onLaunchFeature && (
+                          <button
+                            onClick={() => {
+                              onLaunchFeature(point);
+                              onClose();
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] flex items-center gap-1 transition cursor-pointer shadow-sm"
+                            title="Launch this feature inside the website"
+                          >
+                            <i className="fa-solid fa-bolt text-[10px]"></i>
+                            <span>Launch</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => setActiveItem(point)}
+                          className="text-xs font-black text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Details</span>
+                          <i className="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -437,22 +455,37 @@ Elimu Bora kwa Wote - Tanzania Educational Tech Roadmap
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
                 <button
                   onClick={() => toggleFavorite(activeItem.id)}
-                  className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+                  className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer ${
                     favorites.includes(activeItem.id)
                       ? 'bg-red-500/20 text-red-300 border border-red-500/40'
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                   }`}
                 >
                   <i className="fa-solid fa-heart"></i>
-                  <span>{favorites.includes(activeItem.id) ? 'Saved to Favorites' : 'Save to Favorites'}</span>
+                  <span>{favorites.includes(activeItem.id) ? 'Saved' : 'Save'}</span>
                 </button>
+
+                {onLaunchFeature && (
+                  <button
+                    onClick={() => {
+                      const itemToLaunch = activeItem;
+                      setActiveItem(null);
+                      onClose();
+                      onLaunchFeature(itemToLaunch);
+                    }}
+                    className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs cursor-pointer shadow-md shadow-amber-400/20 flex items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-bolt"></i>
+                    <span>Launch Feature in App</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setActiveItem(null)}
-                  className="py-2.5 px-6 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md shadow-amber-400/20"
+                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs cursor-pointer border border-slate-700"
                 >
                   Close
                 </button>

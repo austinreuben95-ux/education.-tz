@@ -524,6 +524,48 @@ const App: React.FC = () => {
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
   const [selectedQuizOptionIndex, setSelectedQuizOptionIndex] = useState<number | null>(null);
 
+  // 150 Strategic Ideas Feature Launch Router
+  const handleLaunchRoadmapFeature = (point: { id: number; title: string; category: string; summary: string }) => {
+    setIsRoadmapModalOpen(false);
+
+    const titleLower = point.title.toLowerCase();
+    const catLower = point.category.toLowerCase();
+
+    // Map feature directly to live platform tools & views
+    if (point.id === 1 || titleLower.includes('calculator') || titleLower.includes('division') || titleLower.includes('points')) {
+      setCurrentView(AppView.GRADE_CHECKER);
+    } else if (point.id === 2 || point.id === 3 || catLower === 'careers' || titleLower.includes('tcu') || titleLower.includes('combination')) {
+      setCurrentView(AppView.ALEVEL_GUIDE);
+    } else if (point.id === 5 || catLower === 'examtech' || titleLower.includes('exam') || titleLower.includes('past paper')) {
+      setCurrentView(AppView.EXAMS);
+    } else if (point.id === 111 || catLower === 'swahili' || titleLower.includes('dictionary') || titleLower.includes('kiswahili')) {
+      setCurrentView(AppView.DICTIONARY);
+    } else if (point.id === 61 || titleLower.includes('planner') || titleLower.includes('schedule') || titleLower.includes('timetable')) {
+      setCurrentView(AppView.PLANNER);
+    } else if (catLower === 'stem' || titleLower.includes('formula') || titleLower.includes('science') || titleLower.includes('lab')) {
+      setCurrentView(AppView.NOTES);
+    } else if (catLower === 'teacher' || titleLower.includes('lesson plan')) {
+      setCurrentView(AppView.TEACHERS);
+    } else if (catLower === 'admin' || titleLower.includes('audit')) {
+      setCurrentView(AppView.ADMIN);
+    } else if (catLower === 'ecosystem' || point.id === 141 || titleLower.includes('parent')) {
+      setCurrentView(AppView.PARENTS);
+    } else if (titleLower.includes('badge') || titleLower.includes('trophy') || titleLower.includes('streak')) {
+      setCurrentView(AppView.BADGES);
+    } else if (point.id === 46 || catLower === 'offline' || titleLower.includes('low-bandwidth') || titleLower.includes('offline')) {
+      setDataSaver(true);
+      setShowOfflineToast(true);
+      setOfflineToastDismissed(false);
+    } else if (point.id === 131 || catLower === 'ai' || titleLower.includes('ai') || titleLower.includes('yun')) {
+      setYunContext(`[150 Ideas #${point.id} - ${point.title}]: ${point.summary}. How can I use this to excel in my NECTA studies?`);
+      setCurrentView(AppView.CHAT);
+    } else {
+      // General launch: Launch Yun AI Tutor pre-configured with this exact 150-Idea context!
+      setYunContext(`[Strategic Idea #${point.id} - ${point.title}]: ${point.summary}. Please guide me on using this learning tool.`);
+      setCurrentView(AppView.CHAT);
+    }
+  };
+
   // Content Tab State
   const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'homework' | 'exams' | 'language'>('notes');
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
@@ -3494,7 +3536,12 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         }}
       />
     )}
-    {currentView === AppView.ROADMAP && <StrategicRoadmap onBackHome={goHome} />}
+    {currentView === AppView.ROADMAP && (
+      <StrategicRoadmap
+        onBackHome={goHome}
+        onLaunchFeature={handleLaunchRoadmapFeature}
+      />
+    )}
     {currentView === AppView.EXAMS && <ExamVault />}
     {currentView === AppView.PLANNER && <StudyPlanner />}
     {currentView === AppView.DICTIONARY && <Dictionary />}
@@ -3614,6 +3661,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         <RoadmapModal
           isOpen={isRoadmapModalOpen}
           onClose={() => setIsRoadmapModalOpen(false)}
+          onLaunchFeature={handleLaunchRoadmapFeature}
         />
 
       </main>
