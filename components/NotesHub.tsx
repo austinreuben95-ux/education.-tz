@@ -675,15 +675,24 @@ export const NotesHub: React.FC = () => {
                     <p className="text-xs text-gray-500 font-medium line-clamp-2">{note.content.replace(/#|\*/g, '')}</p>
                   </div>
 
-                  {note.isCustom && (
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteCustomNote(note.id); }}
-                      className="text-gray-300 hover:text-red-500 p-1 transition"
-                      title="Delete Note"
+                      onClick={(e) => { e.stopPropagation(); downloadNoteAsPdf(note); }}
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition cursor-pointer"
+                      title="Download as PDF"
                     >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      <i className="fa-solid fa-file-pdf text-sm"></i>
                     </button>
-                  )}
+                    {note.isCustom && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCustomNote(note.id); }}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+                        title="Delete Note"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -785,7 +794,7 @@ export const NotesHub: React.FC = () => {
                   <button
                     onClick={() => downloadNoteAsPdf(selectedNote)}
                     disabled={isPdfGenerating}
-                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-200 transition flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-200 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
                     title="Download Formatted Compressed PDF for Offline Study"
                   >
                     {isPdfGenerating ? (
@@ -795,8 +804,8 @@ export const NotesHub: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <i className="fa-solid fa-file-pdf text-amber-300"></i>
-                        <span>Download Formatted PDF</span>
+                        <i className="fa-solid fa-file-pdf text-amber-300 text-sm"></i>
+                        <span>Download as PDF</span>
                       </>
                     )}
                   </button>

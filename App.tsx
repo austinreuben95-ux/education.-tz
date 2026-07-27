@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import confetti from 'canvas-confetti';
+import { jsPDF } from 'jspdf';
 import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel, QuickStudySession } from './types';
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
@@ -668,6 +669,138 @@ const App: React.FC = () => {
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [recentQuickSessions, recentSessionsSort]);
 
+  const downloadTopicNotePdf = (subjectName: string, topicTitle: string, deepNote: any) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - (margin * 2);
+
+      // Header Banner
+      doc.setFillColor(6, 78, 59);
+      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.setFillColor(250, 204, 21);
+      doc.rect(0, 28, pageWidth, 2, 'F');
+
+      doc.setTextColor(250, 204, 21);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('ElimuTanzania • NECTA Curriculum Lesson Summary', margin, 9);
+
+      doc.setTextColor(209, 250, 229);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`${subjectName.toUpperCase()} | ${selectedGrade?.grade || 'Secondary'} | Date: ${new Date().toLocaleDateString()}`, margin, 15);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      const titleLines = doc.splitTextToSize(topicTitle, contentWidth);
+      doc.text(titleLines[0] || topicTitle, margin, 22);
+
+      let currentY = 36;
+
+      // Curiosity Hook Box
+      if (deepNote.curiosityHook) {
+        doc.setFillColor(254, 243, 199);
+        doc.setDrawColor(251, 191, 36);
+        doc.setLineWidth(0.3);
+
+        const hookLines = doc.splitTextToSize(`Did You Know? ${deepNote.curiosityHook}`, contentWidth - 8);
+        const hookHeight = hookLines.length * 4.5 + 6;
+
+        doc.roundedRect(margin, currentY, contentWidth, hookHeight, 2, 2, 'FD');
+        doc.setTextColor(146, 64, 14);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+
+        let hY = currentY + 5;
+        hookLines.forEach((line: string) => {
+          doc.text(line, margin + 4, hY);
+          hY += 4.5;
+        });
+
+        currentY += hookHeight + 6;
+      }
+
+      // Deep Overview
+      if (deepNote.deepOverview) {
+        doc.setTextColor(6, 78, 59);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('Deep Concept Breakdown:', margin, currentY);
+        currentY += 5;
+
+        doc.setTextColor(51, 65, 85);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        const overviewWrapped = doc.splitTextToSize(deepNote.deepOverview, contentWidth);
+        overviewWrapped.forEach((line: string) => {
+          if (currentY > pageHeight - 15) {
+            doc.addPage();
+            currentY = 18;
+          }
+          doc.text(line, margin, currentY);
+          currentY += 4.5;
+        });
+        currentY += 4;
+      }
+
+      // NECTA Tips
+      if (deepNote.nectaExamTips && deepNote.nectaExamTips.length > 0) {
+        if (currentY > pageHeight - 30) {
+          doc.addPage();
+          currentY = 18;
+        }
+        doc.setTextColor(30, 58, 138);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.text('NECTA Exam Secrets & Traps:', margin, currentY);
+        currentY += 5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+
+        deepNote.nectaExamTips.forEach((tip: string) => {
+          const tipWrapped = doc.splitTextToSize(`• ${tip}`, contentWidth - 4);
+          tipWrapped.forEach((tLine: string) => {
+            if (currentY > pageHeight - 15) {
+              doc.addPage();
+              currentY = 18;
+            }
+            doc.text(tLine, margin + 2, currentY);
+            currentY += 4.5;
+          });
+        });
+      }
+
+      // Footer
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text('Official NECTA Curriculum Study Summary • ElimuTanzania', margin, pageHeight - 7);
+        doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin - 15, pageHeight - 7);
+      }
+
+      const safeFilename = `${subjectName}_${topicTitle}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      doc.save(`${safeFilename}_study_summary.pdf`);
+    } catch (err) {
+      console.error('PDF error:', err);
+      alert('Error generating PDF.');
+    }
+  };
+
   const downloadRecentSessionsLog = () => {
     if (recentQuickSessions.length === 0) return;
 
@@ -1292,19 +1425,30 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                         </div>
                       </div>
 
-                      <div className="flex items-center bg-white p-1 rounded-xl border border-indigo-200">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
-                          onClick={() => setBilingualLang('EN')}
-                          className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'EN' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+                          onClick={() => downloadTopicNotePdf(selectedSubject.name, selectedTopic.title, deepNote)}
+                          className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          title="Download Formatted Study Summary as PDF for Offline Viewing"
                         >
-                          English
+                          <i className="fa-solid fa-file-pdf text-amber-300"></i>
+                          <span>Download as PDF</span>
                         </button>
-                        <button
-                          onClick={() => setBilingualLang('SW')}
-                          className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'SW' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
-                        >
-                          Kiswahili
-                        </button>
+
+                        <div className="flex items-center bg-white p-1 rounded-xl border border-indigo-200">
+                          <button
+                            onClick={() => setBilingualLang('EN')}
+                            className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'EN' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+                          >
+                            English
+                          </button>
+                          <button
+                            onClick={() => setBilingualLang('SW')}
+                            className={`px-3 py-1 rounded-lg font-extrabold text-xs transition ${bilingualLang === 'SW' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+                          >
+                            Kiswahili
+                          </button>
+                        </div>
                       </div>
                     </div>
 
