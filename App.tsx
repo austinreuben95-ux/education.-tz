@@ -400,6 +400,7 @@ const App: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [yunContext, setYunContext] = useState<string>('');
+  const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
   
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -801,6 +802,99 @@ const App: React.FC = () => {
     }
   };
 
+  // Speech Synthesis for Lesson Notes
+  const [isSpeakingLesson, setIsSpeakingLesson] = useState(false);
+  const [isSpeechPaused, setIsSpeechPaused] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [selectedTopic, selectedSubject, activeTab, currentView, bilingualLang]);
+
+  const handleToggleLessonSpeech = (deepNote: any) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert('Speech synthesis is not supported in your browser.');
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (synth.speaking) {
+      if (synth.paused) {
+        synth.resume();
+        setIsSpeechPaused(false);
+        setIsSpeakingLesson(true);
+        return;
+      } else {
+        synth.pause();
+        setIsSpeechPaused(true);
+        return;
+      }
+    }
+
+    synth.cancel();
+
+    const titleStr = bilingualLang === 'SW' ? (deepNote.swahiliTitle || selectedTopic?.title) : selectedTopic?.title;
+    const hookStr = bilingualLang === 'SW' ? deepNote.swahiliCuriosityHook : deepNote.curiosityHook;
+    const overviewStr = bilingualLang === 'SW' ? (deepNote.kiswahiliOverview || deepNote.deepOverview) : deepNote.deepOverview;
+    const tipsStr = bilingualLang === 'SW' ? (deepNote.swahiliNectaTips || deepNote.nectaExamTips) : deepNote.nectaExamTips;
+
+    let textToRead = `${titleStr || 'Lesson Notes'}. `;
+    if (hookStr) {
+      textToRead += `${bilingualLang === 'SW' ? 'Je wajua?' : 'Did you know?'} ${hookStr}. `;
+    }
+    if (overviewStr) {
+      textToRead += `${bilingualLang === 'SW' ? 'Maelezo ya kina:' : 'Deep concept breakdown:'} ${overviewStr}. `;
+    }
+    if (tipsStr && tipsStr.length > 0) {
+      textToRead += `${bilingualLang === 'SW' ? 'Mbinu za Mtihani wa NECTA:' : 'NECTA Exam Secrets:'} ${tipsStr.join('. ')}.`;
+    }
+
+    const cleanText = textToRead.replace(/[#*`_~]/g, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+
+    const langCode = bilingualLang === 'SW' ? 'sw-TZ' : 'en-US';
+    utterance.lang = langCode;
+
+    const voices = synth.getVoices();
+    const desiredPrefix = bilingualLang === 'SW' ? 'sw' : 'en';
+    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(desiredPrefix));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+
+    utterance.onstart = () => {
+      setIsSpeakingLesson(true);
+      setIsSpeechPaused(false);
+    };
+
+    utterance.onend = () => {
+      setIsSpeakingLesson(false);
+      setIsSpeechPaused(false);
+    };
+
+    utterance.onerror = () => {
+      setIsSpeakingLesson(false);
+      setIsSpeechPaused(false);
+    };
+
+    synth.speak(utterance);
+  };
+
+  const handleStopLessonSpeech = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeakingLesson(false);
+    setIsSpeechPaused(false);
+  };
+
   const downloadRecentSessionsLog = () => {
     if (recentQuickSessions.length === 0) return;
 
@@ -882,9 +976,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   const [parentPin, setParentPin] = useState('');
   const [isParentUnlocked, setIsParentUnlocked] = useState(false);
 
-  // Data Saver & Bilingual States
+  // Data Saver State
   const [dataSaver, setDataSaver] = useState(false);
-  const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
 
   // Subject Filter States (Difficulty & Type)
   const [subjectDifficultyFilter, setSubjectDifficultyFilter] = useState<'ALL' | 'EASY' | 'HARD' | 'EXTREME'>('ALL');
@@ -1426,6 +1519,45 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
+                        {/* Listen to Lesson (SpeechSynthesis) */}
+                        <button
+                          onClick={() => handleToggleLessonSpeech(deepNote)}
+                          className={`px-3.5 py-1.5 rounded-xl text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                            isSpeakingLesson && !isSpeechPaused
+                              ? 'bg-amber-500 hover:bg-amber-600 animate-pulse ring-2 ring-amber-300'
+                              : isSpeechPaused
+                              ? 'bg-indigo-600 hover:bg-indigo-700'
+                              : 'bg-emerald-600 hover:bg-emerald-700'
+                          }`}
+                          title="Listen to this lesson read aloud in preferred language"
+                        >
+                          <i className={`fa-solid ${
+                            isSpeakingLesson && !isSpeechPaused
+                              ? 'fa-circle-pause text-white text-sm'
+                              : isSpeechPaused
+                              ? 'fa-circle-play text-emerald-300 text-sm'
+                              : 'fa-volume-high text-amber-300 text-sm'
+                          }`}></i>
+                          <span>
+                            {isSpeakingLesson && !isSpeechPaused
+                              ? 'Pause Audio'
+                              : isSpeechPaused
+                              ? 'Resume Audio'
+                              : (bilingualLang === 'SW' ? 'Sikiliza Somo' : 'Listen to Lesson')}
+                          </span>
+                        </button>
+
+                        {(isSpeakingLesson || isSpeechPaused) && (
+                          <button
+                            onClick={handleStopLessonSpeech}
+                            className="px-2.5 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                            title="Stop Speech Playback"
+                          >
+                            <i className="fa-solid fa-square text-red-500 text-xs"></i>
+                            <span>Stop</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={() => downloadTopicNotePdf(selectedSubject.name, selectedTopic.title, deepNote)}
                           className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"

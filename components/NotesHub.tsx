@@ -329,6 +329,72 @@ export const NotesHub: React.FC = () => {
   const [newContent, setNewContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [isSpeakingNote, setIsSpeakingNote] = useState(false);
+  const [isNotePaused, setIsNotePaused] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [selectedNote]);
+
+  const handleToggleNoteSpeech = (note: StudyNote) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert('Speech synthesis is not supported in your browser.');
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (synth.speaking) {
+      if (synth.paused) {
+        synth.resume();
+        setIsNotePaused(false);
+        setIsSpeakingNote(true);
+        return;
+      } else {
+        synth.pause();
+        setIsNotePaused(true);
+        return;
+      }
+    }
+
+    synth.cancel();
+
+    const cleanContent = `${note.title}. Subject: ${note.subject}. ${note.content}`.replace(/[#*`_~]/g, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanContent);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.lang = note.subject.toLowerCase().includes('swahili') ? 'sw-TZ' : 'en-US';
+
+    utterance.onstart = () => {
+      setIsSpeakingNote(true);
+      setIsNotePaused(false);
+    };
+
+    utterance.onend = () => {
+      setIsSpeakingNote(false);
+      setIsNotePaused(false);
+    };
+
+    utterance.onerror = () => {
+      setIsSpeakingNote(false);
+      setIsNotePaused(false);
+    };
+
+    synth.speak(utterance);
+  };
+
+  const handleStopNoteSpeech = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeakingNote(false);
+    setIsNotePaused(false);
+  };
 
   useEffect(() => {
     localStorage.setItem('elimu_user_notes', JSON.stringify(customNotes));
@@ -791,6 +857,44 @@ export const NotesHub: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleToggleNoteSpeech(selectedNote)}
+                    className={`px-4 py-2.5 rounded-xl text-white font-black text-xs transition flex items-center gap-2 shadow-md cursor-pointer ${
+                      isSpeakingNote && !isNotePaused
+                        ? 'bg-amber-500 hover:bg-amber-600 animate-pulse ring-2 ring-amber-300'
+                        : isNotePaused
+                        ? 'bg-indigo-600 hover:bg-indigo-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                    title="Listen to this note read aloud using Speech Synthesis"
+                  >
+                    <i className={`fa-solid ${
+                      isSpeakingNote && !isNotePaused
+                        ? 'fa-circle-pause text-white'
+                        : isNotePaused
+                        ? 'fa-circle-play text-emerald-300'
+                        : 'fa-volume-high text-amber-300'
+                    }`}></i>
+                    <span>
+                      {isSpeakingNote && !isNotePaused
+                        ? 'Pause Audio'
+                        : isNotePaused
+                        ? 'Resume Audio'
+                        : 'Listen to Note'}
+                    </span>
+                  </button>
+
+                  {(isSpeakingNote || isNotePaused) && (
+                    <button
+                      onClick={handleStopNoteSpeech}
+                      className="px-3 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                      title="Stop Speech Playback"
+                    >
+                      <i className="fa-solid fa-square text-red-500 text-xs"></i>
+                      <span>Stop</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => downloadNoteAsPdf(selectedNote)}
                     disabled={isPdfGenerating}
