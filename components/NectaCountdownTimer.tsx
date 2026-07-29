@@ -1,5 +1,376 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
+// ==========================================
+// 9,999,999,999+ / INFINITY MULTI-LINGUAL MOTIVATIONAL QUOTES BANK & GENERATOR
+// ==========================================
+export interface MotivationalQuote {
+  quote: string;
+  author: string;
+  tag: string;
+  lang: string; // SW, EN, FR, AR, ES, ZH, PT, DE, HI, JA
+  flag: string;
+  langName: string;
+}
+
+export const CURATED_MOTIVATIONAL_QUOTES: MotivationalQuote[] = [
+  // GLOBAL ICONIC & HISTORICAL LEGENDS ⭐
+  {
+    quote: "The way to get started is to quit talking and begin doing.",
+    author: "Walt Disney",
+    tag: "Action & Vision 🏰",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "All our dreams can come true, if we have the courage to pursue them.",
+    author: "Walt Disney",
+    tag: "Courage & Dreams ✨",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "An investment in knowledge pays the best interest.",
+    author: "Benjamin Franklin",
+    tag: "Value of Education 💡",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "Tell me and I forget, teach me and I may remember, involve me and I learn.",
+    author: "Benjamin Franklin",
+    tag: "Active Learning 📚",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "Education is not the learning of facts, but the training of the mind to think.",
+    author: "Albert Einstein",
+    tag: "Critical Mindset 🧠",
+    lang: "EN",
+    flag: "🌐",
+    langName: "English"
+  },
+  {
+    quote: "Genius is 1% talent and 99% hard work.",
+    author: "Albert Einstein",
+    tag: "Pure Effort 🔥",
+    lang: "EN",
+    flag: "🌐",
+    langName: "English"
+  },
+  {
+    quote: "The only way to do great work is to love what you do.",
+    author: "Steve Jobs",
+    tag: "Passion & Purpose 🚀",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "The future belongs to those who believe in the beauty of their dreams.",
+    author: "Eleanor Roosevelt",
+    tag: "Belief & Vision 🌟",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "Dedicating yourself to your craft is what separates the good from the legendary.",
+    author: "Kobe Bryant",
+    tag: "Mamba Mentality 🐍",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+  {
+    quote: "Education is the passport to the future, for tomorrow belongs to those who prepare for it today.",
+    author: "Malcolm X",
+    tag: "Preparation ⏳",
+    lang: "EN",
+    flag: "🇺🇸",
+    langName: "English"
+  },
+
+  // KISWAHILI 🇹🇿
+  {
+    quote: "Elimu ni urithi pekee usiofisidika. Mtihani wa NECTA ni fursa yako ya kuonesha uwezo wako wa kipekee!",
+    author: "Mwalimu J.K. Nyerere Spirit",
+    tag: "Uzalendo & Masomo 🇹🇿",
+    lang: "SW",
+    flag: "🇹🇿",
+    langName: "Kiswahili"
+  },
+  {
+    quote: "Tofauti kati ya mwanafunzi anayefeli na anayefaulu kwa Distinction ni maandalizi ya leo badala ya kesho!",
+    author: "Mbinu za NECTA",
+    tag: "Nia na Vitendo ⚡",
+    lang: "SW",
+    flag: "🇹🇿",
+    langName: "Kiswahili"
+  },
+  {
+    quote: "Mti wenye matunda bora ndio unaorushiwa mawe. Changamoto za masomo ni ishara ya ukuaji wako!",
+    author: "Methali ya Kiswahili",
+    tag: "Subira na Uvumilivu 🌿",
+    lang: "SW",
+    flag: "🇹🇿",
+    langName: "Kiswahili"
+  },
+  {
+    quote: "Kila fomula na dhana unayoelewa leo inakusogeza karibu zaidi na ndoto yako ya Chuo Kikuu!",
+    author: "ElimuTanzania Guide",
+    tag: "Malengo Makubwa 🎯",
+    lang: "SW",
+    flag: "🇹🇿",
+    langName: "Kiswahili"
+  },
+  {
+    quote: "Bora utoe jasho kwenye chumba cha kujisomea leo kuliko kutoa machozi siku ya matokeo!",
+    author: "Ushauri wa Walimu",
+    tag: "Nia ya Dhati 🔥",
+    lang: "SW",
+    flag: "🇹🇿",
+    langName: "Kiswahili"
+  },
+
+  // ENGLISH 🇬🇧
+  {
+    quote: "Division One is not born by chance; it is forged by midnight revision, past papers, and unwavering focus.",
+    author: "NECTA Excellence Guide",
+    tag: "Academic Grit 🏆",
+    lang: "EN",
+    flag: "🇬🇧",
+    langName: "English"
+  },
+  {
+    quote: "Do not pray for an easy exam; pray for the discipline to master every single topic in your syllabus.",
+    author: "Scholar's Creed",
+    tag: "Mindset Strategy 💡",
+    lang: "EN",
+    flag: "🇬🇧",
+    langName: "English"
+  },
+  {
+    quote: "Small daily study streaks compound into massive academic victories on exam result day.",
+    author: "Habit of Champions",
+    tag: "Consistency 📈",
+    lang: "EN",
+    flag: "🇬🇧",
+    langName: "English"
+  },
+  {
+    quote: "Success in NECTA is 10% talent and 90% solving past examination papers with active memory recall.",
+    author: "NECTA Examiner Insights",
+    tag: "Exam Tech 📝",
+    lang: "EN",
+    flag: "🇬🇧",
+    langName: "English"
+  },
+  {
+    quote: "Your brain is a muscle. The harder the past paper problem, the stronger your intellect becomes.",
+    author: "Cognitive Science",
+    tag: "Mental Strength 🧠",
+    lang: "EN",
+    flag: "🇬🇧",
+    langName: "English"
+  },
+
+  // FRENCH 🇫🇷
+  {
+    quote: "L'éducation est l'arme la plus puissante que vous puissiez utiliser pour changer votre avenir et votre nation.",
+    author: "Nelson Mandela",
+    tag: "Savoir & Pouvoir 🎓",
+    lang: "FR",
+    flag: "🇫🇷",
+    langName: "Français"
+  },
+  {
+    quote: "Le succès aux examens n'est pas un secret, c'est le résultat de la préparation et du travail acharné.",
+    author: "Guide de l'Excellence",
+    tag: "Discipline ⚡",
+    lang: "FR",
+    flag: "🇫🇷",
+    langName: "Français"
+  },
+  {
+    quote: "Chaque heure de révision aujourd'hui rapproche vos rêves universitaires de la réalité.",
+    author: "Pensée Académique",
+    tag: "Avenir Bright 🌟",
+    lang: "FR",
+    flag: "🇫🇷",
+    langName: "Français"
+  },
+
+  // ARABIC 🇦🇪
+  {
+    quote: "العلم نور والجهل تاركٌ لصاحبه في الظلمات. اجعل كل دقيقة من المراجعة خطوة نحو النجاح الباهر!",
+    author: "حكمة الأجيال",
+    tag: "العلم والنجاح 📖",
+    lang: "AR",
+    flag: "🇦🇪",
+    langName: "العربية"
+  },
+  {
+    quote: "من طلب العلا سهر الليالي، والامتحانات ليست سوى فرصة لإثبات قدراتك العالية.",
+    author: "دليل التفوق",
+    tag: "الإصرار 💪",
+    lang: "AR",
+    flag: "🇦🇪",
+    langName: "العربية"
+  },
+
+  // SPANISH 🇪🇸
+  {
+    quote: "El éxito en los exámenes no ocurre por casualidad, es la suma de pequeños esfuerzos repetidos día tras día.",
+    author: "Filosofía del Estudiante",
+    tag: "Perseverancia 🚀",
+    lang: "ES",
+    flag: "🇪🇸",
+    langName: "Español"
+  },
+  {
+    quote: "No estudies para aprobar, estudia para dominar la materia y liderar el mañana con sabiduría.",
+    author: "Mente Maestra",
+    tag: "Excelencia 🏆",
+    lang: "ES",
+    flag: "🇪🇸",
+    langName: "Español"
+  },
+
+  // CHINESE 🇨🇳
+  {
+    quote: "书山有路勤为径，学海无涯苦作舟。今天的每一份努力，都是明天成功的基石！",
+    author: "中国古谚",
+    tag: "勤奋求知 📚",
+    lang: "ZH",
+    flag: "🇨🇳",
+    langName: "中文"
+  },
+  {
+    quote: "宝剑锋从磨砺出，梅花香自苦寒来。相信自己，你将在考试中取得卓越成绩！",
+    author: "励志指南",
+    tag: "坚韧不拔 🔥",
+    lang: "ZH",
+    flag: "🇨🇳",
+    langName: "中文"
+  },
+
+  // GERMAN 🇩🇪
+  {
+    quote: "Der Erfolg bei Prüfungen ist kein Zufall, sondern das Ergebnis von täglicher Vorbereitung und Fokus.",
+    author: "Erfolgsformel",
+    tag: "Fokus & Ziel 🇩🇪",
+    lang: "DE",
+    flag: "🇩🇪",
+    langName: "Deutsch"
+  },
+  {
+    quote: "Wissen ist Macht. Jede gelöste Aufgabe bringt dich deinem akademischen Traum ein Stück näher.",
+    author: "Akademischer Geist",
+    tag: "Disziplin 🧠",
+    lang: "DE",
+    flag: "🇩🇪",
+    langName: "Deutsch"
+  },
+
+  // PORTUGUESE 🇵🇹
+  {
+    quote: "A educação é a chave para abrir as portas do mundo. Dedique-se hoje para colher vitórias amanhã!",
+    author: "Sabedoria Acadêmica",
+    tag: "Foco Total 🌟",
+    lang: "PT",
+    flag: "🇵🇹",
+    langName: "Português"
+  },
+
+  // HINDI 🇮🇳
+  {
+    quote: "कड़ी मेहनत का कोई विकल्प नहीं है। आपकी आज की तैयारी ही कल का शानदार परिणाम बनाएगी!",
+    author: "ज्ञान वाक्य",
+    tag: "सफलता संकल्प 🇮🇳",
+    lang: "HI",
+    flag: "🇮🇳",
+    langName: "हिन्दी"
+  }
+];
+
+const MULTI_LANG_GENERATOR_PACKS = [
+  {
+    lang: "SW", flag: "🇹🇿", langName: "Kiswahili",
+    prefixes: ["Shujaa wa NECTA", "Mwanafunzi Mfano", "Mbingwa wa Kesho", "Mzalendo Msomi"],
+    actions: ["anayewasha taa ya kujisomea kila siku", "anayeelewa fomula na mada zote kwa undani", "anayejiamini na kusoma past papers kwa bidii"],
+    outcomes: ["huibuka na Distinction na kuleta heshima nchini! 🇹🇿", "huweka msingi imara wa masomo ya Chuo Kikuu! 🎓", "hufungua milango ya mafanikio makubwa! 🌟"]
+  },
+  {
+    lang: "EN", flag: "🇬🇧", langName: "English",
+    prefixes: ["Future Top Scholar", "Division One Prospect", "Relentless Scholar", "Visionary Achiever"],
+    actions: ["who turns difficult past paper questions into stepping stones", "who replaces doubt with structured study plans", "who masters core syllabus topics daily"],
+    outcomes: ["is guaranteed to unlock a Division 1 Distinction! 🏆", "conquers every NECTA exam paper with total clarity! ⚡", "proves that hard work always triumphs! 🔥"]
+  },
+  {
+    lang: "FR", flag: "🇫🇷", langName: "Français",
+    prefixes: ["Étudiant Visionnaire", "Champion Académique", "Esprit Brillant"],
+    actions: ["qui révise avec discipline et méthode", "qui transforme chaque difficulté en opportunité"],
+    outcomes: ["décrochera une mention excellente à l'examen! 🏆", "ouvrira les portes des plus grandes universités! 🎓"]
+  },
+  {
+    lang: "AR", flag: "🇦🇪", langName: "العربية",
+    prefixes: ["طالب العلياء", "بطل الامتحانات", "المتفوق المبدع"],
+    actions: ["الذي يراجع دروسه بشغف وإصرار يومي", "الذي يحل أسئلة الامتحانات السابقة بكل ثقة"],
+    outcomes: ["يحقق أعلى الدرجات ويمهد طريقه نحو المستقبل! 🌟", "ينال شرف النجاح الباهر بإذن الله! 🏆"]
+  },
+  {
+    lang: "ES", flag: "🇪🇸", langName: "Español",
+    prefixes: ["Estudiante Excelente", "Futuro Líder", "Mente Brillante"],
+    actions: ["que practica diariamente con determinación", "que domina cada tema de su programa de estudios"],
+    outcomes: ["¡alcanzará la máxima calificación en sus exámenes! 🏆", "¡construirá un futuro lleno de éxito académico! 🌟"]
+  },
+  {
+    lang: "ZH", flag: "🇨🇳", langName: "中文",
+    prefixes: ["卓越学子", "未来的领袖", "勤奋的求知者"],
+    actions: ["每天坚持深度复习与练习", "用智慧和汗水克服所有难题"],
+    outcomes: ["必定在考试中摘取优异成绩！🏆", "必将开启通往辉煌未来的大门！🌟"]
+  }
+];
+
+export function getMotivationalQuote(index: number, selectedLang: string = 'ALL'): MotivationalQuote & { id: number; isGenerated: boolean } {
+  let list = CURATED_MOTIVATIONAL_QUOTES;
+  if (selectedLang !== 'ALL') {
+    list = list.filter(q => q.lang === selectedLang);
+  }
+
+  if (list.length > 0 && index < list.length) {
+    return {
+      id: index + 1,
+      ...list[index],
+      isGenerated: false,
+    };
+  }
+
+  // Infinite Multi-Lingual Generator
+  const packIndex = index % MULTI_LANG_GENERATOR_PACKS.length;
+  const pack = MULTI_LANG_GENERATOR_PACKS[packIndex];
+
+  const prefix = pack.prefixes[index % pack.prefixes.length];
+  const action = pack.actions[(index * 3) % pack.actions.length];
+  const outcome = pack.outcomes[(index * 7) % pack.outcomes.length];
+
+  return {
+    id: index + 1,
+    quote: `${prefix} ${action} ${outcome}`,
+    author: `Global Motivation Engine (${pack.langName})`,
+    tag: `Infinity Generator ♾️`,
+    lang: pack.lang,
+    flag: pack.flag,
+    langName: pack.langName,
+    isGenerated: true,
+  };
+}
+
 export interface NectaCountdownTimerProps {
   initialGrade?: string | null;
   onNavigateToExams?: () => void;
@@ -230,11 +601,245 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
     });
   }, [activeExam.targetDate]);
 
+  // ==========================================
+  // 15-SECOND AUTO-REFRESHING MOTIVATIONAL WORD ENGINE
+  // ==========================================
+  const [selectedQuoteLang, setSelectedQuoteLang] = useState<string>('ALL');
+  const [quoteIndex, setQuoteIndex] = useState<number>(() => Math.floor(Math.random() * 20));
+  const [secondsLeft, setSecondsLeft] = useState<number>(15);
+  const [isQuotePaused, setIsQuotePaused] = useState<boolean>(false);
+  const [copiedToast, setCopiedToast] = useState<boolean>(false);
+  const [isSpeakingQuote, setIsSpeakingQuote] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isQuotePaused) return;
+
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          setQuoteIndex((q) => q + 1);
+          return 15;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isQuotePaused]);
+
+  const currentMotivationalQuote = useMemo(() => {
+    return getMotivationalQuote(quoteIndex, selectedQuoteLang);
+  }, [quoteIndex, selectedQuoteLang]);
+
+  const handleNextQuote = () => {
+    setQuoteIndex((prev) => prev + 1);
+    setSecondsLeft(15);
+  };
+
+  const handlePrevQuote = () => {
+    setQuoteIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    setSecondsLeft(15);
+  };
+
+  const handleCopyQuote = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${currentMotivationalQuote.quote} - ${currentMotivationalQuote.author}`);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2000);
+    }
+  };
+
+  const handleSpeakQuote = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert('Speech synthesis is not supported in your browser.');
+      return;
+    }
+    const synth = window.speechSynthesis;
+    if (synth.speaking) {
+      synth.cancel();
+      setIsSpeakingQuote(false);
+      return;
+    }
+    const cleanText = `${currentMotivationalQuote.quote}. ${currentMotivationalQuote.author}`;
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 0.95;
+
+    // Language mapping for browser speech synthesis
+    const langMap: Record<string, string> = {
+      SW: 'sw-TZ',
+      EN: 'en-US',
+      FR: 'fr-FR',
+      AR: 'ar-SA',
+      ES: 'es-ES',
+      ZH: 'zh-CN',
+      DE: 'de-DE',
+      PT: 'pt-PT',
+      HI: 'hi-IN',
+    };
+
+    const targetLangCode = langMap[currentMotivationalQuote.lang] || 'en-US';
+    utterance.lang = targetLangCode;
+
+    const voices = synth.getVoices();
+    const desiredPrefix = currentMotivationalQuote.lang.toLowerCase();
+    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(desiredPrefix));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+
+    utterance.onstart = () => setIsSpeakingQuote(true);
+    utterance.onend = () => setIsSpeakingQuote(false);
+    utterance.onerror = () => setIsSpeakingQuote(false);
+    synth.speak(utterance);
+  };
+
+  const AVAILABLE_QUOTE_LANGUAGES = [
+    { code: 'ALL', label: 'All Languages 🌐' },
+    { code: 'SW', label: 'Kiswahili 🇹🇿' },
+    { code: 'EN', label: 'English 🇬🇧' },
+    { code: 'FR', label: 'Français 🇫🇷' },
+    { code: 'AR', label: 'العربية 🇦🇪' },
+    { code: 'ES', label: 'Español 🇪🇸' },
+    { code: 'ZH', label: '中文 🇨🇳' },
+    { code: 'DE', label: 'Deutsch 🇩🇪' },
+    { code: 'PT', label: 'Português 🇵🇹' },
+    { code: 'HI', label: 'हिन्दी 🇮🇳' },
+  ];
+
   return (
     <div className="relative overflow-hidden bg-slate-950 text-white rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl border-2 border-indigo-900/60 transition-all duration-300">
       {/* Background Decorative Glow */}
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      {/* 15-SECOND AUTO-REFRESHING MOTIVATIONAL WORD BANNER ON TOP OF NECTA COUNTDOWN */}
+      <div className="relative z-10 mb-8 bg-gradient-to-r from-amber-500/15 via-indigo-950/80 to-purple-900/30 rounded-3xl p-5 sm:p-6 border-2 border-amber-400/40 shadow-xl backdrop-blur-md overflow-hidden">
+        {/* Animated Progress Bar at the top of the banner */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-900/80 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 transition-all duration-1000 ease-linear shadow-lg shadow-amber-400/50"
+            style={{ width: `${(secondsLeft / 15) * 100}%` }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {/* Top Bar: Badges + Language Selector */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/20 pb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm animate-pulse">
+                <i className="fa-solid fa-fire text-amber-900"></i> Motivational Boost
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/90 text-slate-300 border border-slate-700">
+                <i className="fa-solid fa-arrows-rotate text-amber-400"></i> Refreshes in {secondsLeft}s
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-900/60 text-indigo-200 border border-indigo-700/50">
+                <i className="fa-solid fa-infinity text-amber-300"></i> Quote #{currentMotivationalQuote.id.toLocaleString()} of ∞
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                {currentMotivationalQuote.flag} {currentMotivationalQuote.langName}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-800 text-amber-300">
+                {currentMotivationalQuote.tag}
+              </span>
+            </div>
+
+            {/* Language Selector Chips */}
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-none">
+              {AVAILABLE_QUOTE_LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => {
+                    setSelectedQuoteLang(l.code);
+                    setQuoteIndex(0);
+                    setSecondsLeft(15);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition cursor-pointer shrink-0 ${
+                    selectedQuoteLang === l.code
+                      ? 'bg-amber-400 text-slate-950 shadow-sm'
+                      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Quote Content & Actions */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex-1 space-y-2">
+              <div className="relative pl-4 border-l-4 border-amber-400 py-1">
+                <p className="text-sm sm:text-base md:text-lg font-black text-amber-100 leading-snug tracking-tight">
+                  <i className="fa-solid fa-quote-left text-amber-400/50 mr-2 text-xs sm:text-sm"></i>
+                  {currentMotivationalQuote.quote}
+                  <i className="fa-solid fa-quote-right text-amber-400/50 ml-2 text-xs sm:text-sm"></i>
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-bold text-amber-400/90">— {currentMotivationalQuote.author}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Controls Bar */}
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-center bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-md">
+              <button
+                onClick={handlePrevQuote}
+                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                title="Previous Quote"
+              >
+                <i className="fa-solid fa-chevron-left text-xs"></i>
+              </button>
+
+              <button
+                onClick={() => setIsQuotePaused(!isQuotePaused)}
+                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs flex items-center gap-1 transition cursor-pointer ${
+                  isQuotePaused
+                    ? 'bg-amber-400 text-slate-950 shadow-sm'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title={isQuotePaused ? 'Resume 15s Timer' : 'Pause Timer to Reflect'}
+              >
+                <i className={`fa-solid ${isQuotePaused ? 'fa-play' : 'fa-pause'} text-[10px]`}></i>
+                <span>{isQuotePaused ? 'Paused' : '15s Auto'}</span>
+              </button>
+
+              <button
+                onClick={handleNextQuote}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+                title="Next Motivational Quote"
+              >
+                <i className="fa-solid fa-arrows-rotate text-xs"></i>
+                <span>Next</span>
+              </button>
+
+              <button
+                onClick={handleCopyQuote}
+                className="p-2 rounded-xl text-slate-300 hover:text-amber-300 hover:bg-slate-800 transition cursor-pointer relative"
+                title="Copy Motivational Quote"
+              >
+                <i className={`fa-solid ${copiedToast ? 'fa-check text-emerald-400' : 'fa-copy'} text-xs`}></i>
+                {copiedToast && (
+                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow">
+                    Copied!
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={handleSpeakQuote}
+                className={`p-2 rounded-xl transition cursor-pointer ${
+                  isSpeakingQuote
+                    ? 'text-amber-400 bg-amber-400/20 animate-pulse'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+                title={`Read Quote Aloud (${currentMotivationalQuote.langName})`}
+              >
+                <i className="fa-solid fa-volume-high text-xs"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Header & Grade Selection Selector */}
       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-800">
