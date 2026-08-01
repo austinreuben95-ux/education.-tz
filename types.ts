@@ -111,6 +111,7 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
   isError?: boolean;
+  groundingSources?: { title: string; uri: string }[];
 }
 
 export enum AppView {

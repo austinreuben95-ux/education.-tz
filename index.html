@@ -186,6 +186,73 @@
         0% { opacity: 0; transform: translateX(-18px) scale(0.92); }
         100% { opacity: 1; transform: translateX(0) scale(1); }
       }
+
+      /* Constant slow-pulsing outer glow animation for Quick Study Button */
+      @keyframes constantOuterGlowPulse {
+        0%, 100% {
+          box-shadow: 0 0 12px 2px rgba(245, 158, 11, 0.5), 0 0 22px 4px rgba(251, 191, 36, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 22px 6px rgba(245, 158, 11, 0.8), 0 0 36px 8px rgba(251, 191, 36, 0.5);
+        }
+      }
+
+      /* Hover intensified glow */
+      @keyframes glowingBorderPulse {
+        0%, 100% {
+          box-shadow: 0 0 24px 6px rgba(251, 191, 36, 0.85), 0 0 40px 10px rgba(245, 158, 11, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.7);
+          border-color: rgba(251, 191, 36, 0.95);
+        }
+        50% {
+          box-shadow: 0 0 44px 12px rgba(245, 158, 11, 0.98), 0 0 60px 16px rgba(253, 224, 71, 0.85), inset 0 0 16px rgba(255, 255, 255, 0.9);
+          border-color: rgba(254, 240, 138, 1);
+        }
+      }
+
+      /* Pop animation for daily mastery count badge */
+      @keyframes badgePopMastery {
+        0% { transform: scale(0.4) rotate(-15deg); opacity: 0.5; }
+        50% { transform: scale(1.6) rotate(15deg); filter: drop-shadow(0 0 14px rgba(251, 191, 36, 1)); }
+        75% { transform: scale(0.9) rotate(-5deg); }
+        100% { transform: scale(1) rotate(0deg); }
+      }
+
+      .animate-badge-pop-mastery {
+        animation: badgePopMastery 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+
+      #start-quick-study-session-btn {
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        border: 2px solid transparent;
+        animation: constantOuterGlowPulse 2.6s infinite ease-in-out !important;
+      }
+
+      #start-quick-study-session-btn:hover {
+        animation: glowingBorderPulse 1.2s infinite alternate ease-in-out !important;
+      }
+
+      /* Mobile adjustment for #start-quick-study-session-btn (<480px) */
+      @media (max-width: 480px) {
+        #start-quick-study-session-btn {
+          font-size: clamp(0.7rem, 2.5vw + 0.2rem, 0.85rem) !important; /* Responsive font scaling */
+          padding: clamp(0.5rem, 2vw + 0.25rem, 0.75rem) clamp(0.75rem, 3.5vw + 0.2rem, 1.25rem) !important; /* Dynamic padding calculation scaling with viewport width */
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          text-align: center !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          letter-spacing: 0.02em !important;
+        }
+
+        #quick-study-sessions-counter-badge {
+          top: clamp(-0.625rem, -1.5vw, -0.375rem) !important;
+          right: clamp(-0.625rem, -1.5vw, -0.375rem) !important;
+          z-index: 20 !important;
+        }
+      }
     </style>
   <script type="importmap">
 {

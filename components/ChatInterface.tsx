@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
-import { sendMessageToYun } from '../services/geminiService';
+import { sendMessageToYunDetailed } from '../services/geminiService';
 import { INITIAL_GREETING } from '../constants';
 import { YunAvatar3D } from './YunAvatar3D';
 
@@ -35,6 +35,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [textSize, setTextSize] = useState<'normal' | 'large'>('normal');
+
+  // Gemini Model & Features Settings
+  const [selectedModel, setSelectedModel] = useState<'gemini-3.1-flash-lite' | 'gemini-3.5-flash' | 'gemini-3.1-pro-preview'>('gemini-3.5-flash');
+  const [selectedRole, setSelectedRole] = useState<'default' | 'necta_examiner' | 'stem_mentor' | 'kiswahili_fasihi'>('default');
+  const [useSearchGrounding, setUseSearchGrounding] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -107,13 +112,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
     // Prepare history for API
     const history = messages.map(m => ({ role: m.role, text: m.text }));
     
-    const responseText = await sendMessageToYun(userMsg.text, history);
+    const response = await sendMessageToYunDetailed(
+      userMsg.text,
+      history,
+      selectedModel,
+      selectedRole,
+      useSearchGrounding
+    );
 
     const botMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
       role: 'model',
-      text: responseText,
-      timestamp: new Date()
+      text: response.text,
+      timestamp: new Date(),
+      groundingSources: response.groundingSources
     };
 
     setMessages(prev => [...prev, botMsg]);
@@ -144,30 +156,69 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
   };
 
   return (
-    <div className="flex flex-col h-[85vh] md:h-[680px] w-full max-w-3xl mx-auto bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-800 text-slate-100">
+    <div className="flex flex-col h-[88vh] md:h-[720px] w-full max-w-4xl mx-auto bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-800 text-slate-100">
       {/* Siri 3D Animated Header */}
-      <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 p-4 sm:p-5 flex items-center justify-between border-b border-indigo-500/20 shadow-md">
+      <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 p-3.5 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-indigo-500/20 shadow-md gap-3">
         <div className="flex items-center gap-3">
           <YunAvatar3D size="md" state={isLoading ? 'thinking' : isSpeaking ? 'speaking' : 'idle'} showLabel={false} />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-black text-lg text-white tracking-wide">Yun AI 3D</h2>
               <span className="bg-gradient-to-r from-cyan-400 to-fuchsia-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                Yun AI Core
+                {selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Lite' : '3.5 Flash'}
               </span>
             </div>
             <p className="text-xs text-cyan-300/80 font-medium flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Curiosity Catalyst • Primary, O-Level & A-Level
+              Tanzania Education & NECTA AI Tutor
             </p>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2">
+        {/* Controls Header Tools */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Role selector */}
+          <select
+            value={selectedRole}
+            onChange={(e: any) => setSelectedRole(e.target.value)}
+            className="bg-slate-950 border border-indigo-500/40 text-xs text-cyan-300 rounded-xl px-2.5 py-1.5 outline-none font-semibold focus:border-cyan-400 cursor-pointer"
+            title="Change AI Tutor Persona / Role"
+          >
+            <option value="default">🌟 Role: Curiosity Catalyst</option>
+            <option value="necta_examiner">📝 Role: NECTA Examiner</option>
+            <option value="stem_mentor">🔬 Role: STEM Mentor</option>
+            <option value="kiswahili_fasihi">🇹🇿 Role: Mwalimu wa Kiswahili</option>
+          </select>
+
+          {/* Model selector */}
+          <select
+            value={selectedModel}
+            onChange={(e: any) => setSelectedModel(e.target.value)}
+            className="bg-slate-950 border border-fuchsia-500/40 text-xs text-fuchsia-300 rounded-xl px-2.5 py-1.5 outline-none font-semibold focus:border-fuchsia-400 cursor-pointer"
+            title="Select Gemini Intelligence Engine"
+          >
+            <option value="gemini-3.5-flash">⚡ Gemini 3.5 Flash (Balanced)</option>
+            <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro (Deep Reasoning)</option>
+            <option value="gemini-3.1-flash-lite">🚀 Gemini 3.1 Flash-Lite (Fast)</option>
+          </select>
+
+          {/* Google Search Grounding Toggle Button */}
+          <button
+            onClick={() => setUseSearchGrounding(!useSearchGrounding)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
+              useSearchGrounding
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/60 ring-1 ring-emerald-400'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`}
+            title="Toggle Real-Time Google Search Grounding for live web answers"
+          >
+            <i className={`fa-solid fa-globe ${useSearchGrounding ? 'text-emerald-400 animate-spin-slow' : 'text-slate-400'}`}></i>
+            <span>Search Grounded</span>
+          </button>
+
           <button
             onClick={() => setTextSize(prev => prev === 'normal' ? 'large' : 'normal')}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 text-xs font-bold transition border border-cyan-500/30"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 text-xs font-bold transition border border-cyan-500/30"
             title="Toggle Text Size"
           >
             <i className="fa-solid fa-text-height"></i>
@@ -175,7 +226,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
 
           <button
             onClick={downloadTranscript}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 text-xs font-bold transition border border-cyan-500/30"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-cyan-300 text-xs font-bold transition border border-cyan-500/30"
             title="Download Chat Transcript"
           >
             <i className="fa-solid fa-download"></i>
@@ -184,9 +235,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
           {onClose && (
             <button 
               onClick={onClose} 
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-900/80 text-slate-300 hover:text-white transition border border-slate-700"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-rose-900/80 text-slate-300 hover:text-white transition border border-slate-700"
             >
-              <i className="fa-solid fa-xmark text-lg"></i>
+              <i className="fa-solid fa-xmark text-base"></i>
             </button>
           )}
         </div>
@@ -222,7 +273,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
                 <YunAvatar3D size="sm" state={isLoading ? 'thinking' : 'idle'} />
               )}
 
-              <div className={`group relative max-w-[85%] sm:max-w-[78%] rounded-3xl p-4 sm:p-5 shadow-lg border ${
+              <div className={`group relative max-w-[88%] sm:max-w-[80%] rounded-3xl p-4 sm:p-5 shadow-lg border ${
                 isModel
                   ? 'bg-slate-900/95 border-indigo-500/30 text-slate-100 rounded-tl-sm'
                   : 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white border-cyan-400/30 rounded-tr-sm'
@@ -231,6 +282,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
                 <div className={`whitespace-pre-wrap leading-relaxed ${textSize === 'large' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`}>
                   {msg.text}
                 </div>
+
+                {/* Search Grounding Sources / Citations */}
+                {msg.groundingSources && msg.groundingSources.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5">
+                    <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <i className="fa-solid fa-google text-emerald-400"></i> Verified Google Search Sources:
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {msg.groundingSources.map((src, i) => (
+                        <a
+                          key={i}
+                          href={src.uri}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-lg text-[11px] font-medium transition hover:scale-105"
+                        >
+                          <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                          <span className="truncate max-w-[200px]">{src.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Footer Controls */}
                 <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
@@ -265,7 +339,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
           <div className="flex items-center gap-3">
             <YunAvatar3D size="sm" state="thinking" />
             <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl rounded-tl-sm px-5 py-4 shadow-lg flex items-center gap-3">
-              <span className="text-xs font-bold text-cyan-300 animate-pulse">Yun is reasoning...</span>
+              <span className="text-xs font-bold text-cyan-300 animate-pulse">
+                Yun ({selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Deep Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Flash-Lite' : 'Gemini 3.5 Flash'}) is processing...
+              </span>
               <div className="flex gap-1.5">
                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-fuchsia-400 rounded-full animate-bounce delay-150"></div>
@@ -312,8 +388,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
           </button>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
-          <span>Yun AI engine for deep inquiry & step-by-step logic.</span>
+        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 mt-2 px-1 gap-2">
+          <div className="flex items-center gap-2">
+            <span>Yun AI Engine: <strong className="text-cyan-300">{selectedModel}</strong></span>
+            {useSearchGrounding && (
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <i className="fa-solid fa-check"></i> Search Grounding Active
+              </span>
+            )}
+          </div>
           <span className="text-cyan-400/80 font-semibold">Tanzania Curriculum Aligned</span>
         </div>
       </div>

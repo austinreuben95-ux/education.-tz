@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import { analyzeNotesWithGemini, editAndEnhanceTextWithGemini, searchWithGoogleGrounding } from '../services/geminiService';
 
 export interface StudyNote {
   id: string;
@@ -220,101 +221,12 @@ For every action, there is an equal and opposite reaction.
       'Electronegativity increases left-to-right across periods',
       'Ionic compounds conduct electricity when molten or dissolved in water'
     ]
-  },
-  {
-    id: 'note-8',
-    title: 'Geography Form 4: Map Reading, Grid References & Bearing Calculations',
-    subject: 'Geography',
-    level: 'Secondary (O-Level)',
-    updatedAt: '2026-07-21',
-    content: `
-# Topographical Map Reading & Analysis
-
-## 1. Grid References (Eastings & Northings):
-- **Eastings**: Vertical grid lines numbered from West to East (read FIRST).
-- **Northings**: Horizontal grid lines numbered from South to North (read SECOND).
-- **Rule**: "Along the corridor, then up the stairs" (Eastings before Northings).
-- **6-Digit Grid Reference**: Divide grid square into 10 equal imaginary subdivisions.
-
-## 2. Calculating True Bearing & Back Bearing:
-- **True Bearing**: Angle measured clockwise from True North (0° to 360°).
-- **Back Bearing Formula**:
-  - If Forward Bearing < 180°: Back Bearing = Forward Bearing + 180°.
-  - If Forward Bearing ≥ 180°: Back Bearing = Forward Bearing - 180°.
-
-## 3. Gradient Calculation:
-- **Gradient = Vertical Interval (VI) / Horizontal Distance (HD)**.
-- Ensure both VI and HD are converted into the SAME unit (Meters) before dividing!
-    `,
-    keyPoints: [
-      'Eastings FIRST, Northings SECOND',
-      'Back Bearing = Forward Bearing ± 180°',
-      'Gradient = Vertical Interval / Horizontal Distance',
-      'Contours close together = Steep Slope; Far apart = Gentle Slope'
-    ]
-  },
-  {
-    id: 'note-9',
-    title: 'A-Level Pure Mathematics: Differential Calculus & Optimization',
-    subject: 'Mathematics',
-    level: 'High School (A-Level)',
-    updatedAt: '2026-07-20',
-    content: `
-# Advanced Differential Calculus & Curve Sketching
-
-## 1. Core Differentiation Rules:
-- **Power Rule**: d/dx [xⁿ] = n·xⁿ⁻¹
-- **Product Rule**: d/dx [u·v] = u·(dv/dx) + v·(du/dx)
-- **Quotient Rule**: d/dx [u / v] = [v·(du/dx) - u·(dv/dx)] / v²
-- **Chain Rule**: dy/dx = (dy/du) × (du/dx)
-
-## 2. Stationary Points & Curve Turning:
-- Set dy/dx = 0 to find stationary x-coordinates.
-- Evaluate second derivative d²y/dx²:
-  - If d²y/dx² > 0: Minimum Vertex
-  - If d²y/dx² < 0: Maximum Vertex
-  - If d²y/dx² = 0: Point of Inflexion
-
-## 3. Real-World Optimization Applications:
-- Maximizing volume of storage containers or minimizing structural material surface area in engineering.
-    `,
-    keyPoints: [
-      'Stationary points occur when first derivative dy/dx = 0',
-      'd²y/dx² > 0 indicates a Minimum point; < 0 indicates a Maximum point',
-      'Quotient Rule requires subtraction in numerator: (v u\' - u v\') / v²',
-      'Chain Rule is used for composite function differentiation'
-    ]
-  },
-  {
-    id: 'note-10',
-    title: 'University Studies: Development Studies & Tanzania Vision 2025',
-    subject: 'Development Studies',
-    level: 'Higher Education',
-    updatedAt: '2026-07-19',
-    content: `
-# Development Studies & Economic Transformation in Tanzania
-
-## 1. Tanzania Development Vision 2025 Core Pillars:
-- **High Quality Livelihood**: Eradication of poverty, access to clean water, quality education, and healthcare for all citizens.
-- **Good Governance & Rule of Law**: Corruption-free administration, transparent public finance, and strong institutional frameworks.
-- **Strong & Competitive Economy**: Diversification from subsistence agriculture to semi-industrialized economy with value-addition manufacturing.
-
-## 2. Key National Infrastructure Projects:
-- **Julius Nyerere Hydroelectric Power Project (JNHPP)**: 2,115 MW electricity capacity supporting manufacturing and power export across East Africa.
-- **Standard Gauge Railway (SGR)**: Electric railway line connecting Dar es Salaam port to Dodoma, Mwanza, Kigoma, and landlocked neighboring nations (Rwanda, Burundi, DRC).
-    `,
-    keyPoints: [
-      'Vision 2025 aims for a middle-income semi-industrialized country',
-      '3 Main Pillars: High Quality Livelihood, Good Governance, Strong Economy',
-      'JNHPP generates 2,115 MW power for industrial transformation',
-      'SGR enhances East African trade corridors'
-    ]
   }
 ];
 
 export const NotesHub: React.FC = () => {
   const [selectedNote, setSelectedNote] = useState<StudyNote>(PREBUILT_STUDY_NOTES[0]);
-  const [activeTab, setActiveTab] = useState<'syllabus' | 'custom'>('syllabus');
+  const [activeTab, setActiveTab] = useState<'syllabus' | 'custom' | 'search_grounding'>('syllabus');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL');
 
@@ -332,6 +244,17 @@ export const NotesHub: React.FC = () => {
   const [isSpeakingNote, setIsSpeakingNote] = useState(false);
   const [isNotePaused, setIsNotePaused] = useState(false);
 
+  // Gemini Intelligence & Search Grounding State
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [isAiEditing, setIsAiEditing] = useState(false);
+  
+  // Google Search Grounding Tool
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResultText, setSearchResultText] = useState<string | null>(null);
+  const [searchGroundingSources, setSearchGroundingSources] = useState<{ title: string; uri: string }[]>([]);
+  const [isSearchingGrounded, setIsSearchingGrounded] = useState(false);
+
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -339,6 +262,39 @@ export const NotesHub: React.FC = () => {
       }
     };
   }, [selectedNote]);
+
+  const handleAnalyzeWithGemini = async () => {
+    if (!selectedNote) return;
+    setIsAiAnalyzing(true);
+    setAiAnalysis(null);
+    const result = await analyzeNotesWithGemini(selectedNote.content);
+    setAiAnalysis(result);
+    setIsAiAnalyzing(false);
+  };
+
+  const handleEditWithGemini = async () => {
+    if (!selectedNote) return;
+    setIsAiEditing(true);
+    const result = await editAndEnhanceTextWithGemini(selectedNote.content);
+    
+    // Update selected note content
+    const updatedNote = { ...selectedNote, content: result };
+    setSelectedNote(updatedNote);
+    if (selectedNote.isCustom) {
+      setCustomNotes(prev => prev.map(n => n.id === selectedNote.id ? updatedNote : n));
+    }
+    setIsAiEditing(false);
+  };
+
+  const handleSearchGroundedExecute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setIsSearchingGrounded(true);
+    const res = await searchWithGoogleGrounding(searchQuery);
+    setSearchResultText(res.text);
+    setSearchGroundingSources(res.groundingSources);
+    setIsSearchingGrounded(false);
+  };
 
   const handleToggleNoteSpeech = (note: StudyNote) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -455,27 +411,24 @@ export const NotesHub: React.FC = () => {
       const margin = 14;
       const contentWidth = pageWidth - (margin * 2);
 
-      // --- Header Banner ---
-      doc.setFillColor(6, 78, 59); // Emerald 900
+      // Header Banner
+      doc.setFillColor(6, 78, 59);
       doc.rect(0, 0, pageWidth, 28, 'F');
 
       // Accent Gold Stripe
-      doc.setFillColor(250, 204, 21); // Amber 400
+      doc.setFillColor(250, 204, 21);
       doc.rect(0, 28, pageWidth, 2, 'F');
 
-      // Brand
       doc.setTextColor(250, 204, 21);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.text('ElimuTanzania • TIE Syllabus Offline Study Note', margin, 9);
 
-      // Metadata
       doc.setTextColor(209, 250, 229);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.text(`${note.subject.toUpperCase()} | ${note.level} | Updated: ${note.updatedAt}`, margin, 15);
 
-      // Note Title
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -484,7 +437,6 @@ export const NotesHub: React.FC = () => {
 
       let currentY = 36;
 
-      // --- Key Takeaways Box ---
       if (note.keyPoints && note.keyPoints.length > 0) {
         doc.setFillColor(254, 243, 199);
         doc.setDrawColor(251, 191, 36);
@@ -519,7 +471,6 @@ export const NotesHub: React.FC = () => {
         currentY += boxHeight + 8;
       }
 
-      // --- Main Note Content ---
       doc.setTextColor(15, 23, 42);
       const contentLines = note.content.split('\n');
 
@@ -534,7 +485,6 @@ export const NotesHub: React.FC = () => {
           doc.addPage();
           currentY = 20;
 
-          // Header on Page 2+
           doc.setFillColor(241, 245, 249);
           doc.rect(0, 0, pageWidth, 12, 'F');
           doc.setTextColor(100, 116, 139);
@@ -595,7 +545,6 @@ export const NotesHub: React.FC = () => {
         }
       }
 
-      // --- Footer with Page Numbers ---
       const totalPages = doc.getNumberOfPages();
       for (let p = 1; p <= totalPages; p++) {
         doc.setPage(p);
@@ -638,13 +587,13 @@ export const NotesHub: React.FC = () => {
       <div className="bg-gradient-to-r from-emerald-900 via-teal-800 to-indigo-900 text-white rounded-3xl p-6 sm:p-10 shadow-xl relative overflow-hidden">
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black tracking-widest uppercase text-emerald-200 border border-white/20">
-            <i className="fa-solid fa-note-sticky text-yellow-400"></i> Syllabus Notes & Personal Study Vault
+            <i className="fa-solid fa-note-sticky text-yellow-400"></i> Gemini Powered Syllabus & Search Vault
           </div>
           <h1 className="text-3xl sm:text-5xl font-black leading-tight">
-            Comprehensive <span className="text-yellow-400">Study Notes</span> Hub
+            Comprehensive <span className="text-yellow-400">Study Notes</span> & AI Research
           </h1>
           <p className="text-xs sm:text-sm text-emerald-100 font-medium">
-            Access hundreds of TIE syllabus notes, key formulas, NECTA revision summaries, and create your own offline-ready personal study notes.
+            Access TIE syllabus notes, run deep Gemini Pro analyses, edit essays, and research real-time educational data with Google Search Grounding.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-4">
@@ -668,285 +617,355 @@ export const NotesHub: React.FC = () => {
             >
               <i className="fa-solid fa-pen-to-square"></i> My Personal Scratchpad ({customNotes.length})
             </button>
+            <button
+              onClick={() => setActiveTab('search_grounding')}
+              className={`px-5 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+                activeTab === 'search_grounding'
+                  ? 'bg-emerald-400 text-slate-950 shadow-lg font-black'
+                  : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+              }`}
+            >
+              <i className="fa-solid fa-google text-yellow-300"></i> Google Search Grounding Tool
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Sidebar: Notes Navigator */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-3xl p-5 border-2 border-gray-100 shadow-sm space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-              <input
-                type="text"
-                placeholder="Search notes by keyword..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none transition"
-              />
+      {/* View 1: Google Search Grounding Tool Tab */}
+      {activeTab === 'search_grounding' && (
+        <div className="bg-slate-900 text-slate-100 rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full mb-2">
+                <i className="fa-solid fa-globe"></i> Powered by Gemini 3.5 Flash + Google Search
+              </div>
+              <h2 className="text-2xl font-black text-white">Live Search Grounded Research Engine</h2>
+              <p className="text-xs text-slate-400">Search real-time NECTA syllabus updates, scientific facts, or Tanzanian educational news with verified citations.</p>
             </div>
-
-            {/* Filters */}
-            <div className="flex flex-wrap gap-1.5">
-              {subjectsList.map((sub) => (
-                <button
-                  key={sub}
-                  onClick={() => setSelectedSubjectFilter(sub)}
-                  className={`px-3 py-1 rounded-xl font-extrabold text-[11px] transition ${
-                    selectedSubjectFilter === sub
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {sub}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === 'custom' && (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2"
-              >
-                <i className="fa-solid fa-plus"></i> Create New Study Note
-              </button>
-            )}
           </div>
 
-          {/* List of Notes */}
-          <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
-            {filteredNotes.map((note) => {
-              const isSelected = selectedNote?.id === note.id && !isCreating;
-              return (
-                <div
-                  key={note.id}
-                  onClick={() => { setSelectedNote(note); setIsCreating(false); }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition flex items-start justify-between gap-3 ${
-                    isSelected
-                      ? 'bg-emerald-50/90 border-emerald-400 shadow-sm'
-                      : 'bg-white border-gray-100 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                        {note.subject}
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-medium">{note.updatedAt}</span>
-                    </div>
-                    <h4 className="text-sm font-extrabold text-gray-900 line-clamp-1">{note.title}</h4>
-                    <p className="text-xs text-gray-500 font-medium line-clamp-2">{note.content.replace(/#|\*/g, '')}</p>
-                  </div>
+          <form onSubmit={handleSearchGroundedExecute} className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="e.g. Current NECTA Form 4 Physics syllabus changes or JNHPP power station capacity..."
+              className="flex-1 bg-slate-950 border border-slate-700 focus:border-emerald-400 rounded-2xl px-4 py-3 text-sm text-white outline-none"
+            />
+            <button
+              type="submit"
+              disabled={isSearchingGrounded || !searchQuery.trim()}
+              className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black text-xs rounded-2xl transition flex items-center gap-2"
+            >
+              {isSearchingGrounded ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-magnifying-glass"></i>}
+              <span>Search Grounded</span>
+            </button>
+          </form>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); downloadNoteAsPdf(note); }}
-                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition cursor-pointer"
-                      title="Download as PDF"
-                    >
-                      <i className="fa-solid fa-file-pdf text-sm"></i>
-                    </button>
-                    {note.isCustom && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteCustomNote(note.id); }}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
-                        title="Delete Note"
+          {searchResultText && (
+            <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800 space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <i className="fa-solid fa-square-poll-vertical"></i> Grounded Research Summary:
+              </h3>
+              <div className="whitespace-pre-wrap leading-relaxed text-sm text-slate-200 font-sans">
+                {searchResultText}
+              </div>
+
+              {searchGroundingSources.length > 0 && (
+                <div className="pt-4 border-t border-slate-800 space-y-2">
+                  <div className="text-xs font-black uppercase text-emerald-300">Verified Citation Sources:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {searchGroundingSources.map((src, idx) => (
+                      <a
+                        key={idx}
+                        href={src.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 text-xs rounded-xl flex items-center gap-1.5 transition"
                       >
-                        <i className="fa-solid fa-trash-can text-xs"></i>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {filteredNotes.length === 0 && (
-              <div className="p-8 text-center bg-white rounded-3xl border border-dashed border-gray-200 text-gray-500 text-xs">
-                {activeTab === 'custom' ? 'No personal notes created yet. Click "Create New Study Note" above!' : 'No syllabus notes match your filter.'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Detail Pane */}
-        <div className="lg:col-span-7">
-          {isCreating ? (
-            /* Note Creation Form */
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-gray-100 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                  <i className="fa-solid fa-pen-clip text-emerald-600"></i> New Personal Study Note
-                </h3>
-                <button
-                  onClick={() => setIsCreating(false)}
-                  className="text-xs font-bold text-gray-400 hover:text-gray-600"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveCustomNote} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Note Title</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Form 4 Chemistry Periodic Table Summary"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Subject</label>
-                  <select
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none bg-white"
-                  >
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Biology">Biology</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Civics">Civics</option>
-                    <option value="Geography">Geography</option>
-                    <option value="History">History</option>
-                    <option value="Kiswahili">Kiswahili</option>
-                    <option value="English">English</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Note Content & Formulas</label>
-                  <textarea
-                    rows={12}
-                    placeholder="Write your study summary, definitions, or equations here..."
-                    value={newContent}
-                    onChange={(e) => setNewContent(e.target.value)}
-                    className="w-full p-4 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-mono text-gray-800 outline-none leading-relaxed"
-                    required
-                  ></textarea>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition"
-                >
-                  Save Note to Vault
-                </button>
-              </form>
-            </div>
-          ) : selectedNote ? (
-            /* Note Viewer */
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-gray-100 shadow-sm space-y-6 sticky top-24">
-              <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-gray-100">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                      {selectedNote.subject} • {selectedNote.level}
-                    </span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900">{selectedNote.title}</h2>
-                  <span className="text-xs text-gray-400 font-medium mt-1 block">
-                    Updated on {selectedNote.updatedAt}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => handleToggleNoteSpeech(selectedNote)}
-                    className={`px-4 py-2.5 rounded-xl text-white font-black text-xs transition flex items-center gap-2 shadow-md cursor-pointer ${
-                      isSpeakingNote && !isNotePaused
-                        ? 'bg-amber-500 hover:bg-amber-600 animate-pulse ring-2 ring-amber-300'
-                        : isNotePaused
-                        ? 'bg-indigo-600 hover:bg-indigo-700'
-                        : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
-                    title="Listen to this note read aloud using Speech Synthesis"
-                  >
-                    <i className={`fa-solid ${
-                      isSpeakingNote && !isNotePaused
-                        ? 'fa-circle-pause text-white'
-                        : isNotePaused
-                        ? 'fa-circle-play text-emerald-300'
-                        : 'fa-volume-high text-amber-300'
-                    }`}></i>
-                    <span>
-                      {isSpeakingNote && !isNotePaused
-                        ? 'Pause Audio'
-                        : isNotePaused
-                        ? 'Resume Audio'
-                        : 'Listen to Note'}
-                    </span>
-                  </button>
-
-                  {(isSpeakingNote || isNotePaused) && (
-                    <button
-                      onClick={handleStopNoteSpeech}
-                      className="px-3 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
-                      title="Stop Speech Playback"
-                    >
-                      <i className="fa-solid fa-square text-red-500 text-xs"></i>
-                      <span>Stop</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => downloadNoteAsPdf(selectedNote)}
-                    disabled={isPdfGenerating}
-                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-200 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
-                    title="Download Formatted Compressed PDF for Offline Study"
-                  >
-                    {isPdfGenerating ? (
-                      <>
-                        <i className="fa-solid fa-spinner animate-spin"></i>
-                        <span>Generating PDF...</span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="fa-solid fa-file-pdf text-amber-300 text-sm"></i>
-                        <span>Download as PDF</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => downloadNoteAsTxt(selectedNote)}
-                    className="px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs transition flex items-center gap-1.5"
-                    title="Download Plain Text Note (.txt)"
-                  >
-                    <i className="fa-solid fa-file-lines text-gray-500"></i>
-                    <span>.TXT</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Key Quick Takeaway Bullets */}
-              {selectedNote.keyPoints && selectedNote.keyPoints.length > 0 && (
-                <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                    <i className="fa-solid fa-lightbulb text-amber-600"></i> Key NECTA Revision Points
-                  </span>
-                  <ul className="list-disc pl-5 text-xs text-amber-950 font-medium space-y-1">
-                    {selectedNote.keyPoints.map((pt, i) => (
-                      <li key={i}>{pt}</li>
+                        <i className="fa-solid fa-link text-[10px]"></i>
+                        <span>{src.title}</span>
+                      </a>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
-
-              {/* Formatted Content */}
-              <div className="bg-gray-50/80 p-6 rounded-2xl border border-gray-100 text-gray-800 text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap font-sans">
-                {selectedNote.content}
-              </div>
             </div>
-          ) : null}
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Main Grid for Syllabus / Custom Notes */}
+      {activeTab !== 'search_grounding' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Sidebar: Notes Navigator */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="bg-white rounded-3xl p-5 border-2 border-gray-100 shadow-sm space-y-4">
+              {/* Search */}
+              <div className="relative">
+                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input
+                  type="text"
+                  placeholder="Search notes by keyword..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none transition"
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap gap-1.5">
+                {subjectsList.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSelectedSubjectFilter(sub)}
+                    className={`px-3 py-1 rounded-xl font-extrabold text-[11px] transition ${
+                      selectedSubjectFilter === sub
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === 'custom' && (
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2"
+                >
+                  <i className="fa-solid fa-plus"></i> Create New Study Note
+                </button>
+              )}
+            </div>
+
+            {/* List of Notes */}
+            <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+              {filteredNotes.map((note) => {
+                const isSelected = selectedNote?.id === note.id && !isCreating;
+                return (
+                  <div
+                    key={note.id}
+                    onClick={() => { setSelectedNote(note); setIsCreating(false); setAiAnalysis(null); }}
+                    className={`p-4 rounded-2xl border cursor-pointer transition flex items-start justify-between gap-3 ${
+                      isSelected
+                        ? 'bg-emerald-50/90 border-emerald-400 shadow-sm'
+                        : 'bg-white border-gray-100 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                          {note.subject}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium">{note.updatedAt}</span>
+                      </div>
+                      <h4 className="text-sm font-extrabold text-gray-900 line-clamp-1">{note.title}</h4>
+                      <p className="text-xs text-gray-500 font-medium line-clamp-2">{note.content.replace(/#|\*/g, '')}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); downloadNoteAsPdf(note); }}
+                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition cursor-pointer"
+                        title="Download as PDF"
+                      >
+                        <i className="fa-solid fa-file-pdf text-sm"></i>
+                      </button>
+                      {note.isCustom && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteCustomNote(note.id); }}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+                          title="Delete Note"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredNotes.length === 0 && (
+                <div className="p-8 text-center bg-white rounded-3xl border border-dashed border-gray-200 text-gray-500 text-xs">
+                  {activeTab === 'custom' ? 'No personal notes created yet. Click "Create New Study Note" above!' : 'No syllabus notes match your filter.'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Detail Pane */}
+          <div className="lg:col-span-7 space-y-6">
+            {isCreating ? (
+              /* Note Creation Form */
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-gray-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                  <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                    <i className="fa-solid fa-pen-clip text-emerald-600"></i> New Personal Study Note
+                  </h3>
+                  <button
+                    onClick={() => setIsCreating(false)}
+                    className="text-xs font-bold text-gray-400 hover:text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveCustomNote} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Note Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Form 4 Chemistry Periodic Table Summary"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Subject</label>
+                    <select
+                      value={newSubject}
+                      onChange={(e) => setNewSubject(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-bold text-gray-800 outline-none bg-white"
+                    >
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="Biology">Biology</option>
+                      <option value="Physics">Physics</option>
+                      <option value="Chemistry">Chemistry</option>
+                      <option value="Civics">Civics</option>
+                      <option value="Geography">Geography</option>
+                      <option value="History">History</option>
+                      <option value="Kiswahili">Kiswahili</option>
+                      <option value="English">English</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Note Content & Formulas</label>
+                    <textarea
+                      rows={12}
+                      placeholder="Write your study summary, definitions, or equations here..."
+                      value={newContent}
+                      onChange={(e) => setNewContent(e.target.value)}
+                      className="w-full p-4 rounded-xl border border-gray-200 focus:border-emerald-500 text-xs font-mono text-gray-800 outline-none leading-relaxed"
+                      required
+                    ></textarea>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition"
+                  >
+                    Save Note to Vault
+                  </button>
+                </form>
+              </div>
+            ) : selectedNote ? (
+              /* Note Viewer */
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-gray-100 shadow-sm space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-gray-100">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                        {selectedNote.subject} • {selectedNote.level}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-gray-900">{selectedNote.title}</h2>
+                    <span className="text-xs text-gray-400 font-medium mt-1 block">
+                      Updated on {selectedNote.updatedAt}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Gemini Note Pro Analysis */}
+                    <button
+                      onClick={handleAnalyzeWithGemini}
+                      disabled={isAiAnalyzing}
+                      className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-200"
+                      title="Run Gemini 3.1 Pro Deep Concept Breakdown & NECTA Exam Questions"
+                    >
+                      {isAiAnalyzing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-brain"></i>}
+                      <span>Analyze with Gemini Pro</span>
+                    </button>
+
+                    {/* Gemini Edit & Polish Text */}
+                    <button
+                      onClick={handleEditWithGemini}
+                      disabled={isAiEditing}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-indigo-200"
+                      title="Polish vocabulary & grammar with Gemini 3.5 Flash"
+                    >
+                      {isAiEditing ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-wand-magic-sparkles"></i>}
+                      <span>Enhance Text</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleNoteSpeech(selectedNote)}
+                      className={`px-3.5 py-2 rounded-xl text-white font-black text-xs transition flex items-center gap-1.5 shadow-md cursor-pointer ${
+                        isSpeakingNote && !isNotePaused
+                          ? 'bg-amber-500 hover:bg-amber-600 animate-pulse'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      <i className="fa-solid fa-volume-high"></i>
+                      <span>Listen</span>
+                    </button>
+
+                    <button
+                      onClick={() => downloadNoteAsPdf(selectedNote)}
+                      disabled={isPdfGenerating}
+                      className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md shadow-red-200 transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <i className="fa-solid fa-file-pdf"></i>
+                      <span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gemini Pro Deep Analysis Result Box */}
+                {aiAnalysis && (
+                  <div className="bg-purple-950 text-purple-100 p-6 rounded-2xl border border-purple-800 shadow-xl space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between text-xs font-black text-purple-300 uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <i className="fa-solid fa-brain text-purple-400"></i> Gemini 3.1 Pro Deep Concept & NECTA Exam Breakdown
+                      </span>
+                      <button onClick={() => setAiAnalysis(null)} className="text-purple-400 hover:text-white">
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                    <div className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-sans font-medium text-purple-50">
+                      {aiAnalysis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Quick Takeaway Bullets */}
+                {selectedNote.keyPoints && selectedNote.keyPoints.length > 0 && (
+                  <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <i className="fa-solid fa-lightbulb text-amber-600"></i> Key NECTA Revision Points
+                    </span>
+                    <ul className="list-disc pl-5 text-xs text-amber-950 font-medium space-y-1">
+                      {selectedNote.keyPoints.map((pt, i) => (
+                        <li key={i}>{pt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Formatted Content */}
+                <div className="bg-gray-50/80 p-6 rounded-2xl border border-gray-100 text-gray-800 text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap font-sans">
+                  {selectedNote.content}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

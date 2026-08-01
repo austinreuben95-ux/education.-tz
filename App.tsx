@@ -431,6 +431,56 @@ const App: React.FC = () => {
 
   // Track if user data is initialized
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isQuickStudyClicked, setIsQuickStudyClicked] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [celebratoryQuickStudyToast, setCelebratoryQuickStudyToast] = useState<string | null>(null);
+
+  const getLocalDateKey = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `edu_tz_quick_sessions_${year}-${month}-${day}`;
+  };
+
+  const [todayQuickSessionsCount, setTodayQuickSessionsCount] = useState<number>(() => {
+    try {
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const day = String(new Date().getDate()).padStart(2, '0');
+      const todayKey = `edu_tz_quick_sessions_${year}-${month}-${day}`;
+      const saved = localStorage.getItem(todayKey);
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  // Helper function that resets the #start-quick-study-session-btn completion badge at midnight local time
+  const checkAndResetDailyQuickSessions = useCallback(() => {
+    try {
+      const todayKey = getLocalDateKey();
+      const lastCheckedKey = localStorage.getItem('edu_tz_quick_sessions_last_date');
+      
+      if (lastCheckedKey !== todayKey) {
+        // Midnight local time shift detected or new day initial load
+        localStorage.setItem('edu_tz_quick_sessions_last_date', todayKey);
+        const savedToday = localStorage.getItem(todayKey);
+        const count = savedToday ? parseInt(savedToday, 10) || 0 : 0;
+        setTodayQuickSessionsCount(count);
+      }
+    } catch (e) {
+      console.error('Error resetting daily quick sessions badge:', e);
+    }
+  }, []);
+
+  // Timer effect checking every 30 seconds for local midnight transition
+  useEffect(() => {
+    checkAndResetDailyQuickSessions();
+    const interval = setInterval(() => {
+      checkAndResetDailyQuickSessions();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [checkAndResetDailyQuickSessions]);
 
   // Sync with Firebase Auth
   useEffect(() => {
@@ -1067,15 +1117,106 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   };
 
   const handleQuickStudySession = () => {
-    // Confetti explosion effect
+    // Haptic feedback for mobile devices (crisp double tap vibration pattern)
     try {
-      confetti({
-        particleCount: 100,
-        spread: 80,
-        origin: { y: 0.6 }
-      });
-    } catch (e) {
-      console.error(e);
+      if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
+        navigator.vibrate([25, 40, 25]);
+      }
+    } catch {
+      // Ignore vibration errors if unsupported or restricted by permissions
+    }
+
+    // Check if daily goal of 5 sessions is reached for the first time
+    const isGoalReachedFirstTime = todayQuickSessionsCount === 4;
+
+    // Show celebratory toast notification when starting the first session of the new day or reaching goal
+    if (todayQuickSessionsCount === 0) {
+      setCelebratoryQuickStudyToast("🎉 First Quick Study Session of the day! Fantastic start to keeping your study momentum strong today! 🌟");
+      setTimeout(() => {
+        setCelebratoryQuickStudyToast(null);
+      }, 5500);
+    } else if (isGoalReachedFirstTime) {
+      setCelebratoryQuickStudyToast("🏆 DAILY MASTERY ACHIEVED! 5/5 Quick Study Sessions Completed Today! You've unlocked Daily Mastery! 🌟⚡");
+      setTimeout(() => {
+        setCelebratoryQuickStudyToast(null);
+      }, 7000);
+    }
+
+    // Trigger visual click feedback state
+    setIsQuickStudyClicked(true);
+    setTimeout(() => setIsQuickStudyClicked(false), 700);
+
+    // Track sessions completed today
+    setTodayQuickSessionsCount(prev => {
+      const next = prev + 1;
+      try {
+        const todayKey = getLocalDateKey();
+        localStorage.setItem(todayKey, next.toString());
+        localStorage.setItem('edu_tz_quick_sessions_last_date', todayKey);
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    // Confetti shower animation
+    if (isGoalReachedFirstTime) {
+      // Trigger an intensive, long-lasting 'mastery' confetti shower animation
+      try {
+        const duration = 4.0 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 35, spread: 360, ticks: 120, zIndex: 9999 };
+
+        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+        // Big initial burst with festive mastery colors
+        confetti({
+          particleCount: 180,
+          spread: 120,
+          origin: { y: 0.5 },
+          colors: ['#f59e0b', '#10b981', '#6366f1', '#ec4899', '#3b82f6', '#fbbf24', '#a855f7'],
+          scalar: 1.3
+        });
+
+        // Continuous stream of side confetti cannons for 4 seconds
+        const interval: any = setInterval(() => {
+          const timeLeft = animationEnd - Date.now();
+
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = Math.floor(60 * (timeLeft / duration));
+
+          // Left stream
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.05, 0.3), y: Math.random() - 0.2 },
+            colors: ['#f59e0b', '#fbbf24', '#10b981', '#a855f7', '#ec4899']
+          });
+          // Right stream
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.7, 0.95), y: Math.random() - 0.2 },
+            colors: ['#3b82f6', '#a855f7', '#f59e0b', '#10b981', '#ec4899']
+          });
+        }, 180);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      // Standard confetti explosion effect
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     let targetGrade = selectedGrade;
@@ -1235,8 +1376,40 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
   // --- Render Sections ---
 
-  const renderHeader = () => (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
+  const renderHeader = () => {
+    if (isZenMode) {
+      return (
+        <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-purple-500/30 text-white py-3 px-4 sm:px-8 flex items-center justify-between shadow-xl transition-all duration-300">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={goHome}>
+            <div className="w-9 h-9 bg-gradient-to-r from-purple-500 to-amber-400 rounded-xl flex items-center justify-center text-slate-950 font-black text-base shadow-md shadow-purple-500/30">
+              🧘
+            </div>
+            <div className="flex flex-col">
+              <span className="font-black text-sm sm:text-base tracking-wide text-purple-100 flex items-center gap-2">
+                Education<span className="text-amber-400">TZ</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-500/30 text-purple-200 text-[10px] uppercase font-black border border-purple-400/30">Zen Focus</span>
+              </span>
+              <span className="text-[10px] text-purple-300 font-medium hidden sm:inline-block">Distraction-free environment • Pure study mode</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              id="exit-zen-mode-btn-header"
+              onClick={() => setIsZenMode(false)}
+              className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-extrabold text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-900/40 cursor-pointer"
+              title="Exit Zen Focus Mode"
+            >
+              <i className="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+              <span>Exit Zen Mode</span>
+            </button>
+          </div>
+        </header>
+      );
+    }
+
+    return (
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3 cursor-pointer group" onClick={goHome}>
           <div className="w-11 h-11 bg-vibrant-gradient rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
@@ -1443,7 +1616,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         </div>
       </div>
     </header>
-  );
+    );
+  };
 
   const renderTopicContent = () => {
     if (!selectedTopic || !selectedSubject) return null;
@@ -2602,31 +2776,40 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   );
 
   const renderHome = () => (
-    <div className="animate-fade-in space-y-12 py-8">
-      {/* NECTA National Final Examinations Countdown Timer */}
-      <div className="max-w-7xl mx-auto px-4 space-y-4">
-        <NectaCountdownTimer
-          initialGrade={selectedGrade ? selectedGrade.grade : (selectedLevel ? selectedLevel : 'Form 4')}
-          onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
-          onNavigateToPlanner={() => setCurrentView(AppView.PLANNER)}
-          onStartQuickStudy={handleQuickStudySession}
-          onOpenYunAI={(prompt) => {
-            setYunContext(prompt);
-            setCurrentView(AppView.CHAT);
-          }}
-        />
+    <div className={`animate-fade-in space-y-12 ${isZenMode ? 'py-4 max-w-4xl mx-auto' : 'py-8'}`}>
+      {/* NECTA National Final Examinations Countdown Timer - Hidden in Zen Mode */}
+      {!isZenMode && (
+        <div className="max-w-7xl mx-auto px-4 space-y-4">
+          <NectaCountdownTimer
+            initialGrade={selectedGrade ? selectedGrade.grade : (selectedLevel ? selectedLevel : 'Form 4')}
+            onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
+            onNavigateToPlanner={() => setCurrentView(AppView.PLANNER)}
+            onStartQuickStudy={handleQuickStudySession}
+            onOpenYunAI={(prompt) => {
+              setYunContext(prompt);
+              setCurrentView(AppView.CHAT);
+            }}
+          />
+        </div>
+      )}
 
-        {/* Start Quick Study Session Action Bar Below Timer */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border-2 border-indigo-500/30 shadow-xl flex flex-col gap-4">
+      {/* Start Quick Study Session Action Bar Below Timer */}
+      <div className="max-w-7xl mx-auto px-4">
+        <div className={`bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border-2 border-indigo-500/30 shadow-xl flex flex-col gap-4 ${isZenMode ? 'ring-2 ring-purple-500/50 shadow-2xl shadow-purple-950/50' : ''}`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3.5 text-left">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center text-xl font-black shrink-0 shadow-lg shadow-amber-400/20">
-                <i className="fa-solid fa-bolt text-slate-950"></i>
+                <i className={`fa-solid ${isZenMode ? 'fa-spa text-purple-950 animate-pulse' : 'fa-bolt text-slate-950'}`}></i>
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-xs font-black uppercase text-amber-300 tracking-wider">Instant Review</span>
                   <span className="px-2 py-0.5 rounded-md bg-indigo-500/30 text-indigo-200 text-[10px] font-extrabold uppercase border border-indigo-400/30">NECTA Curriculum</span>
+                  {isZenMode && (
+                    <span className="px-2 py-0.5 rounded-md bg-purple-500/40 text-purple-200 text-[10px] font-black uppercase border border-purple-400/40 animate-pulse flex items-center gap-1">
+                      <span>🧘</span> Zen Focus Mode
+                    </span>
+                  )}
                 </div>
                 <h4 className="font-black text-sm sm:text-base text-white">
                   Start Quick Study Session
@@ -2637,37 +2820,95 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
               </div>
             </div>
 
-          <div className="relative group/btn w-full sm:w-auto">
-            <button
-              id="start-quick-study-session-btn"
-              onClick={handleQuickStudySession}
-              className="w-full px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-amber-400/30 animate-subtle-pulse hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer"
-              title="Triggers a random, AI-selected syllabus topic review with lesson notes, videos & quizzes"
-            >
-              <i className="fa-solid fa-dice text-base text-slate-950"></i>
-              <span>Start Quick Study Session ⚡</span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
+              <div className="relative group/btn w-full sm:w-auto flex justify-center items-center">
+                {/* Smooth glowing pulsating border backdrop aura on hover */}
+                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 opacity-0 group-hover/btn:opacity-100 group-hover/btn:animate-pulse blur-md transition-opacity duration-500 pointer-events-none"></div>
 
-            {/* Hover Tooltip Indicator with Time to Master estimate */}
-            {(() => {
-              const est = getTopicTimeEstimate(null, undefined, selectedGrade?.grade);
-              return (
-                <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/btn:opacity-100 transition-all duration-200 pointer-events-none z-30 whitespace-nowrap bg-slate-900 text-amber-300 font-bold text-[11px] px-3.5 py-2 rounded-2xl border border-amber-400/60 shadow-2xl flex flex-col items-center gap-1 scale-95 group-hover/btn:scale-100">
-                  <div className="flex items-center gap-2">
-                    <i className="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
-                    <span>Random AI Topic Review</span>
-                    <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 text-[10px] font-black uppercase border border-amber-400/40">
-                      ⏱️ Time to Master: {est.time}
+                <button
+                  id="start-quick-study-session-btn"
+                  onClick={handleQuickStudySession}
+                  className={`relative w-full sm:w-auto px-4 max-[480px]:px-3.5 sm:px-6 py-2.5 max-[480px]:py-2.5 sm:py-3.5 rounded-2xl font-black text-xs max-[480px]:text-[12px] sm:text-sm uppercase tracking-wider text-slate-950 flex flex-col items-center justify-center text-center mx-auto gap-1 shrink-0 cursor-pointer transition-all duration-300 border-2 border-transparent hover:border-amber-200/90 hover:ring-4 hover:ring-amber-300/80 ${
+                    isQuickStudyClicked
+                      ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 scale-105 sm:scale-110 ring-4 ring-emerald-300/80 shadow-xl shadow-emerald-500/50'
+                      : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 shadow-lg shadow-amber-400/30 animate-subtle-pulse hover:scale-105 active:scale-95'
+                  }`}
+                  title="Triggers a random, AI-selected syllabus topic review with lesson notes, videos & quizzes"
+                >
+                  <div className="flex items-center justify-center gap-2 sm:gap-2.5">
+                    <i className={`fa-solid ${isQuickStudyClicked ? 'fa-bolt-lightning text-slate-950 animate-bounce' : 'fa-dice'} text-sm sm:text-base text-slate-950 shrink-0`}></i>
+                    <span className="text-center">
+                      {isQuickStudyClicked ? 'Launching Study Session... ⚡' : 'Start Quick Study Session ⚡'}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
-                    <span>Est. based on {selectedGrade?.grade || 'Form 4'} topic difficulty ({est.level})</span>
+
+                  {/* Daily Goal 5 Sessions Hover Progress Indicator */}
+                  <div className="w-full max-w-[210px] overflow-hidden transition-all duration-300 max-h-0 opacity-0 group-hover/btn:max-h-14 group-hover/btn:opacity-100 group-hover/btn:mt-1 pointer-events-none">
+                    <div className="flex items-center justify-between text-[10px] font-black tracking-normal normal-case text-slate-950 px-0.5 mb-0.5">
+                      <span className="flex items-center gap-1">
+                        <i className="fa-solid fa-bullseye text-amber-900"></i> Daily Goal: 5 sessions
+                      </span>
+                      <span className="font-extrabold">{todayQuickSessionsCount}/5 ({Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%)</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-950/20 rounded-full overflow-hidden p-0.5 border border-slate-950/10">
+                      <div
+                        className="h-full bg-slate-950 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 border-r border-b border-amber-400/60 rotate-45"></div>
-                </div>
-              );
-            })()}
-          </div>
+
+                  {/* Small circular counter badge showing total sessions completed today */}
+                  <span
+                    key={`counter-badge-${todayQuickSessionsCount}`}
+                    id="quick-study-sessions-counter-badge"
+                    className={`absolute -top-2.5 -right-2.5 max-[480px]:-top-2 max-[480px]:-right-2 flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded-full font-black text-[11px] leading-none shadow-md transition-all duration-300 group-hover/btn:scale-110 ${
+                      todayQuickSessionsCount >= 5
+                        ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 border-2 border-amber-200 ring-2 ring-amber-400/50 shadow-amber-400/40 animate-badge-pop-mastery'
+                        : 'bg-slate-950 text-amber-300 border-2 border-amber-400'
+                    }`}
+                    title={todayQuickSessionsCount >= 5 ? `Daily Mastery Goal Achieved! (${todayQuickSessionsCount}/5 sessions completed today)` : `${todayQuickSessionsCount} quick study session${todayQuickSessionsCount === 1 ? '' : 's'} completed today`}
+                  >
+                    {todayQuickSessionsCount >= 5 ? `👑 ${todayQuickSessionsCount}` : todayQuickSessionsCount}
+                  </span>
+                </button>
+
+                {/* Hover Tooltip Indicator with Time to Master estimate */}
+                {(() => {
+                  const est = getTopicTimeEstimate(null, undefined, selectedGrade?.grade);
+                  return (
+                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/btn:opacity-100 transition-all duration-200 pointer-events-none z-30 whitespace-nowrap bg-slate-900 text-amber-300 font-bold text-[11px] px-3.5 py-2 rounded-2xl border border-amber-400/60 shadow-2xl flex flex-col items-center gap-1 scale-95 group-hover/btn:scale-100">
+                      <div className="flex items-center gap-2">
+                        <i className="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                        <span>Random AI Topic Review</span>
+                        <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 text-[10px] font-black uppercase border border-amber-400/40">
+                          ⏱️ Time to Master: {est.time}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
+                        <span>Est. based on {selectedGrade?.grade || 'Form 4'} topic difficulty ({est.level})</span>
+                      </div>
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 border-r border-b border-amber-400/60 rotate-45"></div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Zen Mode Toggle Button */}
+              <button
+                id="toggle-zen-mode-btn"
+                onClick={() => setIsZenMode(!isZenMode)}
+                className={`w-full sm:w-auto px-4 py-2.5 max-[480px]:py-2.5 sm:py-3.5 rounded-2xl font-black text-xs max-[480px]:text-[12px] uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 border shadow-md cursor-pointer shrink-0 ${
+                  isZenMode
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-400 ring-4 ring-purple-400/40 shadow-purple-500/30'
+                    : 'bg-slate-800/90 hover:bg-slate-700 text-purple-300 border-purple-500/30 hover:border-purple-400 hover:scale-105 active:scale-95'
+                }`}
+                title={isZenMode ? "Disable Zen Focus Mode" : "Enable Zen Focus Mode (removes headers, leaderboards & sidebars for distraction-free study)"}
+              >
+                <i className={`fa-solid ${isZenMode ? 'fa-spa text-white text-base animate-pulse' : 'fa-yin-yang text-purple-400 text-base'}`}></i>
+                <span>{isZenMode ? 'Zen Active 🧘' : 'Zen Mode 🧘'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Recent Quick Study Sessions Quick-Access List */}
@@ -2778,232 +3019,237 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         </div>
       </div>
 
-      {/* Hero */}
-      <div className="text-center space-y-6 max-w-4xl mx-auto px-4 relative">
-         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-extrabold text-xs tracking-wider uppercase shadow-sm animate-pulse-glow">
-            <i className="fa-solid fa-sparkles text-amber-500"></i> Over {totalTopicsCount}+ Topics & Video Classes
-         </div>
-         <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-tz-dark tracking-tight leading-tight">
-           Your AI Classroom for <span className="gradient-text">Every Stage</span>
-         </h1>
-         <p className="text-gray-600 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
-           Explore over <span className="font-extrabold text-indigo-600">{totalTopicsCount}+ syllabus-aligned topics</span> with embedded video lessons, interactive quizzes, vocabulary engines, and your AI study buddy, Yun.
-         </p>
-         
-         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-           <span className="px-3.5 py-1.5 rounded-xl bg-sky-50 text-sky-700 font-bold text-xs border border-sky-100 flex items-center gap-1.5">
-             <i className="fa-solid fa-video text-sky-500"></i> Video Classes
-           </span>
-           <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100 flex items-center gap-1.5">
-             <i className="fa-solid fa-circle-check text-emerald-500"></i> NECTA Syllabus
-           </span>
-           <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-purple-700 font-bold text-xs border border-purple-100 flex items-center gap-1.5">
-             <i className="fa-solid fa-language text-purple-500"></i> Multilingual Vocabulary
-           </span>
-           <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs border border-amber-100 flex items-center gap-1.5">
-             <i className="fa-solid fa-robot text-amber-500"></i> Yun AI Tutor
-           </span>
-         </div>
-      </div>
+      {/* Non-essential elements hidden in Zen Focus Mode */}
+      {!isZenMode && (
+        <>
+          {/* Hero */}
+          <div className="text-center space-y-6 max-w-4xl mx-auto px-4 relative">
+             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-extrabold text-xs tracking-wider uppercase shadow-sm animate-pulse-glow">
+                <i className="fa-solid fa-sparkles text-amber-500"></i> Over {totalTopicsCount}+ Topics & Video Classes
+             </div>
+             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-tz-dark tracking-tight leading-tight">
+               Your AI Classroom for <span className="gradient-text">Every Stage</span>
+             </h1>
+             <p className="text-gray-600 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+               Explore over <span className="font-extrabold text-indigo-600">{totalTopicsCount}+ syllabus-aligned topics</span> with embedded video lessons, interactive quizzes, vocabulary engines, and your AI study buddy, Yun.
+             </p>
+             
+             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+               <span className="px-3.5 py-1.5 rounded-xl bg-sky-50 text-sky-700 font-bold text-xs border border-sky-100 flex items-center gap-1.5">
+                 <i className="fa-solid fa-video text-sky-500"></i> Video Classes
+               </span>
+               <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100 flex items-center gap-1.5">
+                 <i className="fa-solid fa-circle-check text-emerald-500"></i> NECTA Syllabus
+               </span>
+               <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-purple-700 font-bold text-xs border border-purple-100 flex items-center gap-1.5">
+                 <i className="fa-solid fa-language text-purple-500"></i> Multilingual Vocabulary
+               </span>
+               <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs border border-amber-100 flex items-center gap-1.5">
+                 <i className="fa-solid fa-robot text-amber-500"></i> Yun AI Tutor
+               </span>
+             </div>
+          </div>
 
-      {/* Level Selection Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
-         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-emerald-gradient', desc: 'Standard 1 - 7', badge: 'Primary School' },
-              { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-vibrant-gradient', desc: 'Form 1 - 4', badge: 'O-Level' },
-              { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-sunset-gradient', desc: 'Advanced Level', badge: 'A-Level' }
-            ].map((level) => (
-              <button 
-                key={level.type}
-                id={`level-select-${level.type.toLowerCase().replace(/\s+/g, '-')}`}
-                onClick={() => handleLevelSelect(level.type)}
-                className="group glass-card-vibrant rounded-3xl p-8 border-2 border-white/80 hover:border-indigo-400 transition-all duration-300 text-left hover:-translate-y-1.5 hover:shadow-2xl relative overflow-hidden"
+          {/* Level Selection Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
+             <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  { type: EducationLevel.PRIMARY, icon: 'fa-child', color: 'bg-emerald-gradient', desc: 'Standard 1 - 7', badge: 'Primary School' },
+                  { type: EducationLevel.SECONDARY, icon: 'fa-book-open', color: 'bg-vibrant-gradient', desc: 'Form 1 - 4', badge: 'O-Level' },
+                  { type: EducationLevel.HIGH_SCHOOL, icon: 'fa-microscope', color: 'bg-sunset-gradient', desc: 'Advanced Level', badge: 'A-Level' }
+                ].map((level) => (
+                  <button 
+                    key={level.type}
+                    id={`level-select-${level.type.toLowerCase().replace(/\s+/g, '-')}`}
+                    onClick={() => handleLevelSelect(level.type)}
+                    className="group glass-card-vibrant rounded-3xl p-8 border-2 border-white/80 hover:border-indigo-400 transition-all duration-300 text-left hover:-translate-y-1.5 hover:shadow-2xl relative overflow-hidden"
+                  >
+                      <div className="flex items-center justify-between mb-6">
+                        <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl shadow-xl shadow-indigo-500/20 group-hover:scale-110 transition-transform`}>
+                          <i className={`fa-solid ${level.icon}`}></i>
+                        </div>
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+                          {level.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-black text-tz-dark mb-2 group-hover:text-tz-blue transition-colors">{level.type}</h3>
+                      <p className="text-gray-500 font-medium text-sm mb-6">{level.desc}</p>
+                      <div className="flex items-center text-indigo-600 font-extrabold gap-2 group-hover:gap-4 transition-all text-sm">
+                        Explore Syllabus <i className="fa-solid fa-arrow-right"></i>
+                      </div>
+                  </button>
+                ))}
+             </div>
+             
+             <div className="lg:col-span-1">
+                {renderLeaderboard()}
+             </div>
+          </div>
+
+          {/* Featured Stats */}
+          <div className="bg-tz-dark rounded-[3rem] p-10 md:p-12 text-white max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-2xl border border-slate-800">
+             <div className="relative z-10">
+                <div className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-3 border border-cyan-500/30">
+                   Interactive Platform
+                </div>
+                <h2 className="text-3xl font-extrabold mb-2">Join Tanzania's Digital Learning Revolution</h2>
+                <p className="text-slate-300 max-w-xl text-sm leading-relaxed">Access hundreds of video lessons, past exams, study notes, and real-time AI guidance from primary school to high school.</p>
+             </div>
+             <div className="flex gap-8 relative z-10 shrink-0">
+                <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
+                   <div className="text-4xl font-black text-amber-400">{totalTopicsCount}+</div>
+                   <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Video Topics</div>
+                </div>
+                <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
+                   <div className="text-4xl font-black text-cyan-400">120+</div>
+                   <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Past Exams</div>
+                </div>
+             </div>
+          </div>
+
+          {/* Student & Parent Weekly Study Trend Chart */}
+          <div className="max-w-6xl mx-auto px-4">
+            <StudyTrendChart userPoints={user.points} isParentView={false} />
+          </div>
+
+          {/* Quick Access Portals Grid */}
+          <div className="max-w-6xl mx-auto px-4 space-y-4 mb-12">
+            <h2 className="text-2xl font-black text-tz-dark flex items-center gap-2">
+              <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Portal 1: NECTA Results */}
+              <div
+                className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.EXAMS)}
               >
-                  <div className="flex items-center justify-between mb-6">
-                    <div className={`w-14 h-14 ${level.color} rounded-2xl flex items-center justify-center text-white text-2xl shadow-xl shadow-indigo-500/20 group-hover:scale-110 transition-transform`}>
-                      <i className={`fa-solid ${level.icon}`}></i>
-                    </div>
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-                      {level.badge}
-                    </span>
+                <div>
+                  <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
+                    <i className="fa-solid fa-square-poll-vertical"></i>
                   </div>
-                  <h3 className="text-2xl font-black text-tz-dark mb-2 group-hover:text-tz-blue transition-colors">{level.type}</h3>
-                  <p className="text-gray-500 font-medium text-sm mb-6">{level.desc}</p>
-                  <div className="flex items-center text-indigo-600 font-extrabold gap-2 group-hover:gap-4 transition-all text-sm">
-                    Explore Syllabus <i className="fa-solid fa-arrow-right"></i>
+                  <h4 className="text-lg font-black text-emerald-950 mb-1">NECTA Results Portal</h4>
+                  <p className="text-xs text-emerald-800 font-medium leading-relaxed">Check index statements, candidate results, and calculate division points.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
+                  <span>Access Results</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 2: Vocabulary & Dictionary */}
+              <div
+                className="bg-amber-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-100/80 transition border-2 border-amber-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.DICTIONARY)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-200">
+                    <i className="fa-solid fa-book-bookmark"></i>
                   </div>
-              </button>
-            ))}
-         </div>
-         
-         <div className="lg:col-span-1">
-            {renderLeaderboard()}
-         </div>
-      </div>
-
-      {/* Featured Stats */}
-      <div className="bg-tz-dark rounded-[3rem] p-10 md:p-12 text-white max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-2xl border border-slate-800">
-         <div className="relative z-10">
-            <div className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-3 border border-cyan-500/30">
-               Interactive Platform
-            </div>
-            <h2 className="text-3xl font-extrabold mb-2">Join Tanzania's Digital Learning Revolution</h2>
-            <p className="text-slate-300 max-w-xl text-sm leading-relaxed">Access hundreds of video lessons, past exams, study notes, and real-time AI guidance from primary school to high school.</p>
-         </div>
-         <div className="flex gap-8 relative z-10 shrink-0">
-            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
-               <div className="text-4xl font-black text-amber-400">{totalTopicsCount}+</div>
-               <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Video Topics</div>
-            </div>
-            <div className="text-center bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 min-w-[110px]">
-               <div className="text-4xl font-black text-cyan-400">120+</div>
-               <div className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold mt-1">Past Exams</div>
-            </div>
-         </div>
-      </div>
-
-      {/* Student & Parent Weekly Study Trend Chart */}
-      <div className="max-w-6xl mx-auto px-4">
-        <StudyTrendChart userPoints={user.points} isParentView={false} />
-      </div>
-
-      {/* Quick Access Portals Grid */}
-      <div className="max-w-6xl mx-auto px-4 space-y-4 mb-12">
-        <h2 className="text-2xl font-black text-tz-dark flex items-center gap-2">
-          <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Portal 1: NECTA Results */}
-          <div
-            className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.EXAMS)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
-                <i className="fa-solid fa-square-poll-vertical"></i>
+                  <h4 className="text-lg font-black text-amber-950 mb-1">Vocabulary & Kamusi</h4>
+                  <p className="text-xs text-amber-800 font-medium leading-relaxed">Swahili & English academic term definitions, audio pronunciation, and flashcards.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-amber-200/60 flex items-center justify-between text-xs font-black text-amber-700">
+                  <span>Open Dictionary</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
               </div>
-              <h4 className="text-lg font-black text-emerald-950 mb-1">NECTA Results Portal</h4>
-              <p className="text-xs text-emerald-800 font-medium leading-relaxed">Check index statements, candidate results, and calculate division points.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
-              <span>Access Results</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+
+              {/* Portal 3: Notes Hub */}
+              <div
+                className="bg-indigo-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-100/80 transition border-2 border-indigo-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.NOTES)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-200">
+                    <i className="fa-solid fa-note-sticky"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-indigo-950 mb-1">Study Notes Hub</h4>
+                  <p className="text-xs text-indigo-800 font-medium leading-relaxed">Create personal subject notebooks, save Yun AI summaries, and export PDFs.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-indigo-200/60 flex items-center justify-between text-xs font-black text-indigo-700">
+                  <span>Open Notebooks</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 4: Grade Calculator */}
+              <div
+                className="bg-purple-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-purple-100/80 transition border-2 border-purple-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.CALCULATOR)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-purple-200">
+                    <i className="fa-solid fa-calculator"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-purple-950 mb-1">Grade Calculator</h4>
+                  <p className="text-xs text-purple-800 font-medium leading-relaxed">Calculate subject grade averages, sum scores, and academic percentages.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-purple-200/60 flex items-center justify-between text-xs font-black text-purple-700">
+                  <span>Calculate Grades</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 5: School Admission Predictor */}
+              <div
+                className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.PREDICTOR)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
+                    <i className="fa-solid fa-graduation-cap"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-emerald-950 mb-1">School & University Predictor</h4>
+                  <p className="text-xs text-emerald-800 font-medium leading-relaxed">Predict exactly which Special National Schools, A-Level Combos, or University programs (UDSM, MUHAS) you qualify for!</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
+                  <span>Predict School Admission</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 6: Assignments & Practice Test Center */}
+              <div
+                className="bg-sky-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-sky-100/80 transition border-2 border-sky-100 shadow-sm hover:shadow-md"
+                onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-sky-200">
+                    <i className="fa-solid fa-list-check"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-sky-950 mb-1">Assignments & Practice Tests</h4>
+                  <p className="text-xs text-sky-800 font-medium leading-relaxed">Practice weekly homework tasks, timed speed tests, and past papers with model answer keys.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-sky-200/60 flex items-center justify-between text-xs font-black text-sky-700">
+                  <span>Open Test Bank</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 7: 150 Strategic Ideas & Master Blueprint */}
+              <div
+                className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/15 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:from-amber-500/20 hover:to-amber-400/10 transition border-2 border-amber-300 shadow-sm hover:shadow-md relative overflow-hidden"
+                onClick={() => setIsRoadmapModalOpen(true)}
+              >
+                <div>
+                  <div className="w-12 h-12 bg-amber-500 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30 font-black">
+                    <i className="fa-solid fa-rocket"></i>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/30 text-amber-900 font-extrabold text-[10px] uppercase mb-1 border border-amber-400/40">
+                    <span>150 Strategic Features</span>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mb-1">150 Innovation Ideas & Blueprint</h4>
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">Explore the complete 150-point master roadmap powering NECTA exam tech, STEM labs, low-bandwidth PWA, AI tools & Swahili localization.</p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-amber-300/60 flex items-center justify-between text-xs font-black text-amber-900">
+                  <span>Explore 150 Strategy Points</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Portal 2: Vocabulary & Dictionary */}
-          <div
-            className="bg-amber-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-100/80 transition border-2 border-amber-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.DICTIONARY)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-200">
-                <i className="fa-solid fa-book-bookmark"></i>
-              </div>
-              <h4 className="text-lg font-black text-amber-950 mb-1">Vocabulary & Kamusi</h4>
-              <p className="text-xs text-amber-800 font-medium leading-relaxed">Swahili & English academic term definitions, audio pronunciation, and flashcards.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-amber-200/60 flex items-center justify-between text-xs font-black text-amber-700">
-              <span>Open Dictionary</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-
-          {/* Portal 3: Notes Hub */}
-          <div
-            className="bg-indigo-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-100/80 transition border-2 border-indigo-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.NOTES)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-200">
-                <i className="fa-solid fa-note-sticky"></i>
-              </div>
-              <h4 className="text-lg font-black text-indigo-950 mb-1">Study Notes Hub</h4>
-              <p className="text-xs text-indigo-800 font-medium leading-relaxed">Create personal subject notebooks, save Yun AI summaries, and export PDFs.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-indigo-200/60 flex items-center justify-between text-xs font-black text-indigo-700">
-              <span>Open Notebooks</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-
-          {/* Portal 4: Grade Calculator */}
-          <div
-            className="bg-purple-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-purple-100/80 transition border-2 border-purple-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.CALCULATOR)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-purple-200">
-                <i className="fa-solid fa-calculator"></i>
-              </div>
-              <h4 className="text-lg font-black text-purple-950 mb-1">Grade Calculator</h4>
-              <p className="text-xs text-purple-800 font-medium leading-relaxed">Calculate subject grade averages, sum scores, and academic percentages.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-purple-200/60 flex items-center justify-between text-xs font-black text-purple-700">
-              <span>Calculate Grades</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-
-          {/* Portal 5: School Admission Predictor */}
-          <div
-            className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.PREDICTOR)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
-                <i className="fa-solid fa-graduation-cap"></i>
-              </div>
-              <h4 className="text-lg font-black text-emerald-950 mb-1">School & University Predictor</h4>
-              <p className="text-xs text-emerald-800 font-medium leading-relaxed">Predict exactly which Special National Schools, A-Level Combos, or University programs (UDSM, MUHAS) you qualify for!</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
-              <span>Predict School Admission</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-
-          {/* Portal 6: Assignments & Practice Test Center */}
-          <div
-            className="bg-sky-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-sky-100/80 transition border-2 border-sky-100 shadow-sm hover:shadow-md"
-            onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-sky-200">
-                <i className="fa-solid fa-list-check"></i>
-              </div>
-              <h4 className="text-lg font-black text-sky-950 mb-1">Assignments & Practice Tests</h4>
-              <p className="text-xs text-sky-800 font-medium leading-relaxed">Practice weekly homework tasks, timed speed tests, and past papers with model answer keys.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-sky-200/60 flex items-center justify-between text-xs font-black text-sky-700">
-              <span>Open Test Bank</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-
-          {/* Portal 7: 150 Strategic Ideas & Master Blueprint */}
-          <div
-            className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/15 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:from-amber-500/20 hover:to-amber-400/10 transition border-2 border-amber-300 shadow-sm hover:shadow-md relative overflow-hidden"
-            onClick={() => setIsRoadmapModalOpen(true)}
-          >
-            <div>
-              <div className="w-12 h-12 bg-amber-500 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30 font-black">
-                <i className="fa-solid fa-rocket"></i>
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/30 text-amber-900 font-extrabold text-[10px] uppercase mb-1 border border-amber-400/40">
-                <span>150 Strategic Features</span>
-              </div>
-              <h4 className="text-lg font-black text-slate-900 mb-1">150 Innovation Ideas & Blueprint</h4>
-              <p className="text-xs text-slate-700 font-medium leading-relaxed">Explore the complete 150-point master roadmap powering NECTA exam tech, STEM labs, low-bandwidth PWA, AI tools & Swahili localization.</p>
-            </div>
-            <div className="pt-4 mt-2 border-t border-amber-300/60 flex items-center justify-between text-xs font-black text-amber-900">
-              <span>Explore 150 Strategy Points</span>
-              <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 
@@ -3842,6 +4088,33 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     initialContext={yunContext} 
                     onClose={() => goHome()}
                 />
+            </div>
+          </div>
+        )}
+
+        {/* Celebratory First Session Toast Notification */}
+        {celebratoryQuickStudyToast && (
+          <div className="fixed top-20 right-6 z-50 max-w-sm animate-bounce-short shadow-2xl">
+            <div className="p-4 rounded-2xl border-2 border-amber-400 bg-slate-950/95 text-white flex items-start gap-3.5 backdrop-blur-md shadow-amber-400/25">
+              <div className="w-10 h-10 rounded-xl shrink-0 bg-amber-400/20 text-amber-300 flex items-center justify-center text-xl shadow-inner border border-amber-400/40">
+                <i className="fa-solid fa-trophy text-amber-300"></i>
+              </div>
+              <div className="flex-1 space-y-1 text-left">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-black text-xs text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i className="fa-solid fa-sun text-amber-400"></i> New Day Goal Achieved!
+                  </h4>
+                  <button
+                    onClick={() => setCelebratoryQuickStudyToast(null)}
+                    className="text-slate-400 hover:text-white text-xs p-1"
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-100 font-medium leading-relaxed">
+                  {celebratoryQuickStudyToast}
+                </p>
+              </div>
             </div>
           </div>
         )}
