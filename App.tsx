@@ -13,6 +13,7 @@ import Dictionary from './components/Dictionary';
 import NotesHub from './components/NotesHub';
 import StudyPlanner from './components/StudyPlanner';
 import { SchoolAdmissionPredictor } from './components/SchoolAdmissionPredictor';
+import { AdminPanel } from './components/AdminPanel';
 import { AssignmentsAndTestsBank } from './components/AssignmentsAndTestsBank';
 import { NectaCountdownTimer } from './components/NectaCountdownTimer';
 import { Badges } from './components/Badges';
@@ -255,138 +256,6 @@ const Calculator: React.FC<CalculatorProps> = ({ goHome }) => {
          )}
 
          <button onClick={goHome} className="w-full text-gray-400 font-bold hover:text-tz-blue transition text-center">Back to home</button>
-      </div>
-    </div>
-  );
-};
-
-interface AdminPanelProps {
-  onBack: () => void;
-}
-
-const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-  const [searchEmail, setSearchEmail] = useState('');
-  const [foundUser, setFoundUser] = useState<UserProgress | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [newCredits, setNewCredits] = useState(0);
-  const [newPoints, setNewPoints] = useState(0);
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
-    try {
-      const u = await searchUserByEmail(searchEmail);
-      if (u) {
-        setFoundUser(u);
-        setNewCredits(u.credits || 0);
-        setNewPoints(u.points || 0);
-      } else {
-        setFoundUser(null);
-        setMessage('User not found.');
-      }
-    } catch (err) {
-      setMessage('Error searching user.');
-    }
-    setLoading(false);
-  };
-
-  const handleUpdate = async () => {
-    if (!foundUser || !foundUser.userId) return;
-    setLoading(true);
-    try {
-      await updateUserCredits(foundUser.userId, newCredits, newPoints);
-      setMessage('User updated successfully!');
-      setFoundUser(prev => prev ? { ...prev, credits: newCredits, points: newPoints } : null);
-    } catch (err) {
-      setMessage('Error updating user.');
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div className="animate-fade-in max-w-4xl mx-auto p-4">
-      <div className="bg-white rounded-3xl p-8 shadow-xl border border-red-100">
-         <div className="flex items-center gap-3 mb-8">
-            <button onClick={onBack} className="text-gray-400 hover:text-gray-600">
-              <i className="fa-solid fa-arrow-left text-xl"></i>
-            </button>
-            <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white text-2xl">
-              <i className="fa-solid fa-user-gear"></i>
-            </div>
-            <h1 className="text-3xl font-extrabold text-tz-dark">Admin Panel</h1>
-         </div>
-
-         <form onSubmit={handleSearch} className="mb-10">
-            <label className="block text-sm font-bold text-gray-600 mb-2">Search User by Email</label>
-            <div className="flex gap-2">
-               <input 
-                  type="email" 
-                  value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
-                  placeholder="student@example.com"
-                  className="flex-grow bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-3 focus:border-tz-blue outline-none transition"
-                  required
-               />
-               <button 
-                type="submit"
-                disabled={loading}
-                className="bg-tz-dark text-white px-6 py-3 rounded-2xl font-bold hover:opacity-90 transition disabled:opacity-50"
-               >
-                 {loading ? 'Searching...' : 'Search'}
-               </button>
-            </div>
-         </form>
-
-         {message && (
-           <div className={`p-4 rounded-xl mb-6 font-bold text-center ${message.includes('Error') || message.includes('not found') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-tz-green'}`}>
-              {message}
-           </div>
-         )}
-
-         {foundUser && (
-           <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div>
-                    <h3 className="font-bold text-lg mb-4">User Details</h3>
-                    <div className="space-y-2">
-                       <p className="text-sm text-gray-500">UID: <span className="text-tz-dark font-mono bg-white px-2 rounded">{foundUser.userId}</span></p>
-                       <p className="text-sm text-gray-500">Email: <span className="text-tz-dark font-medium">{searchEmail}</span></p>
-                       <p className="text-sm text-gray-500">Current Level: <span className="text-tz-dark font-medium">{foundUser.level}</span></p>
-                    </div>
-                 </div>
-
-                 <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-600 mb-2">Set Credits</label>
-                      <input 
-                        type="number" 
-                        value={newCredits}
-                        onChange={(e) => setNewCredits(Number(e.target.value))}
-                        className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-tz-blue"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-600 mb-2">Set Points/EP</label>
-                      <input 
-                        type="number" 
-                        value={newPoints}
-                        onChange={(e) => setNewPoints(Number(e.target.value))}
-                        className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-tz-blue"
-                      />
-                    </div>
-                    <button 
-                      onClick={handleUpdate}
-                      disabled={loading}
-                      className="w-full bg-tz-blue text-white py-3 rounded-xl font-bold shadow-lg shadow-tz-blue/20 hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50"
-                    >
-                      {loading ? 'Processing...' : 'Save Changes'}
-                    </button>
-                 </div>
-              </div>
-           </div>
-         )}
       </div>
     </div>
   );
