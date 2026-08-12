@@ -333,36 +333,97 @@ export const StudyPlanner: React.FC = () => {
       });
 
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 12;
+      const contentWidth = pageWidth - (margin * 2);
 
-      // Header Banner
-      doc.setFillColor(30, 27, 75); // Slate 900
+      // Header Banner Background
+      doc.setFillColor(15, 23, 42); // Slate 900 #0f172a
       doc.rect(0, 0, pageWidth, 28, 'F');
 
-      doc.setFillColor(250, 204, 21); // Amber 400
-      doc.rect(0, 28, pageWidth, 2, 'F');
+      doc.setFillColor(245, 158, 11); // Amber 500 #f59e0b
+      doc.rect(0, 28, pageWidth, 2.5, 'F');
 
-      doc.setTextColor(250, 204, 21);
+      // Title Text
+      doc.setTextColor(251, 191, 36); // Amber 400
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('ElimuTanzania • Weekly Study Planner & Exam Schedule', margin, 10);
+      doc.setFontSize(13);
+      doc.text('EDUCATION-TZ : WEEKLY STUDY PLANNER & EXAM SCHEDULE', margin, 11);
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(12);
-      doc.text('NECTA & TIE Official Student Study Timetable', margin, 20);
+      doc.setTextColor(241, 245, 249); // Slate 100
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text('Official NECTA & TIE Student Study Timetable • Personal Learning Roadmap', margin, 19);
+
+      doc.setFontSize(7.5);
+      doc.setTextColor(203, 213, 225);
+      const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      doc.text(`Generated: ${todayStr}`, pageWidth - margin - 35, 19);
 
       let currentY = 36;
 
+      // Summary Stats Metadata Box
+      const totalMins = tasks.reduce((sum, t) => sum + (t.durationMinutes || 0), 0);
+      const totalHours = (totalMins / 60).toFixed(1);
+      const completedTasks = tasks.filter(t => t.completed).length;
+
+      doc.setFillColor(248, 250, 252); // Slate 50
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.setLineWidth(0.4);
+      doc.roundedRect(margin, currentY, contentWidth, 14, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(15, 23, 42);
+
+      const col1 = margin + 5;
+      const col2 = margin + 50;
+      const col3 = margin + 100;
+      const col4 = margin + 145;
+
+      doc.text('Total Sessions:', col1, currentY + 5.5);
+      doc.setTextColor(79, 70, 229); // Indigo
+      doc.text(`${tasks.length} Scheduled Tasks`, col1, currentY + 10.5);
+
+      doc.setTextColor(15, 23, 42);
+      doc.text('Weekly Study Time:', col2, currentY + 5.5);
+      doc.setTextColor(16, 185, 129); // Emerald
+      doc.text(`${totalMins} Mins (${totalHours} Hours)`, col2, currentY + 10.5);
+
+      doc.setTextColor(15, 23, 42);
+      doc.text('Completed Progress:', col3, currentY + 5.5);
+      doc.setTextColor(217, 119, 6); // Amber
+      const pct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+      doc.text(`${completedTasks} / ${tasks.length} (${pct}%)`, col3, currentY + 10.5);
+
+      doc.setTextColor(15, 23, 42);
+      doc.text('Curriculum Alignment:', col4, currentY + 5.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text('NECTA CSEE / ACSEE', col4, currentY + 10.5);
+
+      currentY += 20;
+
+      // Render Each Day's Tasks
       DAYS_LIST.forEach(dayName => {
         const dayTasks = tasks.filter(t => t.day === dayName);
 
-        doc.setFillColor(241, 245, 249);
-        doc.rect(margin, currentY, pageWidth - (margin * 2), 7, 'F');
+        // Pre-check page space for day header and at least 1 task (approx 28mm)
+        if (currentY + 28 > pageHeight - 18) {
+          doc.addPage();
+          currentY = 18;
+        }
 
-        doc.setTextColor(15, 23, 42);
+        // Day Banner
+        doc.setFillColor(30, 27, 75); // Slate 900
+        doc.rect(margin, currentY, contentWidth, 7, 'F');
+
+        doc.setFillColor(250, 204, 21); // Amber accent tab
+        doc.rect(margin, currentY, 3, 7, 'F');
+
+        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        doc.text(`${dayName.toUpperCase()} (${dayTasks.length} Scheduled Sessions)`, margin + 3, currentY + 5);
+        doc.setFontSize(9);
+        doc.text(`${dayName.toUpperCase()} (${dayTasks.length} Scheduled Session${dayTasks.length === 1 ? '' : 's'})`, margin + 6, currentY + 5);
 
         currentY += 10;
 
@@ -370,36 +431,88 @@ export const StudyPlanner: React.FC = () => {
           doc.setTextColor(148, 163, 184);
           doc.setFont('helvetica', 'italic');
           doc.setFontSize(8);
-          doc.text('No study sessions scheduled.', margin + 5, currentY);
-          currentY += 6;
+          doc.text('No study sessions scheduled for this day.', margin + 6, currentY);
+          currentY += 8;
         } else {
           dayTasks.forEach(task => {
-            if (currentY > 270) {
+            // Calculate needed height for this task card
+            const hasNotes = Boolean(task.notes && task.notes.trim());
+            const cardHeight = hasNotes ? 17 : 13;
+
+            if (currentY + cardHeight > pageHeight - 18) {
               doc.addPage();
-              currentY = 20;
+              currentY = 18;
             }
 
-            doc.setTextColor(30, 41, 59);
+            // Card Background
+            doc.setFillColor(task.completed ? 240 : 255, task.completed ? 253 : 255, task.completed ? 244 : 255);
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(margin + 2, currentY, contentWidth - 4, cardHeight - 2, 1.5, 1.5, 'FD');
+
+            // Time & Subject Title
+            doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8.5);
-            doc.text(`[${task.time}] ${task.subject}: ${task.topicTitle}`, margin + 5, currentY);
+            doc.text(`[${task.time}] ${task.subject}: `, margin + 5, currentY + 4.5);
 
-            doc.setTextColor(100, 116, 139);
+            const subjWidth = doc.getTextWidth(`[${task.time}] ${task.subject}: `);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7.5);
-            doc.text(`Duration: ${task.durationMinutes}m | Priority: ${task.priority} | Status: ${task.completed ? 'COMPLETED' : 'PENDING'}`, margin + 5, currentY + 4);
+            doc.setTextColor(30, 41, 59);
+            doc.text(task.topicTitle, margin + 5 + subjWidth, currentY + 4.5);
 
-            currentY += 9;
+            let rowY = currentY + 8.5;
+
+            // Notes line if available
+            if (hasNotes) {
+              doc.setFont('helvetica', 'italic');
+              doc.setFontSize(7.5);
+              doc.setTextColor(71, 85, 105);
+              const noteText = task.notes!.length > 95 ? task.notes!.substring(0, 92) + '...' : task.notes!;
+              doc.text(`Notes / Key Objective: ${noteText}`, margin + 5, rowY);
+              rowY += 4.2;
+            }
+
+            // Metadata Row: Duration, Priority, Status
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(100, 116, 139);
+
+            const statusText = task.completed ? 'STATUS: COMPLETED [✓]' : 'STATUS: PENDING [⏱]';
+            const priorityText = `PRIORITY: ${task.priority.toUpperCase()}`;
+            const durationText = `DURATION: ${task.durationMinutes} Mins`;
+
+            doc.text(`${durationText}   |   ${priorityText}   |   ${statusText}`, margin + 5, rowY);
+
+            currentY += cardHeight;
           });
         }
 
-        currentY += 3;
+        currentY += 4;
       });
 
-      doc.save('ElimuTZ_Weekly_Study_Planner.pdf');
+      // Add Page Numbers and Footer on All Pages
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+
+        // Footer Line
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+
+        // Footer Text
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text('Education-TZ Official Student Portal • NECTA & TIE Weekly Revision Schedule', margin, pageHeight - 7);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin - 20, pageHeight - 7);
+      }
+
+      doc.save('EducationTZ_Weekly_Study_Planner.pdf');
     } catch (err) {
-      console.error(err);
-      alert('Failed to generate PDF. Print layout instead.');
+      console.error('PDF Export Error:', err);
+      alert('Failed to generate PDF. Please try again.');
     }
   };
 
