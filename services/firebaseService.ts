@@ -148,12 +148,45 @@ export async function testConnection() {
   }
 }
 
+export const MASTER_ADMIN_EMAIL = 'austinreuben95@gmail.com';
+
 export async function checkIsAdmin(uid: string): Promise<boolean> {
-  const currentEmail = auth.currentUser?.email;
-  if (currentEmail === "austinreuben95@gmail.com") return true;
-  const docRef = doc(db, 'admins', uid);
-  const snap = await getDoc(docRef);
-  return snap.exists();
+  const currentEmail = auth.currentUser?.email?.toLowerCase().trim();
+  if (!currentEmail) return false;
+  
+  // 1. Primary Master Admin
+  if (currentEmail === MASTER_ADMIN_EMAIL) return true;
+
+  // 2. Secondary spot or active collaborators granted access by austinreuben95@gmail.com
+  let grantedEmails: string[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const savedSpot2 = localStorage.getItem('tz_admin_spot_2');
+      if (savedSpot2) grantedEmails.push(savedSpot2.toLowerCase().trim());
+
+      const savedCollabs = localStorage.getItem('tz_app_collaborators');
+      if (savedCollabs) {
+        const collabs = JSON.parse(savedCollabs);
+        collabs.forEach((c: any) => {
+          if (c.status === 'Active' && c.email) {
+            grantedEmails.push(c.email.toLowerCase().trim());
+          }
+        });
+      }
+    } catch (e) {
+      // fallback
+    }
+  }
+
+  if (grantedEmails.includes(currentEmail)) return true;
+
+  try {
+    const docRef = doc(db, 'admins', uid);
+    const snap = await getDoc(docRef);
+    return snap.exists();
+  } catch (err) {
+    return false;
+  }
 }
 
 export async function searchUserByEmail(email: string): Promise<UserProgress | null> {

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import NectaCalculator from './NectaCalculator';
+import { exportNectaGradingPdf } from '../utils/nectaPdfExport';
 
 export type ScaleType = '50_MARK' | '100_MARK' | 'NECTA_CSEE' | 'NECTA_ACSEE';
 
@@ -194,7 +196,9 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
     { id: '7', name: 'Geography', score: 33, maxMark: 50 },
   ]);
 
-  const [activeTab, setActiveTab] = useState<'single' | 'matrix' | 'multi'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'matrix' | 'multi' | 'necta_calc'>('single');
+  const [boundaryFilter, setBoundaryFilter] = useState<'ALL' | 'O_LEVEL' | 'A_LEVEL'>('ALL');
+  const [testMarkBoundary, setTestMarkBoundary] = useState<number>(70);
 
   // Handle Scale Change
   const handleScaleChange = (type: ScaleType) => {
@@ -280,6 +284,13 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={exportNectaGradingPdf}
+              className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 active:scale-95 border border-indigo-400/30"
+            >
+              <i className="fa-solid fa-file-pdf text-amber-400 text-sm"></i>
+              <span>Export NECTA PDF Guide</span>
+            </button>
             {onNavigateToExams && (
               <button
                 onClick={onNavigateToExams}
@@ -326,6 +337,17 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
           }`}
         >
           <i className="fa-solid fa-chart-line text-emerald-400"></i> Multi-Subject NECTA Division Predictor
+        </button>
+
+        <button
+          onClick={() => setActiveTab('necta_calc')}
+          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+            activeTab === 'necta_calc'
+              ? 'bg-purple-600 text-white shadow-md'
+              : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+          }`}
+        >
+          <i className="fa-solid fa-calculator text-purple-400"></i> Form 4 Division & GPA Calculator
         </button>
       </div>
 
@@ -728,6 +750,257 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
           </div>
         </div>
       )}
-    </div>
-  );
+
+      {/* PERSISTENT BOTTOM SECTION: Official NECTA Grading Boundaries (O-Level & A-Level) */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200/90 shadow-xl space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-5">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-black text-[10px] uppercase border border-amber-200">
+                <i className="fa-solid fa-certificate text-amber-600 mr-1"></i> NECTA Official Guidelines
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 font-black text-[10px] uppercase border border-indigo-200">
+                Form 4 & Form 6 Standards
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+              <i className="fa-solid fa-layer-group text-indigo-600"></i>
+              NECTA Official Grading Boundaries & Point Standards
+            </h3>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Exact score percentage cut-offs, grade letters, and NECTA point allocations for Secondary Education in Tanzania.
+            </p>
+          </div>
+
+          {/* Filter Toggles & PDF Export */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={exportNectaGradingPdf}
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md transition flex items-center gap-2 active:scale-95"
+            >
+              <i className="fa-solid fa-file-pdf text-amber-300"></i>
+              <span>Export PDF File</span>
+            </button>
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+              <button
+                onClick={() => setBoundaryFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl font-black text-xs transition ${
+                  boundaryFilter === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Levels
+              </button>
+            <button
+              onClick={() => setBoundaryFilter('O_LEVEL')}
+              className={`px-3 py-1.5 rounded-xl font-black text-xs transition ${
+                boundaryFilter === 'O_LEVEL'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              O-Level (CSEE)
+            </button>
+            <button
+              onClick={() => setBoundaryFilter('A_LEVEL')}
+              className={`px-3 py-1.5 rounded-xl font-black text-xs transition ${
+                boundaryFilter === 'A_LEVEL'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              A-Level (ACSEE)
+            </button>
+          </div>
+        </div>
+        </div>
+
+        {/* Live Boundary Score Tester Bar */}
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl text-white space-y-3 border border-indigo-900/60 shadow-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-black uppercase text-amber-300 tracking-wider">
+                Instant Score Mapper:
+              </span>
+              <span className="text-xs text-indigo-200 font-medium">
+                Test how any score percentage maps across both levels live
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Score Percentage:</span>
+              <span className="text-lg font-black font-mono text-amber-400 bg-slate-950 px-3 py-0.5 rounded-lg border border-slate-800">
+                {testMarkBoundary}%
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={testMarkBoundary}
+              onChange={(e) => setTestMarkBoundary(Number(e.target.value))}
+              className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-400 block">O-Level (CSEE - Form 4)</span>
+                <span className="font-extrabold text-white">
+                  {evaluateGrade(testMarkBoundary, 100, 'NECTA_CSEE').englishRemark}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-emerald-400">
+                  Grade {evaluateGrade(testMarkBoundary, 100, 'NECTA_CSEE').grade}
+                </span>
+                <span className="text-[10px] text-slate-400 block font-mono">
+                  ({evaluateGrade(testMarkBoundary, 100, 'NECTA_CSEE').points} Pt)
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-purple-500/30 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase text-purple-400 block">A-Level (ACSEE - Form 6)</span>
+                <span className="font-extrabold text-white">
+                  {evaluateGrade(testMarkBoundary, 100, 'NECTA_ACSEE').englishRemark}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-purple-400">
+                  Grade {evaluateGrade(testMarkBoundary, 100, 'NECTA_ACSEE').grade}
+                </span>
+                <span className="text-[10px] text-slate-400 block font-mono">
+                  ({evaluateGrade(testMarkBoundary, 100, 'NECTA_ACSEE').points} Pt)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Boundary Cards Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* O-LEVEL CARD (CSEE) */}
+          {(boundaryFilter === 'ALL' || boundaryFilter === 'O_LEVEL') && (
+            <div className="bg-emerald-50/40 rounded-2xl p-5 border-2 border-emerald-200/80 space-y-4">
+              <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    O
+                  </span>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-base">O-Level NECTA Boundaries (CSEE)</h4>
+                    <p className="text-[11px] text-emerald-800 font-bold">Certificate of Secondary Education Examination (Form 4)</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 font-extrabold text-[10px] uppercase border border-emerald-300">
+                  5 Grade Bands
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  { grade: 'A', range: '75% – 100%', pts: '1 Point', remark: 'Distinction (Vyema Sana)', status: 'Distinction Level', bg: 'bg-white border-emerald-300 text-emerald-950', badge: 'bg-emerald-600 text-white' },
+                  { grade: 'B', range: '65% – 74%', pts: '2 Points', remark: 'Very Good (Vyema)', status: 'High Credit Pass', bg: 'bg-white border-blue-300 text-blue-950', badge: 'bg-blue-600 text-white' },
+                  { grade: 'C', range: '45% – 64%', pts: '3 Points', remark: 'Good / Credit (Wastani)', status: 'Credit Pass', bg: 'bg-white border-amber-300 text-amber-950', badge: 'bg-amber-600 text-white' },
+                  { grade: 'D', range: '30% – 44%', pts: '4 Points', remark: 'Pass (Dhaifu)', status: 'Basic Pass Mark', bg: 'bg-white border-orange-300 text-orange-950', badge: 'bg-orange-600 text-white' },
+                  { grade: 'F', range: '0% – 29%', pts: '5 Points', remark: 'Fail (Vibaya)', status: 'Unsatisfactory / Fail', bg: 'bg-white border-red-300 text-red-950', badge: 'bg-red-600 text-white' },
+                ].map((item) => (
+                  <div key={item.grade} className={`p-3.5 rounded-xl border-2 ${item.bg} flex items-center justify-between gap-3 shadow-2xs hover:scale-[1.01] transition`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`w-9 h-9 rounded-xl font-black text-lg flex items-center justify-center shrink-0 ${item.badge}`}>
+                        {item.grade}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-900 text-sm">{item.range}</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            {item.pts}
+                          </span>
+                        </div>
+                        <p className="text-xs font-extrabold text-slate-700">{item.remark}</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                      {item.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-100/70 border border-emerald-300 text-[11px] text-emerald-950 font-semibold space-y-1">
+                <p><strong>💡 Key CSEE Rule:</strong> Division is calculated using the best 7 subject points. Grades A=1, B=2, C=3, D=4, F=5.</p>
+                <p><strong>Pass Requirement:</strong> Minimum 4 Ds or 3 Cs for Division III/IV eligibility.</p>
+              </div>
+            </div>
+          )}
+
+          {/* A-LEVEL CARD (ACSEE) */}
+          {(boundaryFilter === 'ALL' || boundaryFilter === 'A_LEVEL') && (
+            <div className="bg-purple-50/40 rounded-2xl p-5 border-2 border-purple-200/80 space-y-4">
+              <div className="flex items-center justify-between border-b border-purple-200 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-purple-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    A
+                  </span>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-base">A-Level NECTA Boundaries (ACSEE)</h4>
+                    <p className="text-[11px] text-purple-800 font-bold">Advanced Certificate of Secondary Education Examination (Form 6)</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-lg bg-purple-100 text-purple-900 font-extrabold text-[10px] uppercase border border-purple-300">
+                  6 Grade Bands
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  { grade: 'A', range: '75% – 100%', pts: '1 Point', remark: 'Distinction (A)', status: 'Principal Pass', bg: 'bg-white border-emerald-300 text-emerald-950', badge: 'bg-emerald-600 text-white' },
+                  { grade: 'B', range: '65% – 74%', pts: '2 Points', remark: 'Credit (B)', status: 'Principal Pass', bg: 'bg-white border-blue-300 text-blue-950', badge: 'bg-blue-600 text-white' },
+                  { grade: 'C', range: '55% – 64%', pts: '3 Points', remark: 'Good (C)', status: 'Principal Pass', bg: 'bg-white border-cyan-300 text-cyan-950', badge: 'bg-cyan-600 text-white' },
+                  { grade: 'D', range: '45% – 54%', pts: '4 Points', remark: 'Satisfactory (D)', status: 'Principal Pass', bg: 'bg-white border-amber-300 text-amber-950', badge: 'bg-amber-600 text-white' },
+                  { grade: 'E', range: '35% – 44%', pts: '5 Points', remark: 'Subsidiary (E)', status: 'Subsidiary Pass', bg: 'bg-white border-orange-300 text-orange-950', badge: 'bg-orange-600 text-white' },
+                  { grade: 'F', range: '0% – 34%', pts: '6 Points', remark: 'Fail (F)', status: 'Fail Grade', bg: 'bg-white border-red-300 text-red-950', badge: 'bg-red-600 text-white' },
+                ].map((item) => (
+                  <div key={item.grade} className={`p-3.5 rounded-xl border-2 ${item.bg} flex items-center justify-between gap-3 shadow-2xs hover:scale-[1.01] transition`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`w-9 h-9 rounded-xl font-black text-lg flex items-center justify-center shrink-0 ${item.badge}`}>
+                        {item.grade}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-900 text-sm">{item.range}</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            {item.pts}
+                          </span>
+                        </div>
+                        <p className="text-xs font-extrabold text-slate-700">{item.remark}</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                      {item.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 rounded-xl bg-purple-100/70 border border-purple-300 text-[11px] text-purple-950 font-semibold space-y-1">
+                <p><strong>🎓 Principal Pass Standard:</strong> Grades A, B, C, D are Principal Passes required for direct university degree entry.</p>
+                <p><strong>Subsidiary Pass:</strong> Grade E (35-44%) counts as a subsidiary pass.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+    {/* TAB 4: NECTA FORM 4 DIVISION & GPA CALCULATOR */}
+    {activeTab === 'necta_calc' && <NectaCalculator />}
+  </div>
+);
 };

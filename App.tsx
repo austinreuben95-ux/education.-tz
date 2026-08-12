@@ -18,8 +18,12 @@ import { AssignmentsAndTestsBank } from './components/AssignmentsAndTestsBank';
 import { NectaCountdownTimer } from './components/NectaCountdownTimer';
 import { Badges } from './components/Badges';
 import { GradeChecker } from './components/GradeChecker';
+import NectaCalculator from './components/NectaCalculator';
 import StrategicRoadmap from './components/StrategicRoadmap';
+import EducationalNewsPortal from './components/EducationalNewsPortal';
 import { RoadmapModal } from './components/RoadmapModal';
+import { VideoLessonsSearch } from './components/VideoLessonsSearch';
+import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
 import { 
@@ -34,6 +38,7 @@ import {
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
+import { playClickSound, playCheerSound } from './src/utils/soundEffects';
 import { generateQuizQuestion } from './services/geminiService';
 import { 
   auth, 
@@ -362,12 +367,20 @@ const App: React.FC = () => {
           // Check Admin
           const adminStatus = await checkIsAdmin(firebaseUser.uid);
           setIsAdmin(adminStatus);
+
+          const userEmail = firebaseUser.email?.toLowerCase().trim() || '';
+          let spot2 = 'austinreuben95@gmail.com';
+          if (typeof window !== 'undefined') {
+            const savedSpot2 = localStorage.getItem('tz_admin_spot_2');
+            if (savedSpot2) spot2 = savedSpot2.toLowerCase().trim();
+          }
+          const isMasterAdmin = userEmail === 'austinreuben95@gmail.com';
   
           // Load progress from Firestore
           const progress = await getUserProgress(firebaseUser.uid);
           if (progress) {
             const updatedProgress = { ...progress, email: firebaseUser.email || undefined };
-            if (firebaseUser.email === 'austinreuben95@gmail.com') {
+            if (isMasterAdmin) {
               updatedProgress.credits = 999999;
             }
             setUser(updatedProgress);
@@ -375,7 +388,7 @@ const App: React.FC = () => {
             // Initialize default progress for new user
             const initialProgress: UserProgress = {
               points: 100,
-              credits: firebaseUser.email === 'austinreuben95@gmail.com' ? 999999 : 0,
+              credits: isMasterAdmin ? 999999 : 0,
               streak: 1,
               completedTopics: [],
               level: 1,
@@ -986,6 +999,9 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   };
 
   const handleQuickStudySession = () => {
+    // Play distinct click sound effect for #start-quick-study-session-btn
+    playClickSound();
+
     // Haptic feedback for mobile devices (crisp double tap vibration pattern)
     try {
       if (typeof window !== 'undefined' && 'navigator' in window && typeof navigator.vibrate === 'function') {
@@ -997,6 +1013,11 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
     // Check if daily goal of 5 sessions is reached for the first time
     const isGoalReachedFirstTime = todayQuickSessionsCount === 4;
+
+    if (isGoalReachedFirstTime) {
+      // Play celebratory cheer sound effect when daily mastery goal is reached
+      playCheerSound();
+    }
 
     // Show celebratory toast notification when starting the first session of the new day or reaching goal
     if (todayQuickSessionsCount === 0) {
@@ -1114,6 +1135,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   };
 
   const resumeQuickStudySession = (session: QuickStudySession) => {
+    playClickSound();
     const targetGrade = SYLLABUS_DATA.find(g => g.grade.toLowerCase() === session.gradeName.toLowerCase()) || 
                         SYLLABUS_DATA.find(g => g.grade.toLowerCase().includes(session.gradeName.toLowerCase()));
     if (!targetGrade) return;
@@ -1295,6 +1317,13 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         <div className="flex items-center gap-2 md:gap-4">
           <div className="hidden lg:flex items-center gap-1.5">
             <button 
+              onClick={() => setCurrentView(AppView.NEWS_SCHOLARSHIPS)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.NEWS_SCHOLARSHIPS ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-gray-700 hover:bg-gray-100'}`}
+              title="TAMISEMI Selection Alerts, NECTA/TCU/HESLB Updates & Scholarship Portal"
+            >
+              <i className="fa-solid fa-bullhorn text-amber-500 animate-pulse"></i> Selection & Scholarships 🎓
+            </button>
+            <button 
               onClick={() => setCurrentView(AppView.EXAMS)}
               className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.EXAMS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
               title="NECTA Results Statement & Past Papers"
@@ -1466,7 +1495,28 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
           {isAdmin && (
             <button 
-              onClick={() => setCurrentView(AppView.ADMIN)}
+              onClick={() => {
+                const email = currentUser?.email?.toLowerCase().trim();
+                const isMaster = email === 'austinreuben95@gmail.com';
+                let isGrantedAdmin = false;
+                try {
+                  const savedCollabs = localStorage.getItem('tz_app_collaborators');
+                  if (savedCollabs) {
+                    const list = JSON.parse(savedCollabs);
+                    isGrantedAdmin = list.some((c: any) => c.status === 'Active' && c.email && c.email.toLowerCase().trim() === email);
+                  }
+                  const savedSpot2 = localStorage.getItem('tz_admin_spot_2');
+                  if (savedSpot2 && savedSpot2.toLowerCase().trim() === email) {
+                    isGrantedAdmin = true;
+                  }
+                } catch (e) {}
+
+                if (!isMaster && !isGrantedAdmin) {
+                  window.location.href = 'https://aistudio.google.com/';
+                } else {
+                  setCurrentView(AppView.ADMIN);
+                }
+              }}
               className="text-red-500 hover:text-red-600 transition flex items-center gap-1 font-bold text-xs"
               title="Admin Panel"
             >
@@ -2986,7 +3036,75 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             <h2 className="text-2xl font-black text-tz-dark flex items-center gap-2">
               <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Portal Schools Directory */}
+              <div
+                className="bg-indigo-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-500/20 transition border-2 border-indigo-500/40 shadow-sm hover:shadow-lg relative overflow-hidden"
+                onClick={() => setCurrentView(AppView.SCHOOLS)}
+              >
+                <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
+                  ★ NECTA Cut-offs & Codes
+                </div>
+                <div>
+                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-500/30">
+                    <i className="fa-solid fa-school text-white"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mb-1">Schools & Pass Marks</h4>
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                    Search primary & secondary schools in Tanzania by name, NECTA center code, or region with minimum pass marks & grade scales.
+                  </p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-indigo-300 flex items-center justify-between text-xs font-black text-indigo-700">
+                  <span>Explore Schools Directory</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal Video Lessons: Video Library */}
+              <div
+                className="bg-red-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-red-500/20 transition border-2 border-red-500/40 shadow-sm hover:shadow-lg relative overflow-hidden"
+                onClick={() => setCurrentView(AppView.VIDEOS)}
+              >
+                <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
+                  ★ Swahili & English Videos
+                </div>
+                <div>
+                  <div className="w-12 h-12 bg-red-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-red-500/30">
+                    <i className="fa-solid fa-play text-white"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mb-1">Video Lessons & Tutorials</h4>
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                    Search top-rated video walkthroughs by subject or topic (Maths, Physics, Chemistry, Kiswahili) with embedded YouTube player.
+                  </p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-red-300 flex items-center justify-between text-xs font-black text-red-700">
+                  <span>Watch Video Lessons</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              {/* Portal 0: News & Scholarships */}
+              <div
+                className="bg-amber-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-500/20 transition border-2 border-amber-400 shadow-sm hover:shadow-lg relative overflow-hidden"
+                onClick={() => setCurrentView(AppView.NEWS_SCHOLARSHIPS)}
+              >
+                <div className="absolute top-0 right-0 bg-amber-400 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
+                  ★ TAMISEMI & Scholarships
+                </div>
+                <div>
+                  <div className="w-12 h-12 bg-amber-400 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30">
+                    <i className="fa-solid fa-bullhorn text-slate-950"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mb-1">Selection Alerts & Scholarships</h4>
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                    Form 1 & Form 5 TAMISEMI selection lists, NECTA results, TCU & HESLB loan releases + MasterCard, Chevening & Chinese Scholarships!
+                  </p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-amber-300 flex items-center justify-between text-xs font-black text-slate-900">
+                  <span>Open Selection & Scholarships</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
               {/* Portal 1: NECTA Results */}
               <div
                 className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
@@ -3138,7 +3256,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             </div>
             <div className="bg-purple-50 rounded-3xl p-6 border-2 border-purple-100">
                <div className="text-purple-600 text-xs uppercase tracking-widest font-black mb-2">Credits</div>
-               <div className="text-3xl font-black text-tz-dark">{currentUser?.email === 'austinreuben95@gmail.com' ? '∞' : user.credits}</div>
+               <div className="text-3xl font-black text-tz-dark">{currentUser?.email && ['austinnreuben95@gmail.com', 'austinreuben95@gmail.com'].includes(currentUser.email.toLowerCase().trim()) ? '∞' : user.credits}</div>
             </div>
          </div>
 
@@ -3934,12 +4052,15 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
       />
     )}
     {currentView === AppView.EXAMS && <ExamVault />}
+    {currentView === AppView.VIDEOS && <VideoLessonsSearch />}
+    {currentView === AppView.SCHOOLS && <TanzaniaSchoolsDatabase />}
+    {currentView === AppView.NEWS_SCHOLARSHIPS && <EducationalNewsPortal />}
     {currentView === AppView.PLANNER && <StudyPlanner />}
     {currentView === AppView.DICTIONARY && <Dictionary />}
     {currentView === AppView.NOTES && <NotesHub />}
     {currentView === AppView.TEACHERS && <TeachersHub />}
     {currentView === AppView.ALEVEL_GUIDE && <ALevelGuide />}
-    {currentView === AppView.CALCULATOR && <Calculator goHome={goHome} />}
+    {currentView === AppView.CALCULATOR && <NectaCalculator goHome={goHome} />}
     {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
     {currentView === AppView.PARENTS && renderParentDashboard()}
     {currentView === AppView.ADMIN && <AdminPanel onBack={goHome} />}
