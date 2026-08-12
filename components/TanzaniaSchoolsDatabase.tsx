@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { exportSchoolsDirectoryPdf } from '../utils/nectaPdfExport';
 
 export interface SchoolItem {
+
   id: string;
   name: string;
   centerCode: string; // e.g. S0101, S0108, P0321
@@ -324,6 +326,206 @@ export const TANZANIA_SCHOOLS_DATA: SchoolItem[] = [
       gradeD: '30% - 44%',
       gradeF: '0% - 29%'
     }
+  },
+  {
+    id: 'sch-013',
+    name: 'Tabora Girls Secondary School',
+    centerCode: 'S0211',
+    level: 'Form 6 ACSEE',
+    category: 'Government',
+    type: 'Girls',
+    boardingType: 'Boarding',
+    region: 'Tabora',
+    district: 'Tabora Municipal',
+    nationalRank: 'Top 5 Special Gov Girls',
+    averageGpa: '1.3500 (Division I)',
+    passMarkCutoff: 'Division I (Points 7 - 11 in CSEE)',
+    minEntryRequirement: 'TAMISEMI national selection criteria for top Form 4 female candidates.',
+    featuredCombinations: ['PCM', 'PCB', 'CBG', 'HKL', 'HGL', 'HGK'],
+    contactPhone: '+255 26 260 4090',
+    description: 'Premier national special government girls school in Tabora producing top female scientists and administrators.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-014',
+    name: 'Azania Secondary School',
+    centerCode: 'S0102',
+    level: 'Form 4 CSEE',
+    category: 'Government',
+    type: 'Boys',
+    boardingType: 'Day',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    nationalRank: 'Historic Dar Government School',
+    averageGpa: '2.1200 (Division II Average)',
+    passMarkCutoff: 'Division I to II (Points 7 - 21)',
+    minEntryRequirement: 'PSLE Grade A or B pass in Dar es Salaam city region.',
+    featuredCombinations: ['PCM', 'PCB', 'PGM', 'EGM', 'CBG', 'HGL', 'HKL'],
+    contactPhone: '+255 22 211 2233',
+    description: 'Historic boys government secondary school in central Dar es Salaam known for robust science clubs and athletics.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-015',
+    name: 'Jangwani Girls Secondary School',
+    centerCode: 'S0204',
+    level: 'Form 4 CSEE',
+    category: 'Government',
+    type: 'Girls',
+    boardingType: 'Day',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    nationalRank: 'Model Girls Gov Center',
+    averageGpa: '2.0800 (Division II Average)',
+    passMarkCutoff: 'Division I to II (Points 7 - 21)',
+    minEntryRequirement: 'PSLE Grade A/B pass in Dar es Salaam metropolitan area.',
+    featuredCombinations: ['PCB', 'CBG', 'HGL', 'HKL', 'HGK'],
+    contactPhone: '+255 22 218 0100',
+    description: 'Prominent government girls secondary school located in Ilala, Dar es Salaam.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-016',
+    name: "St. Mary's Mazinde Juu",
+    centerCode: 'S0220',
+    level: 'Form 6 ACSEE',
+    category: 'Private',
+    type: 'Girls',
+    boardingType: 'Boarding',
+    region: 'Tanga',
+    district: 'Lushoto',
+    nationalRank: 'Top 3 ACSEE Nationally',
+    averageGpa: '1.1000 (Division I)',
+    passMarkCutoff: 'Division I (Points 7 - 9)',
+    minEntryRequirement: 'Grade A in CSEE combination subjects and Mazinde Juu entrance interview.',
+    featuredCombinations: ['PCM', 'PCB', 'CBG', 'HGL', 'HKL'],
+    contactPhone: '+255 27 264 0012',
+    description: 'Catholic church-run high school in Lushoto mountains renowned for producing top national female candidates in ACSEE.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-017',
+    name: 'Shaaban Robert Secondary School',
+    centerCode: 'S0135',
+    level: 'Form 4 CSEE',
+    category: 'Private',
+    type: 'Co-education',
+    boardingType: 'Day',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    nationalRank: 'Top 10 Private Urban',
+    averageGpa: '1.4500 (Division I)',
+    passMarkCutoff: 'Division I-7 to I-14',
+    minEntryRequirement: 'Shaaban Robert Entrance Exam score above 75%.',
+    featuredCombinations: ['PCM', 'PCB', 'EGM', 'CBG', 'HGL'],
+    contactPhone: '+255 22 211 4005',
+    description: 'Premier co-educational day school in Upanga, Dar es Salaam with high academic standards.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-018',
+    name: 'Musoma Technical Secondary School',
+    centerCode: 'S0120',
+    level: 'Form 4 CSEE',
+    category: 'Government',
+    type: 'Boys',
+    boardingType: 'Boarding',
+    region: 'Mara',
+    district: 'Musoma Urban',
+    nationalRank: 'Special Technical Center',
+    averageGpa: '1.8500 (Division I/II)',
+    passMarkCutoff: 'Division I to II (Points 7 - 20)',
+    minEntryRequirement: 'TAMISEMI technical selection placement for candidates with high Grade A/B in Mathematics and Physics.',
+    featuredCombinations: ['PCM', 'PGM', 'Technical Electrical', 'Technical Mechanical'],
+    contactPhone: '+255 28 262 2011',
+    description: 'Special government technical secondary school offering engineering workshops alongside standard NECTA subjects.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-019',
+    name: 'Msalato Girls Secondary School',
+    centerCode: 'S0207',
+    level: 'Form 6 ACSEE',
+    category: 'Government',
+    type: 'Girls',
+    boardingType: 'Boarding',
+    region: 'Dodoma',
+    district: 'Dodoma Urban',
+    nationalRank: 'Top National Gov Girls',
+    averageGpa: '1.3900 (Division I)',
+    passMarkCutoff: 'Division I (Points 7 - 11 in CSEE)',
+    minEntryRequirement: 'TAMISEMI Form 5 national selection criteria for top female graduates.',
+    featuredCombinations: ['PCM', 'PCB', 'CBG', 'HGL', 'HKL', 'HGK'],
+    contactPhone: '+255 26 232 1100',
+    description: 'Famous national government girls school located in the capital city Dodoma.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
+  },
+  {
+    id: 'sch-020',
+    name: 'Mzizima Secondary School',
+    centerCode: 'S0142',
+    level: 'Form 6 ACSEE',
+    category: 'Private',
+    type: 'Co-education',
+    boardingType: 'Day',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    nationalRank: 'Top Urban Private School',
+    averageGpa: '1.5100 (Division I)',
+    passMarkCutoff: 'Division I-7 to I-15',
+    minEntryRequirement: 'Aga Khan Education Services entrance examination and academic transcript evaluation.',
+    featuredCombinations: ['PCM', 'PCB', 'EGM', 'CBG', 'HGL'],
+    contactPhone: '+255 22 211 7001',
+    description: 'Aga Khan Education Service high school offering top-quality NECTA and international curriculum pathways.',
+    nectaGradeScale: {
+      gradeA: '75% - 100%',
+      gradeB: '65% - 74%',
+      gradeC: '45% - 64%',
+      gradeD: '30% - 44%',
+      gradeF: '0% - 29%'
+    }
   }
 ];
 
@@ -417,12 +619,20 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 text-center min-w-[120px]">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => exportSchoolsDirectoryPdf(filteredSchools)}
+              className="px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-red-900/40 transition shrink-0 active:scale-95 border border-red-400/30"
+              title="Download PDF report of current filtered schools"
+            >
+              <i className="fa-solid fa-file-pdf text-amber-300 text-sm"></i>
+              <span>Export Directory PDF</span>
+            </button>
+            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 text-center min-w-[110px]">
               <span className="block text-2xl font-bold text-indigo-400">{filteredSchools.length}</span>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Schools Listed</span>
             </div>
-            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 text-center min-w-[120px]">
+            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 text-center min-w-[110px]">
               <span className="block text-2xl font-bold text-emerald-400">NECTA</span>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cut-off Verified</span>
             </div>

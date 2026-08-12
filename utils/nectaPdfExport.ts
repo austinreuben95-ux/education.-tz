@@ -357,3 +357,140 @@ export function exportNectaGradingPdf() {
 
   doc.save('NECTA_Grading_Standards_Education_TZ.pdf');
 }
+
+export function exportSchoolsDirectoryPdf(schools: Array<{
+  name: string;
+  centerCode: string;
+  level: string;
+  category: string;
+  region: string;
+  district: string;
+  passMarkCutoff: string;
+  nationalRank?: string;
+  averageGpa?: string;
+  featuredCombinations?: string[];
+}>) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 12;
+
+  // Header Banner
+  doc.setFillColor(15, 23, 42); // dark slate
+  doc.rect(10, y, pageWidth - 20, 24, 'F');
+
+  doc.setFillColor(99, 102, 241); // indigo-500
+  doc.rect(10, y + 22, pageWidth - 20, 2, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EDUCATION-TZ : TANZANIA SCHOOLS & NECTA CUT-OFF DIRECTORY', 15, y + 10);
+
+  doc.setTextColor(199, 210, 254);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Official List of Registered Schools & Entrance Pass Marks (${schools.length} Schools Included)`, 15, y + 16);
+
+  y += 30;
+
+  // Table Header
+  doc.setFillColor(241, 245, 249);
+  doc.rect(10, y, pageWidth - 20, 6, 'F');
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+
+  doc.text('Code', 13, y + 4);
+  doc.text('School Name', 32, y + 4);
+  doc.text('Level / Cat.', 90, y + 4);
+  doc.text('Region', 125, y + 4);
+  doc.text('NECTA Pass Mark / Cut-off', 150, y + 4);
+
+  y += 7;
+
+  schools.forEach((sch, idx) => {
+    if (y > pageHeight - 20) {
+      doc.addPage();
+      y = 15;
+
+      // Repeat Table Header
+      doc.setFillColor(241, 245, 249);
+      doc.rect(10, y, pageWidth - 20, 6, 'F');
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+
+      doc.text('Code', 13, y + 4);
+      doc.text('School Name', 32, y + 4);
+      doc.text('Level / Cat.', 90, y + 4);
+      doc.text('Region', 125, y + 4);
+      doc.text('NECTA Pass Mark / Cut-off', 150, y + 4);
+      y += 7;
+    }
+
+    if (idx % 2 === 1) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(10, y - 1, pageWidth - 20, 9, 'F');
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(79, 70, 229); // indigo
+    doc.text(sch.centerCode, 13, y + 3);
+
+    doc.setTextColor(15, 23, 42);
+    const shortName = sch.name.length > 32 ? sch.name.substring(0, 30) + '...' : sch.name;
+    doc.text(shortName, 32, y + 3);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`${sch.level} (${sch.category.substring(0, 4)})`, 90, y + 3);
+    doc.text(`${sch.region}`, 125, y + 3);
+
+    doc.setTextColor(180, 83, 9); // amber
+    doc.setFont('helvetica', 'bold');
+    const shortCutoff = sch.passMarkCutoff.length > 32 ? sch.passMarkCutoff.substring(0, 30) + '...' : sch.passMarkCutoff;
+    doc.text(shortCutoff, 150, y + 3);
+
+    // Sub-row with combinations or rank
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    let subInfo = `District: ${sch.district}`;
+    if (sch.featuredCombinations && sch.featuredCombinations.length > 0) {
+      subInfo += ` | Combs: ${sch.featuredCombinations.join(', ')}`;
+    }
+    if (sch.nationalRank) {
+      subInfo += ` | ${sch.nationalRank}`;
+    }
+    doc.text(subInfo, 32, y + 6.5);
+
+    y += 9.5;
+  });
+
+  y += 5;
+  if (y > pageHeight - 20) {
+    doc.addPage();
+    y = 15;
+  }
+
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(203, 213, 225);
+  doc.line(10, y, pageWidth - 10, y);
+  y += 4;
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(100, 116, 139);
+  doc.text('Education-TZ Official Schools Directory & NECTA Admission Criteria', 10, y);
+  doc.text(`Exported: ${new Date().toLocaleDateString('en-GB')}`, pageWidth - 40, y);
+
+  doc.save('Tanzania_Schools_Cutoffs_Directory.pdf');
+}
+
