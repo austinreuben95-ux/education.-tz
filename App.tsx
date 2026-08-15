@@ -356,6 +356,72 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [checkAndResetDailyQuickSessions]);
 
+  // Compute 7-day daily quick-study sessions sparkline data
+  const last7DaysQuickSessionsData = useMemo(() => {
+    const daysShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const items: Array<{
+      date: Date;
+      dateKey: string;
+      dayLabel: string;
+      shortDay: string;
+      count: number;
+      isToday: boolean;
+    }> = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `edu_tz_quick_sessions_${year}-${month}-${day}`;
+
+      let count = 0;
+      if (i === 0) {
+        count = todayQuickSessionsCount;
+      } else {
+        try {
+          const saved = localStorage.getItem(dateKey);
+          count = saved ? parseInt(saved, 10) || 0 : 0;
+        } catch {
+          count = 0;
+        }
+      }
+
+      items.push({
+        date: d,
+        dateKey,
+        dayLabel: daysShort[d.getDay()],
+        shortDay: daysShort[d.getDay()].slice(0, 1),
+        count,
+        isToday: i === 0,
+      });
+    }
+
+    const totalCount = items.reduce((acc, curr) => acc + curr.count, 0);
+    const maxVal = Math.max(5, ...items.map(it => it.count));
+
+    // SVG coordinates (viewBox 100 x 28)
+    // 7 points: x from 6 to 94, step = 88 / 6 = 14.666
+    const points = items.map((it, idx) => {
+      const x = 6 + idx * (88 / 6);
+      const y = 22 - (it.count / maxVal) * 16; // y between 6 and 22
+      return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), ...it };
+    });
+
+    const polylineStr = points.map(p => `${p.x},${p.y}`).join(' ');
+    const polygonStr = `6,26 ${polylineStr} 94,26`;
+
+    return {
+      items,
+      points,
+      totalCount,
+      maxVal,
+      polylineStr,
+      polygonStr
+    };
+  }, [todayQuickSessionsCount]);
+
   // Sync with Firebase Auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -2827,6 +2893,96 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                 <i className={`fa-solid ${isZenMode ? 'fa-spa text-white text-base animate-pulse' : 'fa-yin-yang text-purple-400 text-base'}`}></i>
                 <span>{isZenMode ? 'Zen Active 🧘' : 'Zen Mode 🧘'}</span>
               </button>
+
+              {/* 7-Day Quick Study Sparkline Progress Widget */}
+              <div
+                id="quick-study-7day-sparkline-chart"
+                className="bg-slate-950/85 hover:bg-slate-950/95 transition-all duration-300 border border-indigo-500/30 hover:border-amber-400/50 rounded-2xl px-3.5 py-2 sm:py-2.5 flex items-center gap-3 shadow-lg shadow-black/20 shrink-0 w-full sm:w-auto justify-between sm:justify-start group/sparkline cursor-default"
+                title={`7-Day Quick-Study Activity: ${last7DaysQuickSessionsData.totalCount} session${last7DaysQuickSessionsData.totalCount === 1 ? '' : 's'} completed over the last 7 days`}
+              >
+                {/* Metrics label & count */}
+                <div className="flex flex-col text-left shrink-0">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-300 uppercase tracking-wider">
+                    <i className="fa-solid fa-chart-line text-[10px] text-amber-400"></i>
+                    <span>7-Day Trend</span>
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-sm sm:text-base font-black text-white leading-none">
+                      {last7DaysQuickSessionsData.totalCount}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      sessions
+                    </span>
+                  </div>
+                </div>
+
+                {/* SVG Sparkline + Daily Bars */}
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="relative w-28 sm:w-32 h-7 flex items-end justify-between gap-1 pt-1">
+                    {/* SVG Sparkline Curve & Area Gradient */}
+                    <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none" viewBox="0 0 100 28" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="sparklineGradYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
+                          <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      <polygon points={last7DaysQuickSessionsData.polygonStr} fill="url(#sparklineGradYellow)" />
+                      <polyline
+                        points={last7DaysQuickSessionsData.polylineStr}
+                        fill="none"
+                        stroke="#fbbf24"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {/* Active points dots */}
+                      {last7DaysQuickSessionsData.points.map((p, idx) => (
+                        <circle
+                          key={`spark-dot-${idx}`}
+                          cx={p.x}
+                          cy={p.y}
+                          r={p.isToday ? 2.5 : p.count > 0 ? 2 : 1.2}
+                          className={p.isToday ? 'fill-amber-300 stroke-slate-950 stroke-[1.5]' : p.count > 0 ? 'fill-amber-400' : 'fill-slate-600'}
+                        />
+                      ))}
+                    </svg>
+
+                    {/* Interactive 7-Day Hover Bars */}
+                    {last7DaysQuickSessionsData.items.map((item) => {
+                      const barHeight = Math.max(14, Math.min(100, Math.round((item.count / last7DaysQuickSessionsData.maxVal) * 100)));
+                      return (
+                        <div
+                          key={`spark-col-${item.dateKey}`}
+                          className="group/day relative flex flex-col items-center justify-end h-full z-10 cursor-pointer flex-1"
+                        >
+                          {/* Hover Tooltip */}
+                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover/day:opacity-100 transition-opacity bg-slate-900 border border-amber-400/80 text-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded shadow-xl pointer-events-none whitespace-nowrap z-30">
+                            {item.dayLabel}: {item.count} session{item.count === 1 ? '' : 's'} {item.isToday ? '(Today)' : ''}
+                          </div>
+
+                          {/* Mini Bar */}
+                          <div
+                            className={`w-1.5 sm:w-2 rounded-t-sm transition-all duration-300 ${
+                              item.isToday
+                                ? 'bg-amber-400 shadow-sm shadow-amber-400/60 group-hover/day:bg-amber-300'
+                                : item.count > 0
+                                ? 'bg-indigo-400/80 group-hover/day:bg-amber-400'
+                                : 'bg-slate-700/50 group-hover/day:bg-slate-600'
+                            }`}
+                            style={{ height: `${barHeight}%` }}
+                          ></div>
+
+                          {/* Day Label letter */}
+                          <span className={`text-[8px] font-extrabold leading-none mt-0.5 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}>
+                            {item.shortDay}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

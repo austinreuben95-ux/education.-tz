@@ -567,6 +567,8 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
   const [selectedType, setSelectedType] = useState<string>('All');
+  const [selectedPassMarkFilter, setSelectedPassMarkFilter] = useState<string>('All');
+  const [isShowPassMarksGuide, setIsShowPassMarksGuide] = useState<boolean>(false);
   
   // Selected school for detailed modal modal/view
   const [activeSchool, setActiveSchool] = useState<SchoolItem | null>(null);
@@ -589,6 +591,19 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
       if (selectedType !== 'All' && sch.type !== selectedType) {
         return false;
       }
+      // Pass mark cut-off filter
+      if (selectedPassMarkFilter !== 'All') {
+        const passMark = sch.passMarkCutoff.toLowerCase();
+        if (selectedPassMarkFilter === 'Top Tier Div I (7-10)' && !(passMark.includes('7 - 10') || passMark.includes('7 - 9') || passMark.includes('7-10') || passMark.includes('7 - 11'))) {
+          return false;
+        }
+        if (selectedPassMarkFilter === 'Division I (7-17)' && !passMark.includes('division i')) {
+          return false;
+        }
+        if (selectedPassMarkFilter === 'PSLE Primary Cut-Offs' && sch.level !== 'PSLE Primary') {
+          return false;
+        }
+      }
       // Search term
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase().trim();
@@ -596,11 +611,12 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
         const matchCode = sch.centerCode.toLowerCase().includes(query);
         const matchRegion = sch.region.toLowerCase().includes(query);
         const matchDistrict = sch.district.toLowerCase().includes(query);
-        return matchName || matchCode || matchRegion || matchDistrict;
+        const matchPassMark = sch.passMarkCutoff.toLowerCase().includes(query);
+        return matchName || matchCode || matchRegion || matchDistrict || matchPassMark;
       }
       return true;
     });
-  }, [searchTerm, selectedLevel, selectedCategory, selectedRegion, selectedType]);
+  }, [searchTerm, selectedLevel, selectedCategory, selectedRegion, selectedType, selectedPassMarkFilter]);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 text-slate-100 font-sans">
@@ -615,11 +631,19 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
               Tanzania Schools & Cut-off Directory
             </h1>
             <p className="text-slate-300 text-sm md:text-base max-w-2xl leading-relaxed">
-              Search government and private primary & secondary schools in Tanzania, inspect NECTA center numbers, minimum pass marks, and grade scales.
+              Search government and private primary & secondary schools in Tanzania, inspect NECTA center numbers, official TAMISEMI pass marks, subject grade thresholds, and national rankings.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => setIsShowPassMarksGuide(true)}
+              className="px-4 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-amber-900/40 transition shrink-0 active:scale-95 border border-amber-300/40"
+              title="View official NECTA & TAMISEMI pass mark tables"
+            >
+              <i className="fa-solid fa-scale-balanced text-base"></i>
+              <span>Official Pass Marks Guide</span>
+            </button>
             <button
               onClick={() => exportSchoolsDirectoryPdf(filteredSchools)}
               className="px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-red-900/40 transition shrink-0 active:scale-95 border border-red-400/30"
@@ -632,26 +656,144 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
               <span className="block text-2xl font-bold text-indigo-400">{filteredSchools.length}</span>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Schools Listed</span>
             </div>
-            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 text-center min-w-[110px]">
-              <span className="block text-2xl font-bold text-emerald-400">NECTA</span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cut-off Verified</span>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* Official Pass Marks & TAMISEMI Standards Modal */}
+      {isShowPassMarksGuide && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-2xl max-w-3xl w-full p-6 md:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto space-y-6 text-slate-100">
+            <button
+              onClick={() => setIsShowPassMarksGuide(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm transition"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center text-2xl border border-amber-500/30 shrink-0">
+                <i className="fa-solid fa-scale-balanced"></i>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-white">NECTA & TAMISEMI Official Pass Marks & Cut-Off Standards</h3>
+                <p className="text-xs text-slate-400">National grading guidelines for PSLE, CSEE (Form 4), ACSEE (Form 6), and University entry.</p>
+              </div>
+            </div>
+
+            {/* Division Cut-Offs Table */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                <i className="fa-solid fa-award"></i> 1. Form 4 CSEE Division Cut-Off Points Scale (Best 7 Subjects)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/40">
+                  <span className="text-[11px] font-bold text-emerald-400 block uppercase">Division I</span>
+                  <span className="text-base font-black text-white block mt-0.5">Points 7 - 17</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Direct admission to top national science & arts high schools.</p>
+                </div>
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/40">
+                  <span className="text-[11px] font-bold text-blue-400 block uppercase">Division II</span>
+                  <span className="text-base font-black text-white block mt-0.5">Points 18 - 21</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Government Form 5 placement in standard high schools.</p>
+                </div>
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-indigo-500/40">
+                  <span className="text-[11px] font-bold text-indigo-400 block uppercase">Division III</span>
+                  <span className="text-base font-black text-white block mt-0.5">Points 22 - 25</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Private high schools, NACTVET Diploma / Certificate colleges.</p>
+                </div>
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/40">
+                  <span className="text-[11px] font-bold text-amber-400 block uppercase">Division IV</span>
+                  <span className="text-base font-black text-white block mt-0.5">Points 26 - 31</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Vocational VETA training and NTA Level 4 Certificate entry.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* TAMISEMI High School Selection Requirements */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <i className="fa-solid fa-building-columns"></i> 2. TAMISEMI Form 5 Subject Combination Pass Mark Requirements
+              </h4>
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2.5 text-xs text-slate-300">
+                <div className="flex items-start gap-2">
+                  <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5"></i>
+                  <div>
+                    <strong className="text-white">PCM / PCB / PGM (Pure Sciences):</strong> Must have at least Grade C in Physics, Chemistry, and Basic Mathematics in Form 4 CSEE.
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5"></i>
+                  <div>
+                    <strong className="text-white">EGM / ECA / CBG (Commercials & Biology):</strong> Must have Grade C or higher in Basic Mathematics and respective combination subjects.
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5"></i>
+                  <div>
+                    <strong className="text-white">HGL / HKL / HGK (Arts & Humanities):</strong> Minimum 3 Credit passes (Grade C) across History, Geography, English, and Kiswahili.
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <i className="fa-solid fa-circle-check text-amber-400 text-xs mt-0.5"></i>
+                  <div>
+                    <strong className="text-white">Special National Schools (Ilboru, Tabora Boys, Kilakala, Mzumbe):</strong> Restricted to Division I candidates (Points 7 - 10/12) with distinction in key STEM subjects.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* PSLE & TCU Standards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <i className="fa-solid fa-child"></i> PSLE Primary Pass Marks (Out of 250)
+                </h4>
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1.5 text-slate-300">
+                  <div className="flex justify-between"><span>Grade A:</span><strong className="text-emerald-400">201 - 250 Marks</strong></div>
+                  <div className="flex justify-between"><span>Grade B:</span><strong className="text-blue-400">151 - 200 Marks</strong></div>
+                  <div className="flex justify-between"><span>Grade C (Pass):</span><strong className="text-indigo-400">101 - 150 Marks</strong></div>
+                  <div className="flex justify-between"><span>Minimum Govt Pass:</span><strong className="text-amber-400">100 / 250 Marks</strong></div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                  <i className="fa-solid fa-graduation-cap"></i> TCU University Entry Minimums
+                </h4>
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1.5 text-slate-300">
+                  <div className="flex justify-between"><span>Minimum Principal Passes:</span><strong className="text-emerald-400">2 Principal Passes (ACSEE)</strong></div>
+                  <div className="flex justify-between"><span>Minimum Aggregate Points:</span><strong className="text-purple-400">4.0 Points (A=5 to E=1)</strong></div>
+                  <div className="flex justify-between"><span>Medicine & Engineering:</span><strong className="text-amber-400">6.0+ Points in PCB/PCM</strong></div>
+                  <div className="flex justify-between"><span>Diploma Equivalency:</span><strong className="text-blue-400">GPA ≥ 3.0 / Grade B</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setIsShowPassMarksGuide(false)}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg"
+              >
+                Done / Close Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Section */}
       <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl mb-8 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Search Input */}
-          <div className="md:col-span-5 relative">
+          <div className="md:col-span-4 relative">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Search School Name, Center Code (e.g. S0108), or District
+              Search School Name, Center Code, District, or Pass Mark
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="e.g. Ilboru, S0101, Bagamoyo, St. Francis..."
+                placeholder="e.g. Ilboru, S0108, Bagamoyo, Division I..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 pl-10 text-sm text-white placeholder-slate-500 outline-none transition"
@@ -668,8 +810,25 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
             </div>
           </div>
 
-          {/* Level Filter */}
+          {/* Pass Mark Cut-off Filter */}
           <div className="md:col-span-3">
+            <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5">
+              Pass Mark / Division Cut-off
+            </label>
+            <select
+              value={selectedPassMarkFilter}
+              onChange={(e) => setSelectedPassMarkFilter(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3.5 py-3 text-sm text-white outline-none transition cursor-pointer"
+            >
+              <option value="All">All Pass Mark Cut-Offs</option>
+              <option value="Top Tier Div I (7-10)">Top Tier Special Govt (Div I: Points 7-10)</option>
+              <option value="Division I (7-17)">All Division I (Points 7-17)</option>
+              <option value="PSLE Primary Cut-Offs">PSLE Primary Cut-Offs</option>
+            </select>
+          </div>
+
+          {/* Level Filter */}
+          <div className="md:col-span-2">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
               Education Level
             </label>
@@ -686,18 +845,18 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
           </div>
 
           {/* Category Filter */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Ownership / Category
+              Category
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-3 text-sm text-white outline-none transition cursor-pointer"
+              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-2.5 py-3 text-sm text-white outline-none transition cursor-pointer"
             >
-              <option value="All">All Categories</option>
-              <option value="Government">Government (Serikali)</option>
-              <option value="Private">Private / Non-Gov</option>
+              <option value="All">All</option>
+              <option value="Government">Gov</option>
+              <option value="Private">Private</option>
             </select>
           </div>
 
@@ -739,7 +898,7 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
             </button>
           ))}
 
-          {(searchTerm || selectedLevel !== 'All' || selectedCategory !== 'All' || selectedRegion !== 'All Regions' || selectedType !== 'All') && (
+          {(searchTerm || selectedLevel !== 'All' || selectedCategory !== 'All' || selectedRegion !== 'All Regions' || selectedType !== 'All' || selectedPassMarkFilter !== 'All') && (
             <button
               onClick={() => {
                 setSearchTerm('');
@@ -747,6 +906,7 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
                 setSelectedCategory('All');
                 setSelectedRegion('All Regions');
                 setSelectedType('All');
+                setSelectedPassMarkFilter('All');
               }}
               className="ml-auto text-xs text-indigo-400 hover:underline font-bold shrink-0"
             >
@@ -760,7 +920,7 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <i className="fa-solid fa-list-check text-indigo-400"></i> Schools Directory Results ({filteredSchools.length})
+            <i className="fa-solid fa-list-check text-indigo-400"></i> Schools Directory & Pass Marks ({filteredSchools.length})
           </h3>
         </div>
 
@@ -769,7 +929,7 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
             <i className="fa-solid fa-school-circle-xmark text-4xl text-slate-600"></i>
             <h4 className="text-base font-bold text-slate-300">No schools matching your search criteria</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Try searching by center code (e.g. S0108), clearing region filters, or switching education levels.
+              Try adjusting your pass mark filter, searching by center code (e.g. S0108), clearing region filters, or switching education levels.
             </p>
             <button
               onClick={() => {
@@ -778,6 +938,7 @@ export const TanzaniaSchoolsDatabase: React.FC = () => {
                 setSelectedCategory('All');
                 setSelectedRegion('All Regions');
                 setSelectedType('All');
+                setSelectedPassMarkFilter('All');
               }}
               className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition"
             >
