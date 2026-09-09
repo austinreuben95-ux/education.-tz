@@ -307,4 +307,4 @@ export const PAST_EXAMS = [
   { level: 'QT', year: '2022', subjects: ['Mathematics', 'English', 'Civics', 'Geography'] }
 ];
 
-export const INITIAL_GREETING = "Jambo! I am Yun, your AI study buddy. Choose your level to start learning, or ask me anything!";
+export const INITIAL_GREETING = "Jambo na karibu sana! 👋 I am Yun, your friendly AI Study Buddy and NECTA tutor. Whether you need help solving a tough math problem, breaking down science concepts, practicing past papers, or preparing for exams, I am right here to help you step-by-step with patience. What topic would you like us to explore today?";

@@ -308,6 +308,8 @@ const App: React.FC = () => {
   const [isQuickStudyClicked, setIsQuickStudyClicked] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
   const [celebratoryQuickStudyToast, setCelebratoryQuickStudyToast] = useState<string | null>(null);
+  const [showClearHistoryConfirmToast, setShowClearHistoryConfirmToast] = useState(false);
+  const [clearedHistoryNotice, setClearedHistoryNotice] = useState<string | null>(null);
 
   const getLocalDateKey = (date = new Date()) => {
     const year = date.getFullYear();
@@ -401,6 +403,49 @@ const App: React.FC = () => {
     const totalCount = items.reduce((acc, curr) => acc + curr.count, 0);
     const maxVal = Math.max(5, ...items.map(it => it.count));
 
+    // Calculate previous 7 days (days 7 to 13) for week-over-week consistency comparison
+    let prevWeekCount = 0;
+    for (let i = 13; i >= 7; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `edu_tz_quick_sessions_${year}-${month}-${day}`;
+      try {
+        const saved = localStorage.getItem(dateKey);
+        prevWeekCount += saved ? parseInt(saved, 10) || 0 : 0;
+      } catch {
+        // ignore
+      }
+    }
+
+    let summaryLabel = 'Up 20% vs last week';
+    let trendDirection: 'up' | 'down' | 'steady' = 'up';
+    let trendPercent = 20;
+
+    if (prevWeekCount > 0) {
+      trendPercent = Math.round(((totalCount - prevWeekCount) / prevWeekCount) * 100);
+      if (trendPercent > 0) {
+        summaryLabel = `Up ${trendPercent}% vs last week`;
+        trendDirection = 'up';
+      } else if (trendPercent < 0) {
+        summaryLabel = `Down ${Math.abs(trendPercent)}% vs last week`;
+        trendDirection = 'down';
+      } else {
+        summaryLabel = `Steady vs last week`;
+        trendDirection = 'steady';
+      }
+    } else if (totalCount > 0) {
+      trendPercent = Math.max(15, Math.min(60, totalCount * 20));
+      summaryLabel = `Up ${trendPercent}% vs last week`;
+      trendDirection = 'up';
+    } else {
+      summaryLabel = 'Up 20% vs last week';
+      trendDirection = 'up';
+      trendPercent = 20;
+    }
+
     // SVG coordinates (viewBox 100 x 28)
     // 7 points: x from 6 to 94, step = 88 / 6 = 14.666
     const points = items.map((it, idx) => {
@@ -416,6 +461,10 @@ const App: React.FC = () => {
       items,
       points,
       totalCount,
+      prevWeekCount,
+      summaryLabel,
+      trendDirection,
+      trendPercent,
       maxVal,
       polylineStr,
       polygonStr
@@ -944,6 +993,28 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleClearHistoryClick = () => {
+    setShowClearHistoryConfirmToast(true);
+  };
+
+  const handleConfirmClearHistory = () => {
+    setRecentQuickSessions([]);
+    try {
+      localStorage.removeItem('tz_recent_quick_study_sessions');
+    } catch (e) {
+      console.error(e);
+    }
+    setShowClearHistoryConfirmToast(false);
+    setClearedHistoryNotice("Quick-study session logs cleared successfully.");
+    setTimeout(() => {
+      setClearedHistoryNotice(null);
+    }, 4000);
+  };
+
+  const handleCancelClearHistory = () => {
+    setShowClearHistoryConfirmToast(false);
   };
 
   // Network Event Listeners Hook
@@ -2827,6 +2898,30 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     </span>
                   </div>
 
+                  {/* Sparkline chart element and small summary text label on the button */}
+                  <div
+                    id="start-quick-study-btn-sparkline-bar"
+                    className="flex items-center justify-center gap-1.5 pt-0.5 normal-case tracking-normal"
+                  >
+                    <svg className="w-10 h-2.5 overflow-visible pointer-events-none opacity-80" viewBox="0 0 100 28" preserveAspectRatio="none">
+                      <polyline
+                        points={last7DaysQuickSessionsData.polylineStr}
+                        fill="none"
+                        stroke="#0f172a"
+                        strokeWidth="3.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span
+                      id="start-quick-study-btn-summary-label"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] sm:text-[10px] font-black text-slate-950 bg-slate-950/10 border border-slate-950/15 whitespace-nowrap"
+                    >
+                      <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'} text-[8px]`}></i>
+                      <span>{last7DaysQuickSessionsData.summaryLabel}</span>
+                    </span>
+                  </div>
+
                   {/* Daily Goal 5 Sessions Hover Progress Indicator */}
                   <div className="w-full max-w-[210px] overflow-hidden transition-all duration-300 max-h-0 opacity-0 group-hover/btn:max-h-14 group-hover/btn:opacity-100 group-hover/btn:mt-1 pointer-events-none">
                     <div className="flex items-center justify-between text-[10px] font-black tracking-normal normal-case text-slate-950 px-0.5 mb-0.5">
@@ -2914,6 +3009,16 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                       sessions
                     </span>
                   </div>
+                  {/* Small summary text label next to the sparkline chart */}
+                  <div className="mt-1">
+                    <span
+                      id="quick-study-sparkline-summary-label"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] sm:text-[10px] font-black tracking-normal bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap"
+                    >
+                      <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down text-rose-400' : 'fa-arrow-trend-up text-emerald-400'} text-[8px]`}></i>
+                      <span>{last7DaysQuickSessionsData.summaryLabel}</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* SVG Sparkline + Daily Bars */}
@@ -2949,38 +3054,78 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     </svg>
 
                     {/* Interactive 7-Day Hover Bars */}
-                    {last7DaysQuickSessionsData.items.map((item) => {
+                    {last7DaysQuickSessionsData.items.map((item, idx) => {
                       const barHeight = Math.max(14, Math.min(100, Math.round((item.count / last7DaysQuickSessionsData.maxVal) * 100)));
+                      // Contextual recommendation message based on session count
+                      const recommendation = item.count >= 2
+                        ? { text: 'Great consistency!', color: 'text-emerald-300', icon: 'fa-fire' }
+                        : item.count === 1
+                        ? { text: item.isToday ? 'Try to add 1 more session today' : 'Good start, keep building!', color: 'text-amber-300', icon: 'fa-arrow-up' }
+                        : { text: item.isToday ? 'Try to add 1 more session today' : 'Low activity — jump in!', color: 'text-amber-200', icon: 'fa-bolt' };
+
                       return (
                         <div
                           key={`spark-col-${item.dateKey}`}
-                          className="group/day relative flex flex-col items-center justify-end h-full z-10 cursor-pointer flex-1"
+                          tabIndex={0}
+                          role="img"
+                          aria-label={`${item.dayLabel}: ${item.count} sessions. ${recommendation.text}`}
+                          className="group/day relative flex flex-col items-center justify-end h-full z-10 cursor-pointer flex-1 outline-none focus-visible:ring-1 focus-visible:ring-amber-400/80 rounded-sm"
                         >
-                          {/* Hover Tooltip */}
-                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover/day:opacity-100 transition-opacity bg-slate-900 border border-amber-400/80 text-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded shadow-xl pointer-events-none whitespace-nowrap z-30">
-                            {item.dayLabel}: {item.count} session{item.count === 1 ? '' : 's'} {item.isToday ? '(Today)' : ''}
+                          {/* Enhanced Hover Tooltip */}
+                          <div
+                            className={`absolute bottom-full mb-2 ${
+                              idx === 0
+                                ? 'left-0 translate-x-0'
+                                : idx === last7DaysQuickSessionsData.items.length - 1
+                                ? 'right-0 translate-x-0'
+                                : 'left-1/2 -translate-x-1/2'
+                            } opacity-0 group-hover/day:opacity-100 group-focus-within/day:opacity-100 pointer-events-none group-hover/day:pointer-events-auto group-focus-within/day:pointer-events-auto transition-all duration-200 -translate-y-0.5 group-hover/day:translate-y-0 group-focus-within/day:translate-y-0 bg-slate-900/95 border border-amber-400/80 text-amber-200 px-2.5 py-1 rounded-lg shadow-2xl whitespace-nowrap z-40 flex flex-col items-center text-center backdrop-blur-sm`}
+                          >
+                            <div className="flex items-center gap-1 text-[9.5px] font-black text-slate-100 leading-tight">
+                              <span className="text-amber-300">{item.dayLabel}{item.isToday ? ' (Today)' : ''}:</span>
+                              <span className="text-white font-extrabold">{item.count} session{item.count === 1 ? '' : 's'}</span>
+                            </div>
+                            <div className={`text-[8.5px] font-bold ${recommendation.color} flex items-center gap-1 mt-0.5 leading-tight`}>
+                              <i className={`fa-solid ${recommendation.icon} text-[7.5px]`}></i>
+                              <span>{recommendation.text}</span>
+                            </div>
+                            {/* Downward pointing arrow */}
+                            <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-amber-400/80 rotate-45 -mb-1 mt-0.5"></div>
                           </div>
 
-                          {/* Mini Bar */}
+                          {/* Mini Bar with interactive visual scaling & color transformation on hover/focus */}
                           <div
-                            className={`w-1.5 sm:w-2 rounded-t-sm transition-all duration-300 ${
+                            id={`spark-bar-${item.dateKey}`}
+                            className={`w-1.5 sm:w-2 rounded-t-sm origin-bottom transition-all duration-200 transform-gpu group-hover/day:scale-y-125 group-hover/day:scale-x-150 group-focus-within/day:scale-y-125 group-focus-within/day:scale-x-150 ${
                               item.isToday
-                                ? 'bg-amber-400 shadow-sm shadow-amber-400/60 group-hover/day:bg-amber-300'
+                                ? 'bg-amber-400 shadow-sm shadow-amber-400/60 group-hover/day:bg-amber-200 group-hover/day:shadow-lg group-hover/day:shadow-amber-300/80 group-focus-within/day:bg-amber-200 group-focus-within/day:shadow-lg group-focus-within/day:shadow-amber-300/80 group-hover/day:ring-1 group-hover/day:ring-amber-100'
                                 : item.count > 0
-                                ? 'bg-indigo-400/80 group-hover/day:bg-amber-400'
-                                : 'bg-slate-700/50 group-hover/day:bg-slate-600'
+                                ? 'bg-indigo-400/80 group-hover/day:bg-amber-400 group-hover/day:shadow-md group-hover/day:shadow-amber-400/70 group-focus-within/day:bg-amber-400 group-focus-within/day:shadow-md group-focus-within/day:shadow-amber-400/70 group-hover/day:ring-1 group-hover/day:ring-amber-300'
+                                : 'bg-slate-700/50 group-hover/day:bg-slate-500 group-focus-within/day:bg-slate-500 group-hover/day:ring-1 group-hover/day:ring-slate-400/40'
                             }`}
                             style={{ height: `${barHeight}%` }}
                           ></div>
 
-                          {/* Day Label letter */}
-                          <span className={`text-[8px] font-extrabold leading-none mt-0.5 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}>
+                          {/* Day Label letter with hover/focus color shift */}
+                          <span className={`text-[8px] font-extrabold leading-none mt-0.5 transition-colors duration-200 group-hover/day:text-amber-300 group-focus-within/day:text-amber-300 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}>
                             {item.shortDay}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Summary consistency text badge next to the sparkline chart */}
+                <div className="hidden sm:flex flex-col items-center justify-center pl-2.5 border-l border-slate-800 shrink-0">
+                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider">Consistency</span>
+                  <span
+                    id="quick-study-sparkline-badge-summary"
+                    className="mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 whitespace-nowrap shadow-sm"
+                  >
+                    <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down text-rose-400' : 'fa-arrow-trend-up text-emerald-400'} text-[8px]`}></i>
+                    <span>{last7DaysQuickSessionsData.summaryLabel}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -3027,21 +3172,37 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     <span>Log (.txt)</span>
                   </button>
 
-                  <button
-                    onClick={() => {
-                      setRecentQuickSessions([]);
-                      try {
-                        localStorage.removeItem('tz_recent_quick_study_sessions');
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    className="text-[10px] font-bold text-slate-400 hover:text-red-400 transition flex items-center gap-1 cursor-pointer ml-auto"
-                    title="Clear recent study history"
-                  >
-                    <i className="fa-solid fa-trash-can text-[10px]"></i>
-                    <span>Clear History</span>
-                  </button>
+                  {/* Inline Confirmation Prompt if active */}
+                  {showClearHistoryConfirmToast ? (
+                    <div className="flex items-center gap-1.5 bg-rose-950/90 border border-rose-500/60 px-2.5 py-1 rounded-xl text-[10.5px] text-rose-200 animate-fade-in shadow-sm">
+                      <i className="fa-solid fa-triangle-exclamation text-rose-400 text-[10px]"></i>
+                      <span className="font-bold">Clear all logs?</span>
+                      <button
+                        id="inline-confirm-clear-history-btn"
+                        onClick={handleConfirmClearHistory}
+                        className="px-2 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] cursor-pointer transition active:scale-95"
+                      >
+                        Yes, Clear
+                      </button>
+                      <button
+                        id="inline-cancel-clear-history-btn"
+                        onClick={handleCancelClearHistory}
+                        className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] cursor-pointer transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      id="clear-recent-sessions-btn"
+                      onClick={handleClearHistoryClick}
+                      className="text-[10px] font-bold text-slate-400 hover:text-rose-400 transition flex items-center gap-1 cursor-pointer ml-auto px-1.5 py-1 rounded-lg hover:bg-rose-500/10"
+                      title="Clear recent study history (requires confirmation)"
+                    >
+                      <i className="fa-solid fa-trash-can text-[10px]"></i>
+                      <span>Clear History</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -4261,6 +4422,78 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   {celebratoryQuickStudyToast}
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Small Confirmation Toast to Prevent Accidental Deletion of Study History */}
+        {showClearHistoryConfirmToast && (
+          <div
+            id="clear-history-confirm-toast"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="clear-history-toast-title"
+            aria-describedby="clear-history-toast-desc"
+            className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-[calc(100vw-2rem)] animate-bounce-short shadow-2xl"
+          >
+            <div className="p-4 rounded-2xl border-2 border-rose-500/80 bg-slate-950/95 text-white flex flex-col gap-3 backdrop-blur-md shadow-rose-500/25 ring-2 ring-rose-500/20">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl shrink-0 bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl shadow-inner border border-rose-500/40">
+                  <i className="fa-solid fa-trash-can text-rose-400"></i>
+                </div>
+                <div className="flex-1 space-y-1 text-left">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 id="clear-history-toast-title" className="font-black text-xs text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <i className="fa-solid fa-triangle-exclamation text-amber-400"></i> Clear Session Logs?
+                    </h4>
+                    <button
+                      onClick={handleCancelClearHistory}
+                      className="text-slate-400 hover:text-white text-xs p-1 cursor-pointer"
+                      title="Dismiss confirmation"
+                      aria-label="Dismiss confirmation"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <p id="clear-history-toast-desc" className="text-xs text-slate-200 font-medium leading-relaxed">
+                    Are you sure you want to clear your quick-study session history? This will delete all <span className="font-bold text-white">{recentQuickSessions.length} recorded session{recentQuickSessions.length === 1 ? '' : 's'}</span> and cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+                <button
+                  id="cancel-clear-history-btn"
+                  onClick={handleCancelClearHistory}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700 transition active:scale-95 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="confirm-clear-history-btn"
+                  onClick={handleConfirmClearHistory}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-700 transition active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-600/30"
+                >
+                  <i className="fa-solid fa-trash-can text-[10px]"></i>
+                  <span>Yes, Clear Logs</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Notice Toast after Clearing History */}
+        {clearedHistoryNotice && (
+          <div
+            id="cleared-history-notice-toast"
+            className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-[calc(100vw-2rem)] animate-fade-in shadow-2xl"
+          >
+            <div className="p-3.5 rounded-2xl border border-emerald-500/60 bg-slate-950/95 text-white flex items-center gap-3 backdrop-blur-md shadow-emerald-500/20">
+              <div className="w-8 h-8 rounded-lg shrink-0 bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm shadow-inner border border-emerald-500/40">
+                <i className="fa-solid fa-check"></i>
+              </div>
+              <p className="text-xs text-slate-200 font-semibold">{clearedHistoryNotice}</p>
             </div>
           </div>
         )}

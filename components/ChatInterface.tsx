@@ -9,13 +9,140 @@ interface ChatInterfaceProps {
   onClose?: () => void;
 }
 
+// Helper to render markdown nicely for Yun AI responses
+const FormattedYunMessage: React.FC<{ text: string; textSize: 'normal' | 'large' }> = ({ text, textSize }) => {
+  const lines = text.split('\n');
+
+  return (
+    <div className={`space-y-2 leading-relaxed ${textSize === 'large' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`}>
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+
+        // Horizontal divider
+        if (trimmed === '---' || trimmed === '***') {
+          return <hr key={idx} className="my-3 border-slate-800" />;
+        }
+
+        // Heading 3 / Subheading
+        if (trimmed.startsWith('### ')) {
+          const headingText = trimmed.replace(/^###\s+/, '');
+          return (
+            <h4 key={idx} className="text-cyan-300 font-extrabold text-sm sm:text-base tracking-wide mt-3 mb-1 flex items-center gap-1.5">
+              {renderInlineStyles(headingText)}
+            </h4>
+          );
+        }
+
+        // Heading 2
+        if (trimmed.startsWith('## ')) {
+          const headingText = trimmed.replace(/^##\s+/, '');
+          return (
+            <h3 key={idx} className="text-white font-black text-base sm:text-lg tracking-wide mt-3.5 mb-1.5 border-b border-indigo-500/20 pb-1">
+              {renderInlineStyles(headingText)}
+            </h3>
+          );
+        }
+
+        // Heading 1
+        if (trimmed.startsWith('# ')) {
+          const headingText = trimmed.replace(/^#\s+/, '');
+          return (
+            <h2 key={idx} className="text-white font-black text-lg sm:text-xl tracking-wide mt-4 mb-2">
+              {renderInlineStyles(headingText)}
+            </h2>
+          );
+        }
+
+        // Blockquote / Tip callout
+        if (trimmed.startsWith('> ')) {
+          const quoteText = trimmed.replace(/^>\s+/, '');
+          return (
+            <div key={idx} className="my-2 p-3 rounded-xl bg-cyan-950/40 border-l-4 border-cyan-400 text-cyan-100 text-xs sm:text-sm">
+              {renderInlineStyles(quoteText)}
+            </div>
+          );
+        }
+
+        // Bullet list item
+        if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+          const itemText = trimmed.replace(/^[*|-]\s+/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2">
+              <span className="text-cyan-400 mt-1 text-xs">•</span>
+              <div className="flex-1 text-slate-200">{renderInlineStyles(itemText)}</div>
+            </div>
+          );
+        }
+
+        // Numbered list item
+        const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (numberedMatch) {
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2">
+              <span className="text-xs font-bold text-amber-300 mt-0.5 shrink-0 bg-amber-400/10 px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                {numberedMatch[1]}.
+              </span>
+              <div className="flex-1 text-slate-200">{renderInlineStyles(numberedMatch[2])}</div>
+            </div>
+          );
+        }
+
+        // Blank line
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+
+        // Regular paragraph
+        return (
+          <p key={idx} className="text-slate-100">
+            {renderInlineStyles(line)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
+// Parse bold, italics, code inline
+const renderInlineStyles = (content: string) => {
+  // Split by bold (**...**) and inline code (`...`)
+  const parts = content.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-bold text-cyan-200">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-mono text-xs border border-slate-700">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return (
+        <em key={i} className="italic text-cyan-100/90">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+};
+
 const CURIOSITY_CHIPS = [
+  "👋 Habari Yun! Nipangie ratiba ya masomo leo",
   "🌋 Why is Lake Natron pink & alkaline?",
   "💎 How does Tanzanite form under Mt. Kilimanjaro?",
   "🚀 Explain quadratic equations with rocket physics",
   "🧬 How does human DNA store gigabytes of code?",
   "🇹🇿 Kiswahili: Tanzu za Fasihi Simulizi ni zipi?",
-  "📐 Give me a secret NECTA math calculation shortcut!"
+  "📐 Give me a secret NECTA math calculation shortcut!",
+  "💡 How do I score Division 1 in NECTA examinations?"
 ];
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, onClose }) => {
@@ -37,7 +164,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
   const [textSize, setTextSize] = useState<'normal' | 'large'>('normal');
 
   // Gemini Model & Features Settings
-  const [selectedModel, setSelectedModel] = useState<'gemini-3.1-flash-lite' | 'gemini-3.5-flash' | 'gemini-3.1-pro-preview'>('gemini-3.5-flash');
+  const [selectedModel, setSelectedModel] = useState<'gemini-3.1-flash-lite' | 'gemini-3.8-flash' | 'gemini-3.1-pro-preview'>('gemini-3.8-flash');
   const [selectedRole, setSelectedRole] = useState<'default' | 'necta_examiner' | 'stem_mentor' | 'kiswahili_fasihi'>('default');
   const [useSearchGrounding, setUseSearchGrounding] = useState<boolean>(false);
 
@@ -165,7 +292,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
             <div className="flex items-center gap-2">
               <h2 className="font-black text-lg text-white tracking-wide">Yun AI 3D</h2>
               <span className="bg-gradient-to-r from-cyan-400 to-fuchsia-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                {selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Lite' : '3.5 Flash'}
+                {selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Lite' : '3.8 Flash'}
               </span>
             </div>
             <p className="text-xs text-cyan-300/80 font-medium flex items-center gap-1.5">
@@ -184,10 +311,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
             className="bg-slate-950 border border-indigo-500/40 text-xs text-cyan-300 rounded-xl px-2.5 py-1.5 outline-none font-semibold focus:border-cyan-400 cursor-pointer"
             title="Change AI Tutor Persona / Role"
           >
-            <option value="default">🌟 Role: Curiosity Catalyst</option>
-            <option value="necta_examiner">📝 Role: NECTA Examiner</option>
-            <option value="stem_mentor">🔬 Role: STEM Mentor</option>
-            <option value="kiswahili_fasihi">🇹🇿 Role: Mwalimu wa Kiswahili</option>
+            <option value="default">🌟 Role: Curiosity Catalyst (Warm & Encouraging)</option>
+            <option value="necta_examiner">📝 Role: NECTA Examiner (Constructive & Clear)</option>
+            <option value="stem_mentor">🔬 Role: STEM Mentor (Patient & Inspiring)</option>
+            <option value="kiswahili_fasihi">🇹🇿 Role: Mwalimu wa Kiswahili (Fasaha & Mpole)</option>
           </select>
 
           {/* Model selector */}
@@ -197,9 +324,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
             className="bg-slate-950 border border-fuchsia-500/40 text-xs text-fuchsia-300 rounded-xl px-2.5 py-1.5 outline-none font-semibold focus:border-fuchsia-400 cursor-pointer"
             title="Select Gemini Intelligence Engine"
           >
-            <option value="gemini-3.5-flash">⚡ Gemini 3.5 Flash (Balanced)</option>
+            <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (Recommended & Fast)</option>
             <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro (Deep Reasoning)</option>
-            <option value="gemini-3.1-flash-lite">🚀 Gemini 3.1 Flash-Lite (Fast)</option>
+            <option value="gemini-3.1-flash-lite">🚀 Gemini 3.1 Flash-Lite (Ultra Fast)</option>
           </select>
 
           {/* Google Search Grounding Toggle Button */}
@@ -279,9 +406,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
                   : 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white border-cyan-400/30 rounded-tr-sm'
               }`}>
                 {/* Text Formatting */}
-                <div className={`whitespace-pre-wrap leading-relaxed ${textSize === 'large' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`}>
-                  {msg.text}
-                </div>
+                {isModel ? (
+                  <FormattedYunMessage text={msg.text} textSize={textSize} />
+                ) : (
+                  <div className={`whitespace-pre-wrap leading-relaxed ${textSize === 'large' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'}`}>
+                    {msg.text}
+                  </div>
+                )}
 
                 {/* Search Grounding Sources / Citations */}
                 {msg.groundingSources && msg.groundingSources.length > 0 && (
@@ -340,7 +471,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialContext, on
             <YunAvatar3D size="sm" state="thinking" />
             <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl rounded-tl-sm px-5 py-4 shadow-lg flex items-center gap-3">
               <span className="text-xs font-bold text-cyan-300 animate-pulse">
-                Yun ({selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Deep Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Flash-Lite' : 'Gemini 3.5 Flash'}) is processing...
+                Yun ({selectedModel === 'gemini-3.1-pro-preview' ? 'Pro Deep Reasoning' : selectedModel === 'gemini-3.1-flash-lite' ? 'Fast Flash-Lite' : 'Gemini 3.8 Flash'}) is thinking...
               </span>
               <div className="flex gap-1.5">
                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>

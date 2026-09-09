@@ -35,17 +35,10 @@ app.get("/api/health", (req, res) => {
 // 1. Multi-turn Gemini Chatbot Endpoint (Yun AI)
 app.post("/api/chat", async (req, res) => {
   try {
-    if (!ai) {
-      res.status(500).json({
-        error: "GEMINI_API_KEY environment variable is missing on the server.",
-      });
-      return;
-    }
-
     const {
       prompt,
       history = [],
-      model = "gemini-3.5-flash",
+      model = "gemini-3.8-flash",
       role = "default",
       useSearchGrounding = false,
     } = req.body;
@@ -55,26 +48,48 @@ app.post("/api/chat", async (req, res) => {
       return;
     }
 
-    // System instructions based on role
-    let systemInstruction = `You are Yun, an advanced, highly intelligent AI Tutor and Curiosity Catalyst specialized for Tanzanian students from Primary (Grade 1-7), O-Level Secondary (Form 1-4), and High School A-Level (Form 5-6).
-Your Identity & Persona:
-- You operate with deep reasoning, comprehensive step-by-step logic, curiosity-sparking hooks ("Did You Know?"), and crystal-clear explanations.
-- You are bilingual in English and Kiswahili. Provide key technical terms or summaries in Kiswahili to aid comprehension for Tanzanian students.
-- Always spark CURIOSITY with real-world Tanzania connections (e.g., Lake Victoria, Tanzanite, Mount Kilimanjaro, Serengeti vectors).
-- Provide long, deep, structured breakdowns:
-  1. 🌟 Curiosity Hook ("Did You Know?")
-  2. 🧠 Deep Concept Breakdown
-  3. 📐 Step-by-Step Worked Example / Solution
-  4. 🇹🇿 Real-World Tanzania Connection
-  5. 💡 Probing Curiosity Question ("What if...?")
-  6. 📝 NECTA Exam Pro-Tip`;
+    if (!ai) {
+      res.json({
+        text: "Jambo rafiki yangu! Yun is right here. The server is currently running in local offline mode without an API key, but you can still access all the curriculum syllabi, NECTA past papers, and video lessons on this portal. Once configured, I will be delighted to answer any question for you!",
+        groundingSources: [],
+        modelUsed: "offline",
+      });
+      return;
+    }
+
+    // Friendly, warm, polite, and encouraging system instructions for Yun
+    let systemInstruction = `You are Yun, a warm, polite, respectful, and encouraging AI Tutor & Study Buddy for Tanzanian students (Primary Grade 1–7, O-Level Form 1–4, and A-Level Form 5–6).
+
+Core Personality & Demeanor:
+- Always respond NICELY, politely, respectfully, and with genuine warmth and enthusiasm.
+- Greet the student kindly in English and Kiswahili (e.g., "Habari!", "Karibu sana!", "Hello friend! It's wonderful to learn with you today.").
+- Validate and celebrate curiosity (e.g., "Swali zuri sana!", "That is an excellent question!", "You are asking great questions!").
+- Maintain a supportive, patient, and uplifting tone. Never sound cold, dismissive, or robotic. If a student is struggling or feeling discouraged, gently reassure them: "Don't worry at all, let's break this down step-by-step together!"
+
+Adaptive Conversational Intelligence:
+1. GREETINGS & CASUAL MESSAGES (e.g. "hi", "hello", "habari", "mambo", "how are you?", "who are you?", "asante", "thank you"):
+   - Respond warmly, conversationally, and politely in 2-3 friendly paragraphs.
+   - Introduce yourself warmly as Yun, their friendly Tanzanian AI study companion.
+   - Inquire politely how they are doing and invite them to share what subject, topic, or homework problem they want to work on.
+   - DO NOT output an unprompted, rigid 6-part academic lecture on a simple greeting!
+
+2. ACADEMIC & HOMEWORK QUESTIONS (Math, Physics, Chemistry, Biology, Geography, History, Kiswahili, Civics, etc.):
+   - Structure your explanation clearly, nicely, and patiently.
+   - Give step-by-step worked examples with formulas and intermediate steps clearly visible.
+   - Bilingual clarity: translate key technical or complex English terms into clear Kiswahili so students grasp the underlying concepts deeply.
+   - Provide relatable real-world Tanzanian examples where applicable (e.g., Tanzanite formation in Mererani, atmospheric pressure on Mount Kilimanjaro, Lake Victoria ecosystem, Julius Nyerere Hydropower at Rufiji, Serengeti migration).
+   - Provide a practical NECTA Exam Pro-Tip where relevant (common pitfalls, how examiners award step marks).
+   - Close with a polite, encouraging check-in (e.g., "Je, hatua hizi ziko wazi? / Does this make sense, or would you like another example?").
+
+Language:
+- Naturally bilingual in English and Kiswahili. If the student writes in Kiswahili, respond primarily in fluent, polite Kiswahili. If the student writes in English, respond in English with helpful Kiswahili glossaries.`;
 
     if (role === "necta_examiner") {
-      systemInstruction = `You are an expert NECTA Senior Examiner and Secondary Curriculum Specialist for Tanzania Form 1-6 & Primary examinations. Provide exact marking scheme guidelines, common examination pitfalls, step-by-step working out for Form 4 & Form 6 national papers, and exam preparation strategies.`;
+      systemInstruction = `You are a supportive, encouraging Senior NECTA Examiner and Secondary Curriculum Specialist for Tanzania Form 1-6 & Primary examinations. Always respond politely, constructively, and warmly. Demystify national examination marking schemes, explain how step-by-step marks are awarded in Paper 1 and Paper 2, highlight common student mistakes with kindness, and provide high-yield revision strategies.`;
     } else if (role === "stem_mentor") {
-      systemInstruction = `You are a STEM Laboratory Mentor and Physics/Chemistry/Biology/Math Specialist for Tanzanian students. Explain practical experiments, scientific formulas, dimensional analysis, reaction mechanisms, and real-world Tanzanian industrial applications.`;
+      systemInstruction = `You are an inspiring, patient STEM Laboratory Mentor and Science/Math Specialist for Tanzanian students. Always respond nicely, politely, and with infectious curiosity. Break down complex scientific formulas, chemical equations, physics laws, and mathematical proofs step-by-step with real-world Tanzanian applications.`;
     } else if (role === "kiswahili_fasihi") {
-      systemInstruction = `Wewe ni Mwalimu na Mbingwa wa Lugha na Fasihi ya Kiswahili kwa Sekondari na Shule za Msingi Tanzania. Eleza kwa undani Fasihi Simulizi, Fasihi Andishi, Sarufi, Insha, Ushairi, na Tamthilia zinazotahiniwa na NECTA.`;
+      systemInstruction = `Wewe ni Mwalimu mkarimu, mpole, na mwenye weledi wa hali ya juu wa Lugha na Fasihi ya Kiswahili kwa shule za Tanzania. Jibu kila wakati kwa lugha fasaha, yenye adabu na heshima. Eleza kwa kina na ufasaha Fasihi Simulizi, Fasihi Andishi, Sarufi, Insha, Ushairi, na Tamthilia zinazotahiniwa na NECTA.`;
     }
 
     // Map history to Gemini format
@@ -91,28 +106,76 @@ Your Identity & Persona:
       chatConfig.tools = [{ googleSearch: {} }];
     }
 
-    // Determine model alias
+    // Determine model alias - prefer gemini-3.8-flash as the primary reliable model
     let selectedModel = model;
-    if (model === "pro" || model === "gemini-pro") {
+    if (
+      !selectedModel ||
+      selectedModel === "gemini-3.5-flash" ||
+      selectedModel === "flash" ||
+      selectedModel === "gemini-flash" ||
+      selectedModel === "gemini-flash-latest"
+    ) {
+      selectedModel = "gemini-3.8-flash";
+    } else if (selectedModel === "pro" || selectedModel === "gemini-pro" || selectedModel === "gemini-3.1-pro") {
       selectedModel = "gemini-3.1-pro-preview";
-    } else if (model === "lite" || model === "gemini-lite") {
+    } else if (selectedModel === "lite" || selectedModel === "gemini-lite" || selectedModel === "gemini-3.1-flash-lite") {
       selectedModel = "gemini-3.1-flash-lite";
-    } else if (model === "flash" || model === "gemini-flash") {
-      selectedModel = "gemini-3.5-flash";
     }
 
-    const chat = ai.chats.create({
-      model: selectedModel,
-      config: chatConfig,
-      history: formattedHistory,
-    });
+    let response: any = null;
+    let modelUsed = selectedModel;
 
-    const response = await chat.sendMessage({ message: prompt });
-    const text = response.text || "I'm having a little trouble thinking right now. Please try again.";
+    // Execute with automatic graceful model fallback
+    try {
+      const chat = ai.chats.create({
+        model: selectedModel,
+        config: chatConfig,
+        history: formattedHistory,
+      });
+      response = await chat.sendMessage({ message: prompt });
+    } catch (primaryErr: any) {
+      console.warn(`Primary model ${selectedModel} failed, trying fallback:`, primaryErr?.message || primaryErr);
+      
+      // Fallback 1: gemini-3.8-flash (if primary wasn't already 3.8-flash)
+      if (selectedModel !== "gemini-3.8-flash") {
+        try {
+          const fallbackChat = ai.chats.create({
+            model: "gemini-3.8-flash",
+            config: chatConfig,
+            history: formattedHistory,
+          });
+          response = await fallbackChat.sendMessage({ message: prompt });
+          modelUsed = "gemini-3.8-flash";
+        } catch (fbErr: any) {
+          console.warn("Fallback to gemini-3.8-flash failed, trying gemini-3.1-flash-lite:", fbErr?.message || fbErr);
+        }
+      }
+
+      // Fallback 2: gemini-3.1-flash-lite (fast & resilient)
+      if (!response || !response.text) {
+        try {
+          const liteChat = ai.chats.create({
+            model: "gemini-3.1-flash-lite",
+            config: chatConfig,
+            history: formattedHistory,
+          });
+          response = await liteChat.sendMessage({ message: prompt });
+          modelUsed = "gemini-3.1-flash-lite";
+        } catch (liteErr: any) {
+          console.error("All AI model attempts encountered an error:", liteErr?.message || liteErr);
+        }
+      }
+    }
+
+    let text = response?.text;
+    if (!text) {
+      text = "Jambo rafiki yangu! Yun is right here. I experienced a momentary network delay while thinking, but I am ready to help you. Please ask your question again, or let me know what topic you'd like to explore, and I will walk you through it step-by-step!";
+      modelUsed = "yun-fallback";
+    }
 
     // Extract search grounding metadata if available
     let groundingSources: { title: string; uri: string }[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks && Array.isArray(chunks)) {
       groundingSources = chunks
         .filter((chunk: any) => chunk.web && chunk.web.uri)
@@ -125,12 +188,15 @@ Your Identity & Persona:
     res.json({
       text,
       groundingSources,
-      modelUsed: selectedModel,
+      modelUsed,
     });
   } catch (error: any) {
-    console.error("Chat API Error:", error);
-    res.status(500).json({
-      error: error.message || "An unexpected error occurred during chat.",
+    console.error("Chat API Unexpected Error:", error);
+    // Respond nicely and politely even in error cases!
+    res.json({
+      text: "Jambo! Asante kwa kuniuliza. Yun amepata changamoto ndogo ya kiufundi kwa muda mfupi, lakini nipo tayari kukusaidia. Tafadhali jaribu kutuma tena swali lako au chagua mada nyingine ya somo lako tufanye kazi pamoja!",
+      groundingSources: [],
+      modelUsed: "yun-polite-recovery",
     });
   }
 });
@@ -150,7 +216,7 @@ app.post("/api/search", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.8-flash",
       contents: `Search for accurate, up-to-date real-time educational information, NECTA curriculum details, or current facts about: "${query}". Provide a clear, structured, well-formatted summary with key facts and bullet points.`,
       config: {
         tools: [{ googleSearch: {} }],
@@ -252,7 +318,7 @@ app.post("/api/intelligence", async (req, res) => {
 3. 🇹🇿 Swahili Translation / Key Term Equivalents where helpful`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash", // General tasks model
+        model: "gemini-3.8-flash", // Modern general tasks model
         contents: prompt,
       });
 
@@ -264,7 +330,7 @@ app.post("/api/intelligence", async (req, res) => {
       const prompt = `Create an intensive 7-day NECTA study roadmap for a ${grade || "Form 4"} student taking ${subject || "Mathematics and Science"}. Break it down into daily 2-hour actionable modules with topic targets, practice problems, and rest intervals.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
       });
 

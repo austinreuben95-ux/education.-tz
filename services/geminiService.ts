@@ -7,7 +7,7 @@ export interface ChatResponse {
 export const sendMessageToYunDetailed = async (
   prompt: string,
   history: { role: 'user' | 'model'; text: string }[],
-  model: string = 'gemini-3.5-flash',
+  model: string = 'gemini-3.8-flash',
   role: string = 'default',
   useSearchGrounding: boolean = false
 ): Promise<ChatResponse> => {
@@ -31,14 +31,14 @@ export const sendMessageToYunDetailed = async (
 
     const data = await res.json();
     return {
-      text: data.text || "I'm having a little trouble thinking right now. Please try again.",
+      text: data.text || "Jambo! I am here and ready to help you. What topic or concept would you like to explore today?",
       groundingSources: data.groundingSources || [],
       modelUsed: data.modelUsed,
     };
   } catch (error: any) {
     console.error('Error talking to Yun:', error);
     return {
-      text: "Oops! Something went wrong communicating with the AI server. Please check your connection.",
+      text: "Jambo! Asante kwa kuniuliza. Yun experienced a quick network delay while preparing your answer, but I am ready right here. Please try asking again, or feel free to select a topic from the curriculum syllabus above. Nipo hapa kukusaidia kufaulu!",
       groundingSources: [],
     };
   }
@@ -48,7 +48,7 @@ export const sendMessageToYun = async (
   prompt: string,
   history: { role: 'user' | 'model'; text: string }[]
 ): Promise<string> => {
-  const result = await sendMessageToYunDetailed(prompt, history, 'gemini-3.5-flash', 'default', false);
+  const result = await sendMessageToYunDetailed(prompt, history, 'gemini-3.8-flash', 'default', false);
   return result.text;
 };
 
