@@ -3093,21 +3093,27 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                             <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-amber-400/80 rotate-45 -mb-1 mt-0.5"></div>
                           </div>
 
-                          {/* Mini Bar with interactive visual scaling & color transformation on hover/focus */}
+                          {/* Mini Bar with interactive visual scaling, color transformation & staggered entrance animation */}
                           <div
                             id={`spark-bar-${item.dateKey}`}
-                            className={`w-1.5 sm:w-2 rounded-t-sm origin-bottom transition-all duration-200 transform-gpu group-hover/day:scale-y-125 group-hover/day:scale-x-150 group-focus-within/day:scale-y-125 group-focus-within/day:scale-x-150 ${
+                            className={`w-1.5 sm:w-2 rounded-t-sm origin-bottom animate-sparkline-bar sparkline-delay-${idx} transition-all duration-200 transform-gpu group-hover/day:scale-y-125 group-hover/day:scale-x-150 group-focus-within/day:scale-y-125 group-focus-within/day:scale-x-150 ${
                               item.isToday
                                 ? 'bg-amber-400 shadow-sm shadow-amber-400/60 group-hover/day:bg-amber-200 group-hover/day:shadow-lg group-hover/day:shadow-amber-300/80 group-focus-within/day:bg-amber-200 group-focus-within/day:shadow-lg group-focus-within/day:shadow-amber-300/80 group-hover/day:ring-1 group-hover/day:ring-amber-100'
                                 : item.count > 0
                                 ? 'bg-indigo-400/80 group-hover/day:bg-amber-400 group-hover/day:shadow-md group-hover/day:shadow-amber-400/70 group-focus-within/day:bg-amber-400 group-focus-within/day:shadow-md group-focus-within/day:shadow-amber-400/70 group-hover/day:ring-1 group-hover/day:ring-amber-300'
                                 : 'bg-slate-700/50 group-hover/day:bg-slate-500 group-focus-within/day:bg-slate-500 group-hover/day:ring-1 group-hover/day:ring-slate-400/40'
                             }`}
-                            style={{ height: `${barHeight}%` }}
+                            style={{
+                              height: `${barHeight}%`,
+                              animationDelay: `${idx * 80}ms`
+                            }}
                           ></div>
 
-                          {/* Day Label letter with hover/focus color shift */}
-                          <span className={`text-[8px] font-extrabold leading-none mt-0.5 transition-colors duration-200 group-hover/day:text-amber-300 group-focus-within/day:text-amber-300 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}>
+                          {/* Day Label letter with hover/focus color shift and staggered entrance */}
+                          <span
+                            className={`text-[8px] font-extrabold leading-none mt-0.5 animate-sparkline-day sparkline-delay-${idx} transition-colors duration-200 group-hover/day:text-amber-300 group-focus-within/day:text-amber-300 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}
+                            style={{ animationDelay: `${idx * 80 + 60}ms` }}
+                          >
                             {item.shortDay}
                           </span>
                         </div>

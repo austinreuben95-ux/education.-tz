@@ -221,6 +221,53 @@
         animation: badgePopMastery 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
       }
 
+      /* Staggered grow animation for 7-day sparkline bar elements */
+      @keyframes sparklineBarGrow {
+        0% {
+          transform: scaleY(0);
+          opacity: 0;
+        }
+        60% {
+          transform: scaleY(1.12);
+          opacity: 0.9;
+        }
+        80% {
+          transform: scaleY(0.96);
+        }
+        100% {
+          transform: scaleY(1);
+          opacity: 1;
+        }
+      }
+
+      .animate-sparkline-bar {
+        animation: sparklineBarGrow 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+        transform-origin: bottom;
+      }
+
+      @keyframes sparklineDayFadeIn {
+        0% {
+          opacity: 0;
+          transform: translateY(3px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-sparkline-day {
+        animation: sparklineDayFadeIn 0.4s ease-out backwards;
+      }
+
+      .sparkline-delay-0 { animation-delay: 0ms; }
+      .sparkline-delay-1 { animation-delay: 80ms; }
+      .sparkline-delay-2 { animation-delay: 160ms; }
+      .sparkline-delay-3 { animation-delay: 240ms; }
+      .sparkline-delay-4 { animation-delay: 320ms; }
+      .sparkline-delay-5 { animation-delay: 400ms; }
+      .sparkline-delay-6 { animation-delay: 480ms; }
+
       #start-quick-study-session-btn {
         transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
         border: 2px solid transparent;
