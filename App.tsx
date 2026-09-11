@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
-import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, QuizMistakeFeedback, EducationLevel, QuickStudySession } from './types';
+import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, QuizMistakeFeedback, EducationLevel, QuickStudySession, StudyRoomMessage } from './types';
 import { SYLLABUS_DATA } from './constants';
+import { SEED_STUDY_TIPS, STUDY_ROOM_SUBJECTS } from './data/studyRoomSeedData';
 import ChatInterface from './components/ChatInterface';
 import RadarChart, { SubjectProficiency } from './components/RadarChart';
 import { StudyTrendChart } from './components/StudyTrendChart';
@@ -50,7 +51,8 @@ import {
   checkIsAdmin,
   updateUserCredits,
   searchUserByEmail,
-  getAllUsers
+  getAllUsers,
+  subscribeToStudyTips
 } from './services/firebaseService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -276,6 +278,7 @@ const App: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [yunContext, setYunContext] = useState<string>('');
+  const [yunPrepopulatedPrompt, setYunPrepopulatedPrompt] = useState<string>('');
   const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -312,6 +315,78 @@ const App: React.FC = () => {
   const [celebratoryQuickStudyToast, setCelebratoryQuickStudyToast] = useState<string | null>(null);
   const [showClearHistoryConfirmToast, setShowClearHistoryConfirmToast] = useState(false);
   const [clearedHistoryNotice, setClearedHistoryNotice] = useState<string | null>(null);
+
+  // Study Room live activity for portal preview & hover expansion
+  const [activeStudyRoomSubject, setActiveStudyRoomSubject] = useState<string>('ALL');
+  const [studyTipsList, setStudyTipsList] = useState<StudyRoomMessage[]>(SEED_STUDY_TIPS);
+
+  useEffect(() => {
+    try {
+      const unsub = subscribeToStudyTips('ALL', (incoming) => {
+        if (incoming && incoming.length > 0) {
+          const incomingIds = new Set(incoming.map(t => t.id));
+          const filteredSeeds = SEED_STUDY_TIPS.filter(s => !incomingIds.has(s.id));
+          setStudyTipsList([...incoming, ...filteredSeeds]);
+        }
+      });
+      return () => {
+        if (typeof unsub === 'function') unsub();
+      };
+    } catch (e) {
+      // Fallback silently to seed data
+    }
+  }, []);
+
+  // Compute the current subject with the highest discussion activity
+  const highestActivitySubject = useMemo(() => {
+    const subjectMap: Record<string, {
+      id: string;
+      name: string;
+      count: number;
+      likes: number;
+      score: number;
+      latestTopic?: string;
+      icon: string;
+      color: string;
+    }> = {};
+
+    STUDY_ROOM_SUBJECTS.filter(s => s.id !== 'ALL').forEach(sub => {
+      subjectMap[sub.id] = {
+        id: sub.id,
+        name: sub.name,
+        count: 0,
+        likes: 0,
+        score: 0,
+        icon: sub.icon,
+        color: sub.color
+      };
+    });
+
+    studyTipsList.forEach(tip => {
+      const sub = subjectMap[tip.subjectId];
+      if (sub) {
+        sub.count += 1;
+        sub.likes += (tip.likes || 0);
+        // Activity score combines discussion count + active peer reactions
+        sub.score += (15 + (tip.likes || 0));
+        if (!sub.latestTopic && (tip.topicRef || tip.title)) {
+          sub.latestTopic = tip.topicRef || tip.title;
+        }
+      }
+    });
+
+    const sorted = Object.values(subjectMap).sort((a, b) => b.score - a.score);
+    return sorted[0] || {
+      id: 'biology',
+      name: 'Biology',
+      count: 2,
+      likes: 84,
+      score: 114,
+      latestTopic: 'Genetics & Evolution',
+      icon: 'fa-dna',
+      color: 'green'
+    };
+  }, [studyTipsList]);
 
   const getLocalDateKey = (date = new Date()) => {
     const year = date.getFullYear();
@@ -1385,6 +1460,22 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
   const startChat = () => {
     setYunContext(''); 
+    setYunPrepopulatedPrompt('');
+    setCurrentView(AppView.CHAT);
+  };
+
+  const handleAskYunDeeperDive = (topicTitle?: string, subjectName?: string, gradeName?: string) => {
+    const tTitle = topicTitle || selectedTopic?.title || 'This Topic';
+    const sName = subjectName || selectedSubject?.name || 'Syllabus';
+    const gName = gradeName || selectedGrade?.grade || 'Secondary Curriculum';
+
+    const deeperDivePrompt = `Please provide a deeper dive into the topic "${tTitle}" in ${sName} (${gName}). Specifically:
+1. Historical Context: Explain the discovery, origin, and historical background of this concept, including key figures or events that shaped it.
+2. Related Real-World Experiments & Practical Applications: Provide real-world experiments, laboratory demonstrations, and practical everyday applications (including relevant connections to Tanzania/East Africa).
+3. NECTA-Style Complex Challenge Questions: Give 2-3 advanced NECTA-format challenge questions with step-by-step marking rubrics, common mistakes to avoid, and full worked solutions.`;
+
+    setYunContext(`Deeper Dive: ${tTitle} (${sName})`);
+    setYunPrepopulatedPrompt(deeperDivePrompt);
     setCurrentView(AppView.CHAT);
   };
 
@@ -1834,6 +1925,15 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                         )}
 
                         <button
+                          onClick={() => handleAskYunDeeperDive(selectedTopic.title, selectedSubject.name, selectedGrade?.grade)}
+                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+                          title="Ask Yun for a Deeper Dive with historical context, real-world experiments & NECTA challenge questions"
+                        >
+                          <i className="fa-solid fa-brain text-yellow-300"></i>
+                          <span>Ask Yun for a Deeper Dive</span>
+                        </button>
+
+                        <button
                           onClick={() => downloadTopicNotePdf(selectedSubject.name, selectedTopic.title, deepNote)}
                           className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                           title="Download Formatted Study Summary as PDF for Offline Viewing"
@@ -1975,20 +2075,32 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     )}
 
                     {/* Yun Callout Banner */}
-                    <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl border border-indigo-500/30 text-white flex items-center justify-between gap-4 shadow-lg">
+                    <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl border border-indigo-500/30 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
                       <div className="flex items-center gap-3">
                         <YunAvatar3D size="md" state="idle" />
                         <div>
-                          <h4 className="font-black text-sm text-cyan-300">Have a deep question about {selectedTopic.title}?</h4>
-                          <p className="text-xs text-slate-300 mt-0.5">Ask Yun AI for a step-by-step breakdown or real-world experiment!</p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-black text-sm text-cyan-300">Have a deep question about {selectedTopic.title}?</h4>
+                            <span className="bg-fuchsia-500/20 text-fuchsia-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-fuchsia-500/30">NECTA Deep Dive</span>
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">Explore historical context, real-world Tanzanian experiments, and NECTA-style challenge questions.</p>
                         </div>
                       </div>
-                      <button
-                        onClick={startChat}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition shrink-0"
-                      >
-                        Ask Yun
-                      </button>
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                        <button
+                          onClick={() => handleAskYunDeeperDive(selectedTopic.title, selectedSubject.name, selectedGrade?.grade)}
+                          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-brain text-purple-950"></i>
+                          <span>Ask Yun for a Deeper Dive</span>
+                        </button>
+                        <button
+                          onClick={startChat}
+                          className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition shrink-0 cursor-pointer"
+                        >
+                          General Chat
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2713,16 +2825,25 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   <i className="fa-solid fa-robot text-4xl text-white"></i>
                 </div>
                 <h3 className="font-bold text-lg">Ask Yun</h3>
-                <p className="text-sm text-gray-500 mb-4">Confused about this topic?</p>
-                <button 
-                  onClick={() => {
-                    setYunContext(`I am studying ${selectedTopic.title} in ${selectedSubject.name}. Help me understand...`);
-                    setCurrentView(AppView.CHAT);
-                  }}
-                  className="w-full py-2 rounded-xl border-2 border-tz-blue text-tz-blue font-bold hover:bg-tz-blue hover:text-white transition"
-                >
-                  Chat Now
-                </button>
+                <p className="text-sm text-gray-500 mb-4">Confused or want deep NECTA insights?</p>
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => handleAskYunDeeperDive(selectedTopic.title, selectedSubject.name, selectedGrade?.grade)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white font-bold text-xs hover:from-purple-700 hover:to-cyan-700 transition flex items-center justify-center gap-1.5 shadow-md hover:scale-102 active:scale-98 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-brain text-yellow-300"></i>
+                    <span>Ask Yun for a Deeper Dive</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setYunContext(`I am studying ${selectedTopic.title} in ${selectedSubject.name}. Help me understand...`);
+                      setCurrentView(AppView.CHAT);
+                    }}
+                    className="w-full py-2 rounded-xl border-2 border-tz-blue text-tz-blue font-bold hover:bg-tz-blue hover:text-white transition text-xs cursor-pointer"
+                  >
+                    Chat Now
+                  </button>
+                </div>
              </div>
 
              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
@@ -3431,10 +3552,13 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
               {/* Portal: Shared Study Room (Firebase Realtime Sync) */}
               <div
                 id="portal-card-study-room"
-                className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-2 border-indigo-400/50 shadow-md relative overflow-hidden"
-                onClick={() => setCurrentView(AppView.STUDY_ROOM)}
+                className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border-2 border-indigo-400/50 hover:border-indigo-400 shadow-md relative overflow-hidden self-start w-full"
+                onClick={() => {
+                  setActiveStudyRoomSubject('ALL');
+                  setCurrentView(AppView.STUDY_ROOM);
+                }}
               >
-                <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs flex items-center gap-1.5">
+                <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs flex items-center gap-1.5 z-10">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping"></span>
                   Firebase Realtime Live
                 </div>
@@ -3449,10 +3573,70 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   <p className="text-xs text-slate-300 font-medium leading-relaxed">
                     Study together in subject rooms! Exchange quick revision tips, formula mnemonics, and chief examiner traps in real-time.
                   </p>
+
+                  {/* Hover State: Temporarily expands to display current subject with highest discussion activity */}
+                  <div
+                    id="study-room-activity-expansion"
+                    className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-60 group-hover:opacity-100 group-hover:mt-3.5 group-hover:pt-3 transition-all duration-300 ease-out border-t border-transparent group-hover:border-indigo-500/30"
+                  >
+                    <div className="bg-slate-950/85 rounded-2xl p-3 border border-indigo-500/40 backdrop-blur-sm space-y-2 shadow-inner">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                          </span>
+                          Highest Discussion Activity
+                        </span>
+                        <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <i className="fa-solid fa-fire text-amber-400 text-[9px]"></i>
+                          <span>Trending Now</span>
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/25 border border-indigo-400/40 text-cyan-300 flex items-center justify-center text-base shrink-0 shadow-xs">
+                          <i className={`fa-solid ${highestActivitySubject.icon || 'fa-chalkboard-user'}`}></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <h5 className="font-black text-xs text-white truncate">
+                              {highestActivitySubject.name}
+                            </h5>
+                            <span className="text-[10px] font-black text-cyan-300 whitespace-nowrap bg-cyan-950/60 px-1.5 py-0.5 rounded-md border border-cyan-500/30">
+                              {highestActivitySubject.likes} <i className="fa-solid fa-thumbs-up text-[9px]"></i>
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                            {highestActivitySubject.latestTopic ? `Topic: ${highestActivitySubject.latestTopic}` : `${highestActivitySubject.count} active discussion threads`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-indigo-300/90 font-medium pt-1 border-t border-indigo-900/60">
+                        <span>{highestActivitySubject.count} tips & NECTA traps shared</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveStudyRoomSubject(highestActivitySubject.id);
+                            setCurrentView(AppView.STUDY_ROOM);
+                          }}
+                          className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition cursor-pointer"
+                        >
+                          <span>Open Room</span>
+                          <i className="fa-solid fa-chevron-right text-[8px]"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="pt-4 mt-2 border-t border-indigo-800/80 flex items-center justify-between text-xs font-black text-indigo-300">
-                  <span>Enter Live Subject Rooms</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition text-emerald-400"></i>
+                  <span className="group-hover:hidden">Enter Live Subject Rooms</span>
+                  <span className="hidden group-hover:inline text-cyan-300 flex items-center gap-1.5 font-black">
+                    <i className="fa-solid fa-door-open text-xs"></i> Enter {highestActivitySubject.name} Room
+                  </span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1.5 transition text-emerald-400"></i>
                 </div>
               </div>
 
@@ -4463,7 +4647,12 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
       />
     )}
     {currentView === AppView.EXAMS && <ExamVault />}
-    {currentView === AppView.STUDY_ROOM && <StudyRoom onNavigateHome={goHome} />}
+    {currentView === AppView.STUDY_ROOM && (
+      <StudyRoom 
+        initialSubjectId={activeStudyRoomSubject} 
+        onNavigateHome={goHome} 
+      />
+    )}
     {currentView === AppView.VIDEOS && <VideoLessonsSearch />}
     {currentView === AppView.SCHOOLS && <TanzaniaSchoolsDatabase />}
     {currentView === AppView.NEWS_SCHOLARSHIPS && <EducationalNewsPortal />}
@@ -4480,15 +4669,28 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         {currentView === AppView.CHAT && (
           <div className="animate-fade-in flex flex-col items-center justify-center h-full">
              <button 
-              onClick={goHome} // Simplified back
-              className="self-start mb-4 flex items-center text-gray-500 hover:text-tz-blue transition"
+              onClick={() => {
+                if (selectedTopic && selectedSubject) {
+                  setCurrentView(AppView.TOPIC_CONTENT);
+                } else {
+                  goHome();
+                }
+              }}
+              className="self-start mb-4 flex items-center text-gray-500 hover:text-tz-blue transition font-bold text-sm"
             >
-              <i className="fa-solid fa-arrow-left mr-2"></i> Exit Chat
+              <i className="fa-solid fa-arrow-left mr-2"></i> {selectedTopic ? `Back to ${selectedTopic.title} Notes` : 'Exit Chat'}
             </button>
             <div className="w-full">
                 <ChatInterface 
                     initialContext={yunContext} 
-                    onClose={() => goHome()}
+                    initialPrompt={yunPrepopulatedPrompt}
+                    onClose={() => {
+                      if (selectedTopic && selectedSubject) {
+                        setCurrentView(AppView.TOPIC_CONTENT);
+                      } else {
+                        goHome();
+                      }
+                    }}
                 />
             </div>
           </div>

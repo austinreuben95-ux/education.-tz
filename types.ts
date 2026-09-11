@@ -111,6 +111,8 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
   isError?: boolean;
+  isStreaming?: boolean;
+  modelUsed?: string;
   groundingSources?: { title: string; uri: string }[];
 }
 

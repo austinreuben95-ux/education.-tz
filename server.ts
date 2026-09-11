@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type, Schema, ThinkingLevel } from "@google/genai";
 import { ALL_NECTA_PAST_PAPERS } from "./src/data/nectaPastPapersData";
 
 const app = express();
@@ -174,39 +174,30 @@ Official Website: https://www.necta.go.tz
   }
 });
 
-// 1. Multi-turn Gemini Chatbot Endpoint (Yun AI)
-app.post("/api/chat", async (req, res) => {
-  try {
-    const {
-      prompt,
-      history = [],
-      model = "gemini-3.8-flash",
-      role = "default",
-      useSearchGrounding = false,
-    } = req.body;
+// Shared Yun AI Configuration & System Instruction Builder
+const getYunChatSetup = ({
+  prompt,
+  history = [],
+  model = "gemini-3.8-flash",
+  role = "default",
+  useSearchGrounding = false,
+  deepThinking = true,
+}: {
+  prompt: string;
+  history?: { role: string; text: string }[];
+  model?: string;
+  role?: string;
+  useSearchGrounding?: boolean;
+  deepThinking?: boolean;
+}) => {
+  // Base warm, encouraging, polite system instructions
+  let systemInstruction = `You are Yun, a warm, polite, respectful, and highly intelligent AI Tutor & Study Buddy for Tanzanian students (Primary Grade 1–7, O-Level Form 1–4, and A-Level Form 5–6).
 
-    if (!prompt) {
-      res.status(400).json({ error: "Prompt is required." });
-      return;
-    }
-
-    if (!ai) {
-      res.json({
-        text: "Jambo rafiki yangu! Yun is right here. The server is currently running in local offline mode without an API key, but you can still access all the curriculum syllabi, NECTA past papers, and video lessons on this portal. Once configured, I will be delighted to answer any question for you!",
-        groundingSources: [],
-        modelUsed: "offline",
-      });
-      return;
-    }
-
-    // Friendly, warm, polite, and encouraging system instructions for Yun
-    let systemInstruction = `You are Yun, a warm, polite, respectful, and encouraging AI Tutor & Study Buddy for Tanzanian students (Primary Grade 1–7, O-Level Form 1–4, and A-Level Form 5–6).
-
-Core Personality & Demeanor:
-- Always respond NICELY, politely, respectfully, and with genuine warmth and enthusiasm.
+Core Demeanor:
+- Always respond politely, respectfully, and with genuine warmth and enthusiasm.
 - Greet the student kindly in English and Kiswahili (e.g., "Habari!", "Karibu sana!", "Hello friend! It's wonderful to learn with you today.").
-- Validate and celebrate curiosity (e.g., "Swali zuri sana!", "That is an excellent question!", "You are asking great questions!").
-- Maintain a supportive, patient, and uplifting tone. Never sound cold, dismissive, or robotic. If a student is struggling or feeling discouraged, gently reassure them: "Don't worry at all, let's break this down step-by-step together!"
+- Celebrate curiosity: "Swali zuri sana!", "That is an excellent question!", "Let's explore this together!".
+- Maintain a supportive, patient tone. Never sound cold or dismissive. If a student is struggling, reassure them: "Don't worry at all, let's break this down step-by-step together!"
 
 Adaptive Conversational Intelligence:
 1. GREETINGS & CASUAL MESSAGES (e.g. "hi", "hello", "habari", "mambo", "how are you?", "who are you?", "asante", "thank you"):
@@ -226,60 +217,266 @@ Adaptive Conversational Intelligence:
 Language:
 - Naturally bilingual in English and Kiswahili. If the student writes in Kiswahili, respond primarily in fluent, polite Kiswahili. If the student writes in English, respond in English with helpful Kiswahili glossaries.`;
 
-    if (role === "necta_examiner") {
-      systemInstruction = `You are a supportive, encouraging Senior NECTA Examiner and Secondary Curriculum Specialist for Tanzania Form 1-6 & Primary examinations. Always respond politely, constructively, and warmly. Demystify national examination marking schemes, explain how step-by-step marks are awarded in Paper 1 and Paper 2, highlight common student mistakes with kindness, and provide high-yield revision strategies.`;
-    } else if (role === "stem_mentor") {
-      systemInstruction = `You are an inspiring, patient STEM Laboratory Mentor and Science/Math Specialist for Tanzanian students. Always respond nicely, politely, and with infectious curiosity. Break down complex scientific formulas, chemical equations, physics laws, and mathematical proofs step-by-step with real-world Tanzanian applications.`;
-    } else if (role === "kiswahili_fasihi") {
-      systemInstruction = `Wewe ni Mwalimu mkarimu, mpole, na mwenye weledi wa hali ya juu wa Lugha na Fasihi ya Kiswahili kwa shule za Tanzania. Jibu kila wakati kwa lugha fasaha, yenye adabu na heshima. Eleza kwa kina na ufasaha Fasihi Simulizi, Fasihi Andishi, Sarufi, Insha, Ushairi, na Tamthilia zinazotahiniwa na NECTA.`;
+  if (role === "necta_examiner") {
+    systemInstruction = `You are a supportive, encouraging Senior NECTA Examiner and Secondary Curriculum Specialist for Tanzania Form 1-6 & Primary examinations. Always respond politely, constructively, and warmly. Demystify national examination marking schemes, explain how step-by-step marks are awarded in Paper 1 and Paper 2, highlight common student mistakes with kindness, and provide high-yield revision strategies.`;
+  } else if (role === "stem_mentor") {
+    systemInstruction = `You are an inspiring, patient STEM Laboratory Mentor and Science/Math Specialist for Tanzanian students. Always respond nicely, politely, and with infectious curiosity. Break down complex scientific formulas, chemical equations, physics laws, and mathematical proofs step-by-step with real-world Tanzanian applications.`;
+  } else if (role === "kiswahili_fasihi") {
+    systemInstruction = `Wewe ni Mwalimu mkarimu, mpole, na mwenye weledi wa hali ya juu wa Lugha na Fasihi ya Kiswahili kwa shule za Tanzania. Jibu kila wakati kwa lugha fasaha, yenye adabu na heshima. Eleza kwa kina na ufasaha Fasihi Simulizi, Fasihi Andishi, Sarufi, Insha, Ushairi, na Tamthilia zinazotahiniwa na NECTA.`;
+  }
+
+  // Deep Thinking enhancement for thorough academic reasoning
+  if (deepThinking) {
+    systemInstruction += `\n\nDEEP THINKING & COGNITIVE RIGOR:
+- Engage deep cognitive reasoning: do not jump directly to surface conclusions. Unpack the underlying principles, scientific laws, and axiomatic definitions first.
+- First-Principles Derivation: Explain *why* a principle works, from basic physical/mathematical laws to final applications.
+- Step-by-Step Mathematical Rigor:
+  1. Clearly state the governing equation/formula before substituting values.
+  2. Explicitly list Knowns, Target Variables, and standard SI Units.
+  3. Show every intermediate algebraic rearrangement and arithmetic step (never skip steps).
+  4. State the final answer with units and round off appropriately as required by NECTA.
+- NECTA Examiner Evaluation:
+  - Explain how marks are allocated step-by-step (e.g. Formula: 1mk, Data: 1mk, Substitution: 1mk, Final answer: 1mk).
+  - Explicitly warn against common candidate pitfalls, sign errors, and misread qualifiers.
+- Conceptual Contrast & "What If?": Briefly explain what happens if a key condition changes (e.g. "If temperature increases...", "If friction were zero...").`;
+  }
+
+  // Map history to Gemini format
+  const formattedHistory = history.map((msg: { role: string; text: string }) => ({
+    role: msg.role === "user" ? "user" : "model",
+    parts: [{ text: msg.text }],
+  }));
+
+  // Resolve model aliases
+  let resolvedModel = model;
+  if (
+    !resolvedModel ||
+    resolvedModel === "gemini-3.5-flash" ||
+    resolvedModel === "flash" ||
+    resolvedModel === "gemini-flash" ||
+    resolvedModel === "gemini-flash-latest"
+  ) {
+    resolvedModel = "gemini-3.8-flash";
+  } else if (resolvedModel === "pro" || resolvedModel === "gemini-pro" || resolvedModel === "gemini-3.1-pro") {
+    resolvedModel = "gemini-3.1-pro-preview";
+  } else if (resolvedModel === "lite" || resolvedModel === "gemini-lite" || resolvedModel === "gemini-3.1-flash-lite") {
+    resolvedModel = "gemini-3.1-flash-lite";
+  }
+
+  // Configure thinking level: HIGH for deep thinking, LOW for ultra-fast mode
+  const chatConfig: any = {
+    systemInstruction,
+    thinkingConfig: {
+      thinkingLevel: deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
+    },
+  };
+
+  if (useSearchGrounding) {
+    chatConfig.tools = [{ googleSearch: {} }];
+  }
+
+  return {
+    systemInstruction,
+    chatConfig,
+    formattedHistory,
+    resolvedModel,
+  };
+};
+
+// 1a. Real-Time Streaming Gemini Chatbot Endpoint (Yun AI Fast Stream)
+app.post("/api/chat/stream", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+
+  const sendEvent = (data: any) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    const {
+      prompt,
+      history = [],
+      model = "gemini-3.8-flash",
+      role = "default",
+      useSearchGrounding = false,
+      deepThinking = true,
+    } = req.body;
+
+    if (!prompt) {
+      sendEvent({ error: "Prompt is required.", done: true });
+      res.end();
+      return;
     }
 
-    // Map history to Gemini format
-    const formattedHistory = history.map((msg: { role: string; text: string }) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.text }],
-    }));
-
-    const chatConfig: any = {
-      systemInstruction,
-    };
-
-    if (useSearchGrounding) {
-      chatConfig.tools = [{ googleSearch: {} }];
+    if (!ai) {
+      sendEvent({
+        text: "Jambo rafiki yangu! Yun is currently in local offline mode. Add your GEMINI_API_KEY in the environment to unlock full real-time deep reasoning!",
+        done: true,
+        modelUsed: "offline",
+      });
+      res.end();
+      return;
     }
 
-    // Determine model alias - prefer gemini-3.8-flash as the primary reliable model
-    let selectedModel = model;
-    if (
-      !selectedModel ||
-      selectedModel === "gemini-3.5-flash" ||
-      selectedModel === "flash" ||
-      selectedModel === "gemini-flash" ||
-      selectedModel === "gemini-flash-latest"
-    ) {
-      selectedModel = "gemini-3.8-flash";
-    } else if (selectedModel === "pro" || selectedModel === "gemini-pro" || selectedModel === "gemini-3.1-pro") {
-      selectedModel = "gemini-3.1-pro-preview";
-    } else if (selectedModel === "lite" || selectedModel === "gemini-lite" || selectedModel === "gemini-3.1-flash-lite") {
-      selectedModel = "gemini-3.1-flash-lite";
+    const { chatConfig, formattedHistory, resolvedModel } = getYunChatSetup({
+      prompt,
+      history,
+      model,
+      role,
+      useSearchGrounding,
+      deepThinking,
+    });
+
+    let streamResponse: any = null;
+    let modelUsed = resolvedModel;
+
+    try {
+      const chat = ai.chats.create({
+        model: resolvedModel,
+        config: chatConfig,
+        history: formattedHistory,
+      });
+      streamResponse = await chat.sendMessageStream({ message: prompt });
+    } catch (primaryErr: any) {
+      console.warn(`Primary stream model ${resolvedModel} error:`, primaryErr?.message || primaryErr);
+
+      // Fallback 1: gemini-3.8-flash
+      if (resolvedModel !== "gemini-3.8-flash") {
+        try {
+          const fallbackChat = ai.chats.create({
+            model: "gemini-3.8-flash",
+            config: chatConfig,
+            history: formattedHistory,
+          });
+          streamResponse = await fallbackChat.sendMessageStream({ message: prompt });
+          modelUsed = "gemini-3.8-flash";
+        } catch (fbErr: any) {
+          console.warn("Fallback to 3.8-flash stream failed:", fbErr?.message || fbErr);
+        }
+      }
+
+      // Fallback 2: gemini-3.1-flash-lite (fast & resilient)
+      if (!streamResponse) {
+        try {
+          const liteConfig = { ...chatConfig, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
+          const liteChat = ai.chats.create({
+            model: "gemini-3.1-flash-lite",
+            config: liteConfig,
+            history: formattedHistory,
+          });
+          streamResponse = await liteChat.sendMessageStream({ message: prompt });
+          modelUsed = "gemini-3.1-flash-lite";
+        } catch (liteErr: any) {
+          console.error("All stream model attempts failed:", liteErr?.message || liteErr);
+        }
+      }
     }
+
+    if (!streamResponse) {
+      sendEvent({
+        text: "Jambo! Yun experienced a temporary connection delay while thinking. Tafadhali jaribu tena baada ya sekunde chache, nipo tayari kukusaidia!",
+        done: true,
+        modelUsed: "yun-fallback",
+      });
+      res.end();
+      return;
+    }
+
+    let accumulatedGrounding: { title: string; uri: string }[] = [];
+
+    for await (const chunk of streamResponse) {
+      const text = chunk.text;
+      if (text) {
+        sendEvent({ text, delta: text });
+      }
+
+      const chunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      if (chunks && Array.isArray(chunks)) {
+        for (const c of chunks) {
+          if (c.web && c.web.uri) {
+            const exists = accumulatedGrounding.some((g) => g.uri === c.web.uri);
+            if (!exists) {
+              accumulatedGrounding.push({
+                title: c.web.title || c.web.uri,
+                uri: c.web.uri,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    sendEvent({
+      done: true,
+      modelUsed,
+      groundingSources: accumulatedGrounding,
+    });
+    res.end();
+  } catch (error: any) {
+    console.error("Chat Stream API Unexpected Error:", error);
+    sendEvent({
+      error: error?.message || "An unexpected error occurred during streaming.",
+      done: true,
+    });
+    res.end();
+  }
+});
+
+// 1b. Standard Non-Streaming Gemini Chatbot Endpoint (Yun AI)
+app.post("/api/chat", async (req, res) => {
+  try {
+    const {
+      prompt,
+      history = [],
+      model = "gemini-3.8-flash",
+      role = "default",
+      useSearchGrounding = false,
+      deepThinking = true,
+    } = req.body;
+
+    if (!prompt) {
+      res.status(400).json({ error: "Prompt is required." });
+      return;
+    }
+
+    if (!ai) {
+      res.json({
+        text: "Jambo rafiki yangu! Yun is right here. The server is currently running in local offline mode without an API key, but you can still access all the curriculum syllabi, NECTA past papers, and video lessons on this portal. Once configured, I will be delighted to answer any question for you!",
+        groundingSources: [],
+        modelUsed: "offline",
+      });
+      return;
+    }
+
+    const { chatConfig, formattedHistory, resolvedModel } = getYunChatSetup({
+      prompt,
+      history,
+      model,
+      role,
+      useSearchGrounding,
+      deepThinking,
+    });
 
     let response: any = null;
-    let modelUsed = selectedModel;
+    let modelUsed = resolvedModel;
 
     // Execute with automatic graceful model fallback
     try {
       const chat = ai.chats.create({
-        model: selectedModel,
+        model: resolvedModel,
         config: chatConfig,
         history: formattedHistory,
       });
       response = await chat.sendMessage({ message: prompt });
     } catch (primaryErr: any) {
-      console.warn(`Primary model ${selectedModel} failed, trying fallback:`, primaryErr?.message || primaryErr);
+      console.warn(`Primary model ${resolvedModel} failed, trying fallback:`, primaryErr?.message || primaryErr);
       
       // Fallback 1: gemini-3.8-flash (if primary wasn't already 3.8-flash)
-      if (selectedModel !== "gemini-3.8-flash") {
+      if (resolvedModel !== "gemini-3.8-flash") {
         try {
           const fallbackChat = ai.chats.create({
             model: "gemini-3.8-flash",
@@ -296,9 +493,10 @@ Language:
       // Fallback 2: gemini-3.1-flash-lite (fast & resilient)
       if (!response || !response.text) {
         try {
+          const liteConfig = { ...chatConfig, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
           const liteChat = ai.chats.create({
             model: "gemini-3.1-flash-lite",
-            config: chatConfig,
+            config: liteConfig,
             history: formattedHistory,
           });
           response = await liteChat.sendMessage({ message: prompt });

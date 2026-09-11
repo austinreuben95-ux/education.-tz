@@ -120,6 +120,17 @@
           -ms-overflow-style: none;
           scrollbar-width: none;
       }
+
+      /* Study Room Card Hover Expansion */
+      #portal-card-study-room {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #portal-card-study-room:hover #study-room-activity-expansion {
+        max-height: 260px;
+        opacity: 1;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+      }
       
       /* Animations */
       .shake-animation {

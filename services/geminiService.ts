@@ -11,7 +11,8 @@ export const sendMessageToYunDetailed = async (
   history: { role: 'user' | 'model'; text: string }[],
   model: string = 'gemini-3.8-flash',
   role: string = 'default',
-  useSearchGrounding: boolean = false
+  useSearchGrounding: boolean = false,
+  deepThinking: boolean = true
 ): Promise<ChatResponse> => {
   try {
     const res = await fetch('/api/chat', {
@@ -23,6 +24,7 @@ export const sendMessageToYunDetailed = async (
         model,
         role,
         useSearchGrounding,
+        deepThinking,
       }),
     });
 
@@ -43,6 +45,101 @@ export const sendMessageToYunDetailed = async (
       text: "Jambo! Asante kwa kuniuliza. Yun experienced a quick network delay while preparing your answer, but I am ready right here. Please try asking again, or feel free to select a topic from the curriculum syllabus above. Nipo hapa kukusaidia kufaulu!",
       groundingSources: [],
     };
+  }
+};
+
+export const streamMessageToYunDetailed = async (
+  prompt: string,
+  history: { role: 'user' | 'model'; text: string }[],
+  options: {
+    model?: string;
+    role?: string;
+    useSearchGrounding?: boolean;
+    deepThinking?: boolean;
+    onChunk?: (delta: string, accumulatedText: string) => void;
+  } = {}
+): Promise<ChatResponse> => {
+  const {
+    model = 'gemini-3.8-flash',
+    role = 'default',
+    useSearchGrounding = false,
+    deepThinking = true,
+    onChunk,
+  } = options;
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        history,
+        model,
+        role,
+        useSearchGrounding,
+        deepThinking,
+      }),
+    });
+
+    if (!res.ok || !res.body) {
+      // Gracefully fall back to standard non-stream endpoint
+      return await sendMessageToYunDetailed(prompt, history, model, role, useSearchGrounding, deepThinking);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedText = '';
+    let groundingSources: { title: string; uri: string }[] = [];
+    let modelUsed = model;
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const jsonStr = trimmed.slice(6);
+        try {
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.text) {
+            accumulatedText += parsed.text;
+            if (onChunk) {
+              onChunk(parsed.text, accumulatedText);
+            }
+          }
+          if (parsed.groundingSources && Array.isArray(parsed.groundingSources)) {
+            groundingSources = parsed.groundingSources;
+          }
+          if (parsed.modelUsed) {
+            modelUsed = parsed.modelUsed;
+          }
+          if (parsed.error && !accumulatedText) {
+            throw new Error(parsed.error);
+          }
+        } catch (parseErr) {
+          // ignore incomplete SSE chunk
+        }
+      }
+    }
+
+    if (!accumulatedText.trim()) {
+      return await sendMessageToYunDetailed(prompt, history, model, role, useSearchGrounding, deepThinking);
+    }
+
+    return {
+      text: accumulatedText,
+      groundingSources,
+      modelUsed,
+    };
+  } catch (err: any) {
+    console.warn('Stream failed or interrupted, falling back to standard chat:', err);
+    return await sendMessageToYunDetailed(prompt, history, model, role, useSearchGrounding, deepThinking);
   }
 };
 
