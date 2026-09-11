@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { ALL_NECTA_PAST_PAPERS } from "./src/data/nectaPastPapersData";
 
 const app = express();
 const PORT = 3000;
@@ -30,6 +31,147 @@ app.get("/api/health", (req, res) => {
     hasGeminiKey: Boolean(apiKey),
     timestamp: new Date().toISOString(),
   });
+});
+
+// Dynamic NECTA Past Papers API endpoint
+app.get("/api/necta-past-papers", (req, res) => {
+  try {
+    const { level = "ALL", subject = "ALL", year = "ALL", q = "" } = req.query as Record<string, string>;
+
+    // 1. Filter papers specific to the selected grade level
+    const gradePapers = ALL_NECTA_PAST_PAPERS.filter((p) => {
+      if (level && level !== "ALL" && p.level !== level) {
+        return false;
+      }
+      return true;
+    });
+
+    // 2. Calculate dynamic available years & subjects specific to this grade level
+    const subjectCounts: Record<string, number> = {};
+    const yearCounts: Record<string, number> = {};
+
+    gradePapers.forEach((paper) => {
+      subjectCounts[paper.subject] = (subjectCounts[paper.subject] || 0) + 1;
+      yearCounts[paper.year] = (yearCounts[paper.year] || 0) + 1;
+    });
+
+    const availableSubjects = Object.keys(subjectCounts)
+      .sort()
+      .map((name) => ({ name, count: subjectCounts[name] }));
+
+    const availableYears = Object.keys(yearCounts)
+      .sort((a, b) => Number(b) - Number(a))
+      .map((y) => ({ year: y, count: yearCounts[y] }));
+
+    // 3. Apply subject, year, and search query filters
+    const filteredPapers = gradePapers.filter((paper) => {
+      if (subject && subject !== "ALL" && !paper.subject.toLowerCase().includes(subject.toLowerCase())) {
+        return false;
+      }
+      if (year && year !== "ALL" && paper.year !== year) {
+        return false;
+      }
+      if (q && q.trim()) {
+        const searchTerm = q.trim().toLowerCase();
+        const matchTitle = paper.title.toLowerCase().includes(searchTerm);
+        const matchSubject = paper.subject.toLowerCase().includes(searchTerm);
+        const matchLevel = paper.level.toLowerCase().includes(searchTerm) || paper.levelFull.toLowerCase().includes(searchTerm);
+        const matchCode = paper.code ? paper.code.toLowerCase().includes(searchTerm) : false;
+        const matchQuestions = paper.sampleQuestions.some((sq) =>
+          sq.question.toLowerCase().includes(searchTerm)
+        );
+        if (!matchTitle && !matchSubject && !matchLevel && !matchCode && !matchQuestions) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    res.json({
+      level,
+      totalForLevel: gradePapers.length,
+      filteredCount: filteredPapers.length,
+      availableSubjects,
+      availableYears,
+      papers: filteredPapers,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error("Error fetching NECTA past papers:", err);
+    res.status(500).json({ error: "Failed to retrieve past papers." });
+  }
+});
+
+// Download individual NECTA past paper endpoint
+app.get("/api/necta-past-papers/download/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const paper = ALL_NECTA_PAST_PAPERS.find((p) => p.id === id);
+    if (!paper) {
+      return res.status(404).json({ error: "Past paper not found" });
+    }
+
+    const content = `===============================================================
+THE NATIONAL EXAMINATIONS COUNCIL OF TANZANIA (NECTA)
+${paper.levelFull.toUpperCase()} (${paper.level})
+${paper.title.toUpperCase()}
+Subject Code: ${paper.code || 'N/A'} | Examination Year: ${paper.year}
+Time Allowed: ${paper.durationMinutes} Minutes | Number of Questions: ${paper.questionCount}
+===============================================================
+
+INSTRUCTIONS TO CANDIDATES:
+1. This paper consists of questions based on the official NECTA syllabus for ${paper.levelFull}.
+2. Answer all questions clearly. Show all mathematical and logical steps where applicable.
+3. Write your Candidate Index Number clearly on every answer sheet.
+4. Cell phones, programmable calculators, and unauthorized materials are strictly prohibited.
+
+===============================================================
+OFFICIAL NECTA EXAMINER (CIRA) REPORT & PITFALL ADVICE
+===============================================================
+Performance Summary:
+${paper.examinerReport.summary}
+
+Common Candidate Pitfalls & Error Analysis:
+${paper.examinerReport.commonPitfalls.map((p, idx) => `  [${idx + 1}] ${p}`).join('\n')}
+
+Chief Examiner's Guidance for Scoring Grade A:
+${paper.examinerReport.examinerAdvice}
+
+===============================================================
+EXAMINATION QUESTIONS:
+===============================================================
+${paper.sampleQuestions.map((q) => {
+  let text = `QUESTION ${q.qNum}: ${q.question}\n`;
+  if (q.options && q.options.length > 0) {
+    text += q.options.map((opt, i) => `   (${String.fromCharCode(65 + i)}) ${opt}`).join('\n') + '\n';
+  }
+  return text;
+}).join('\n')}
+
+===============================================================
+OFFICIAL NECTA MARKING SCHEME & STEP-BY-STEP RUBRIC
+===============================================================
+${paper.sampleQuestions.map((q) => {
+  return `QUESTION ${q.qNum}:
+  Official Answer Key: ${q.answerKey}
+  Marking Scheme Rubric & Step Allocation:
+  ${q.markingNotes}
+---------------------------------------------------------------`;
+}).join('\n')}
+
+===============================================================
+Generated by EducationTZ - Tanzania National Exam Preparation
+Official Website: https://www.necta.go.tz
+===============================================================`;
+
+    const filename = `NECTA_${paper.level}_${paper.subject.replace(/[^a-zA-Z0-9]/g, '_')}_${paper.year}.txt`;
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(content);
+  } catch (err: any) {
+    console.error("Error downloading NECTA past paper:", err);
+    res.status(500).json({ error: "Failed to download past paper." });
+  }
 });
 
 // 1. Multi-turn Gemini Chatbot Endpoint (Yun AI)
@@ -338,12 +480,357 @@ app.post("/api/intelligence", async (req, res) => {
       return;
     }
 
+    if (task === "quiz_mistake_feedback") {
+      const {
+        question,
+        options,
+        studentAnswerIndex,
+        studentAnswerText,
+        correctAnswerIndex,
+        correctAnswerText,
+        subject,
+        grade,
+        topic,
+        baseExplanation,
+      } = req.body;
+
+      if (!ai) {
+        const fallback = generateLocalQuizMistakeFeedback({
+          question,
+          options,
+          studentAnswerIndex,
+          studentAnswerText,
+          correctAnswerIndex,
+          correctAnswerText,
+          subject,
+          grade,
+          topic,
+          baseExplanation,
+        });
+        res.json({ feedback: fallback });
+        return;
+      }
+
+      const prompt = `You are Yun, an elite Tanzanian Curriculum Specialist and Senior NECTA Examiner.
+A student took a practice quiz question and selected an INCORRECT answer.
+Your mission is to provide personalized, encouraging, and pedagogically precise diagnostic feedback.
+Explain the specific conceptual gap that led to choosing this distractor, contrast it with the correct answer, and tell the student EXACTLY where they must focus their revision to excel in NECTA exams.
+
+CONTEXT:
+- Subject: ${subject || "General Subject"}
+- Grade / Level: ${grade || "Secondary (O-Level)"}
+- Topic: ${topic || "Curriculum Unit"}
+
+QUESTION:
+"${question}"
+
+OPTIONS:
+${(options || []).map((opt: string, i: number) => `(${String.fromCharCode(65 + i)}) ${opt}`).join("\n")}
+
+STUDENT'S ANSWER (INCORRECT):
+Option ${studentAnswerIndex !== undefined && studentAnswerIndex !== null ? String.fromCharCode(65 + studentAnswerIndex) : "Selected"}: "${studentAnswerText || ""}"
+
+OFFICIAL CORRECT ANSWER:
+Option ${correctAnswerIndex !== undefined && correctAnswerIndex !== null ? String.fromCharCode(65 + correctAnswerIndex) : "Correct"}: "${correctAnswerText || ""}"
+
+BASE EXPLANATION:
+"${baseExplanation || ""}"
+
+REQUIREMENTS:
+1. 'conceptualGap': Explain the root misconception, formula misapplication, sign error, or false assumption that made this specific distractor tempting.
+2. 'whyOptionIsIncorrect': Provide a sharp, direct explanation of why the chosen option is false, and why the correct answer is true.
+3. 'underlyingPrinciple': Detail the core scientific law, mathematical theorem, grammatical rule, or factual principle governing this question.
+4. 'whereToFocus':
+   - 'primaryFocusTopic': Specific subtopic, formula, or syllabus chapter to study.
+   - 'keyTakeaway': A high-yield rule of thumb, formula, or mnemonic.
+   - 'actionSteps': 2 to 3 concrete revision tasks.
+   - 'nectaTrapToAvoid': The common pitfall or trap NECTA examiners design around this concept.
+5. 'bilingualQuickTip': A friendly, motivating bilingual tip (Swahili & English) encouraging the student.`;
+
+      const mistakeSchema: Schema = {
+        type: Type.OBJECT,
+        properties: {
+          conceptualGap: {
+            type: Type.STRING,
+            description: "Diagnosis of the specific conceptual gap or reasoning flaw.",
+          },
+          whyOptionIsIncorrect: {
+            type: Type.STRING,
+            description: "Direct contrast between the incorrect option and correct option.",
+          },
+          underlyingPrinciple: {
+            type: Type.STRING,
+            description: "The governing syllabus rule, law, or formula.",
+          },
+          whereToFocus: {
+            type: Type.OBJECT,
+            properties: {
+              primaryFocusTopic: {
+                type: Type.STRING,
+                description: "Subtopic or chapter to prioritize.",
+              },
+              keyTakeaway: {
+                type: Type.STRING,
+                description: "Memorable rule of thumb or formula.",
+              },
+              actionSteps: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "2-3 concrete revision tasks.",
+              },
+              nectaTrapToAvoid: {
+                type: Type.STRING,
+                description: "The specific NECTA exam trap to watch out for.",
+              },
+            },
+            required: ["primaryFocusTopic", "keyTakeaway", "actionSteps", "nectaTrapToAvoid"],
+          },
+          bilingualQuickTip: {
+            type: Type.STRING,
+            description: "Bilingual motivating insight for Tanzanian learners.",
+          },
+        },
+        required: [
+          "conceptualGap",
+          "whyOptionIsIncorrect",
+          "underlyingPrinciple",
+          "whereToFocus",
+        ],
+      };
+
+      try {
+        const result = await ai.models.generateContent({
+          model: "gemini-3.8-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: mistakeSchema,
+          },
+        });
+
+        if (result.text) {
+          const parsed = JSON.parse(result.text);
+          res.json({ feedback: { ...parsed, source: "gemini" } });
+          return;
+        }
+      } catch (geminiErr) {
+        console.warn("Gemini quiz mistake analysis fallback:", geminiErr);
+      }
+
+      const fallback = generateLocalQuizMistakeFeedback({
+        question,
+        options,
+        studentAnswerIndex,
+        studentAnswerText,
+        correctAnswerIndex,
+        correctAnswerText,
+        subject,
+        grade,
+        topic,
+        baseExplanation,
+      });
+      res.json({ feedback: fallback });
+      return;
+    }
+
     res.status(400).json({ error: "Unknown intelligence task." });
   } catch (error: any) {
     console.error("Intelligence API Error:", error);
     res.status(500).json({ error: error.message || "Failed intelligence operation." });
   }
 });
+
+// Dedicated Quiz Feedback endpoint
+app.post("/api/quiz-feedback", async (req, res) => {
+  const {
+    question,
+    options,
+    studentAnswerIndex,
+    studentAnswerText,
+    correctAnswerIndex,
+    correctAnswerText,
+    subject,
+    grade,
+    topic,
+    baseExplanation,
+  } = req.body;
+
+  if (!ai) {
+    const fallback = generateLocalQuizMistakeFeedback({
+      question,
+      options,
+      studentAnswerIndex,
+      studentAnswerText,
+      correctAnswerIndex,
+      correctAnswerText,
+      subject,
+      grade,
+      topic,
+      baseExplanation,
+    });
+    res.json({ feedback: fallback });
+    return;
+  }
+
+  try {
+    const prompt = `You are Yun, an elite Tanzanian Curriculum Specialist and Senior NECTA Examiner.
+A student took a practice quiz question and selected an INCORRECT answer.
+Your mission is to provide personalized, encouraging, and pedagogically precise diagnostic feedback.
+Explain the specific conceptual gap that led to choosing this distractor, contrast it with the correct answer, and tell the student EXACTLY where they must focus their revision to excel in NECTA exams.
+
+CONTEXT:
+- Subject: ${subject || "General Subject"}
+- Grade / Level: ${grade || "Secondary (O-Level)"}
+- Topic: ${topic || "Curriculum Unit"}
+
+QUESTION:
+"${question}"
+
+OPTIONS:
+${(options || []).map((opt: string, i: number) => `(${String.fromCharCode(65 + i)}) ${opt}`).join("\n")}
+
+STUDENT'S ANSWER (INCORRECT):
+Option ${studentAnswerIndex !== undefined && studentAnswerIndex !== null ? String.fromCharCode(65 + studentAnswerIndex) : "Selected"}: "${studentAnswerText || ""}"
+
+OFFICIAL CORRECT ANSWER:
+Option ${correctAnswerIndex !== undefined && correctAnswerIndex !== null ? String.fromCharCode(65 + correctAnswerIndex) : "Correct"}: "${correctAnswerText || ""}"
+
+BASE EXPLANATION:
+"${baseExplanation || ""}"
+
+REQUIREMENTS:
+1. 'conceptualGap': Explain the root misconception, formula misapplication, sign error, or false assumption that made this specific distractor tempting.
+2. 'whyOptionIsIncorrect': Provide a sharp, direct explanation of why the chosen option is false, and why the correct answer is true.
+3. 'underlyingPrinciple': Detail the core scientific law, mathematical theorem, grammatical rule, or factual principle governing this question.
+4. 'whereToFocus':
+   - 'primaryFocusTopic': Specific subtopic, formula, or syllabus chapter to study.
+   - 'keyTakeaway': A high-yield rule of thumb, formula, or mnemonic.
+   - 'actionSteps': 2 to 3 concrete revision tasks.
+   - 'nectaTrapToAvoid': The common pitfall or trap NECTA examiners design around this concept.
+5. 'bilingualQuickTip': A friendly, motivating bilingual tip (Swahili & English) encouraging the student.`;
+
+    const mistakeSchema: Schema = {
+      type: Type.OBJECT,
+      properties: {
+        conceptualGap: {
+          type: Type.STRING,
+          description: "Diagnosis of the specific conceptual gap or reasoning flaw.",
+        },
+        whyOptionIsIncorrect: {
+          type: Type.STRING,
+          description: "Direct contrast between the incorrect option and correct option.",
+        },
+        underlyingPrinciple: {
+          type: Type.STRING,
+          description: "The governing syllabus rule, law, or formula.",
+        },
+        whereToFocus: {
+          type: Type.OBJECT,
+          properties: {
+            primaryFocusTopic: {
+              type: Type.STRING,
+              description: "Subtopic or chapter to prioritize.",
+            },
+            keyTakeaway: {
+              type: Type.STRING,
+              description: "Memorable rule of thumb or formula.",
+            },
+            actionSteps: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "2-3 concrete revision tasks.",
+            },
+            nectaTrapToAvoid: {
+              type: Type.STRING,
+              description: "The specific NECTA exam trap to watch out for.",
+            },
+          },
+          required: ["primaryFocusTopic", "keyTakeaway", "actionSteps", "nectaTrapToAvoid"],
+        },
+        bilingualQuickTip: {
+          type: Type.STRING,
+          description: "Bilingual motivating insight for Tanzanian learners.",
+        },
+      },
+      required: [
+        "conceptualGap",
+        "whyOptionIsIncorrect",
+        "underlyingPrinciple",
+        "whereToFocus",
+      ],
+    };
+
+    const result = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: mistakeSchema,
+      },
+    });
+
+    if (result.text) {
+      const parsed = JSON.parse(result.text);
+      res.json({ feedback: { ...parsed, source: "gemini" } });
+      return;
+    }
+  } catch (err) {
+    console.warn("Error in /api/quiz-feedback:", err);
+  }
+
+  const fallback = generateLocalQuizMistakeFeedback({
+    question,
+    options,
+    studentAnswerIndex,
+    studentAnswerText,
+    correctAnswerIndex,
+    correctAnswerText,
+    subject,
+    grade,
+    topic,
+    baseExplanation,
+  });
+  res.json({ feedback: fallback });
+});
+
+// Deterministic heuristic diagnostic generator
+function generateLocalQuizMistakeFeedback(params: {
+  question?: string;
+  options?: string[];
+  studentAnswerIndex?: number;
+  studentAnswerText?: string;
+  correctAnswerIndex?: number;
+  correctAnswerText?: string;
+  subject?: string;
+  grade?: string;
+  topic?: string;
+  baseExplanation?: string;
+}) {
+  const subjectName = params.subject || "this subject";
+  const topicName = params.topic || "this topic";
+  const userAns = params.studentAnswerText || "the selected option";
+  const correctAns = params.correctAnswerText || "the correct answer";
+  const baseExpl = params.baseExplanation || "";
+
+  return {
+    conceptualGap: `You selected "${userAns}" while "${correctAns}" is the correct answer. In ${topicName}, students frequently pick this distractor when applying a partial formula, reversing terms, or confusing a definition with its inverse condition.`,
+    whyOptionIsIncorrect: `Choosing "${userAns}" does not fully satisfy all required conditions. ${baseExpl ? baseExpl + " " : ""}In contrast, "${correctAns}" strictly matches the official NECTA syllabus standard for ${topicName}.`,
+    underlyingPrinciple: `Mastering ${topicName} requires identifying all given variables and understanding why common distractor values are mathematically or conceptually invalid.`,
+    whereToFocus: {
+      primaryFocusTopic: `${topicName}: Core Definitions & Step-by-Step Calculations`,
+      keyTakeaway: `Before selecting an answer, write down the formula, identify knowns vs unknowns, and verify units.`,
+      actionSteps: [
+        `Re-read the lesson note for "${topicName}" with special attention to key formulas and rules.`,
+        `Work through 2 to 3 related NECTA past exam problems without looking at the answer key.`,
+        `Ask Yun AI in the study chat to test you with a simplified practice question.`
+      ],
+      nectaTrapToAvoid: `NECTA examiners intentionally include common arithmetic missteps, inverted ratios, and sign errors as plausible options. Always double-check your working!`
+    },
+    bilingualQuickTip: `Kidokezo cha NECTA: Makosa katika majaribio ni fursa ya dhahabu ya kujifunza. Elewa kwanini jibu hili halikuwa sahihi ili ufaulu mtihani wako wa mwisho!`,
+    source: "heuristic" as const
+  };
+}
+
 
 // Vite & Static file handling
 async function startServer() {

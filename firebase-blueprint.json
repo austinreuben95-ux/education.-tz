@@ -25,6 +25,25 @@
         "email": { "type": "string" }
       },
       "required": ["uid", "email"]
+    },
+    "StudyTip": {
+      "title": "Study Room Tip",
+      "description": "Quick text tips, formulas, and common NECTA exam traps shared by students.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "gradeLevel": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorId": { "type": "string" },
+        "type": { "type": "string", "enum": ["tip", "trap", "formula", "question"] },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "authorName", "authorId", "type", "content", "likes", "createdAt"]
     }
   },
   "firestore": {
@@ -35,6 +54,10 @@
     "admins/{adminId}": {
       "schema": "Admin",
       "description": "List of administrative users."
+    },
+    "study_tips/{tipId}": {
+      "schema": "StudyTip",
+      "description": "Shared real-time study tips and NECTA traps."
     }
   }
 }

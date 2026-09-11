@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
-import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, EducationLevel, QuickStudySession } from './types';
+import { GradeLevel, AppView, GradeSyllabus, Subject, Topic, UserProgress, QuizQuestion, QuizMistakeFeedback, EducationLevel, QuickStudySession } from './types';
 import { SYLLABUS_DATA } from './constants';
 import ChatInterface from './components/ChatInterface';
 import RadarChart, { SubjectProficiency } from './components/RadarChart';
@@ -24,6 +24,8 @@ import EducationalNewsPortal from './components/EducationalNewsPortal';
 import { RoadmapModal } from './components/RoadmapModal';
 import { VideoLessonsSearch } from './components/VideoLessonsSearch';
 import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
+import StudyRoom from './components/StudyRoom';
+import { QuizFeedbackCard } from './components/QuizFeedbackCard';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
 import { 
@@ -39,7 +41,7 @@ import { StudentProfileModal } from './components/StudentProfileModal';
 import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
 import { playClickSound, playCheerSound } from './src/utils/soundEffects';
-import { generateQuizQuestion } from './services/geminiService';
+import { generateQuizQuestion, getQuizMistakeFeedback } from './services/geminiService';
 import { 
   auth, 
   loginWithGoogle,
@@ -572,6 +574,8 @@ const App: React.FC = () => {
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
   const [selectedQuizOptionIndex, setSelectedQuizOptionIndex] = useState<number | null>(null);
+  const [quizMistakeFeedback, setQuizMistakeFeedback] = useState<QuizMistakeFeedback | null>(null);
+  const [quizFeedbackLoading, setQuizFeedbackLoading] = useState<boolean>(false);
 
   // 150 Strategic Ideas Feature Launch Router
   const handleLaunchRoadmapFeature = (point: { id: number; title: string; category: string; summary: string }) => {
@@ -1318,18 +1322,27 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     setQuizLoading(true);
     setQuizResult('none');
     setSelectedQuizOptionIndex(null);
+    setQuizMistakeFeedback(null);
+    setQuizFeedbackLoading(false);
     
     const q = await generateQuizQuestion(selectedGrade.grade, selectedSubject.name, selectedTopic.title);
     setCurrentQuiz(q);
     setQuizLoading(false);
   };
 
-  const handleQuizAnswer = (index: number) => {
+  const handleQuizAnswer = async (index: number) => {
     if (!currentQuiz || !selectedTopic) return;
     setSelectedQuizOptionIndex(index);
     
     if (index === currentQuiz.correctIndex) {
       setQuizResult('correct');
+      setQuizMistakeFeedback(null);
+      setQuizFeedbackLoading(false);
+      try {
+        playCheerSound();
+      } catch (e) {
+        // ignore sound play errors
+      }
       // Award Points & Mark Complete
       setUser(prev => ({ 
         ...prev, 
@@ -1345,6 +1358,28 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
       }, 2500);
     } else {
       setQuizResult('incorrect');
+      setQuizFeedbackLoading(true);
+      setQuizMistakeFeedback(null);
+
+      try {
+        const feedback = await getQuizMistakeFeedback({
+          question: currentQuiz.question,
+          options: currentQuiz.options,
+          studentAnswerIndex: index,
+          studentAnswerText: currentQuiz.options[index],
+          correctAnswerIndex: currentQuiz.correctIndex,
+          correctAnswerText: currentQuiz.options[currentQuiz.correctIndex],
+          subject: selectedSubject?.name,
+          grade: selectedGrade?.grade,
+          topic: selectedTopic?.title,
+          baseExplanation: currentQuiz.explanation
+        });
+        setQuizMistakeFeedback(feedback);
+      } catch (err) {
+        console.error('Failed to get quiz mistake diagnosis:', err);
+      } finally {
+        setQuizFeedbackLoading(false);
+      }
     }
   };
 
@@ -1453,6 +1488,16 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         
         <div className="flex items-center gap-2 md:gap-4">
           <div className="hidden lg:flex items-center gap-1.5">
+            <button 
+              id="nav-btn-study-room"
+              onClick={() => setCurrentView(AppView.STUDY_ROOM)}
+              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.STUDY_ROOM ? 'bg-indigo-600 text-white shadow-sm font-black' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'}`}
+              title="Shared Study Room: Exchange NECTA Traps, Tips & Formulas in Real-time"
+            >
+              <i className="fa-solid fa-chalkboard-user text-indigo-500"></i>
+              <span>Study Room</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </button>
             <button 
               onClick={() => setCurrentView(AppView.NEWS_SCHOLARSHIPS)}
               className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.NEWS_SCHOLARSHIPS ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-gray-700 hover:bg-gray-100'}`}
@@ -2700,6 +2745,29 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     </button>
                 )}
              </div>
+
+             {/* Study Room Subject Access Card */}
+             <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-3xl p-5 border border-indigo-500/30 shadow-sm text-left space-y-2">
+               <div className="flex items-center justify-between">
+                 <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full flex items-center gap-1">
+                   <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping"></span> Live Study Room
+                 </span>
+               </div>
+               <h4 className="font-bold text-sm text-white">{selectedSubject.name} Room</h4>
+               <p className="text-[11px] text-indigo-200">
+                 Exchange rapid tips & common NECTA traps with students currently revising {selectedSubject.name}.
+               </p>
+               <button
+                 id="btn-sidebar-join-study-room"
+                 onClick={() => {
+                   setCurrentView(AppView.STUDY_ROOM);
+                 }}
+                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+               >
+                 <i className="fa-solid fa-comments"></i>
+                 <span>Join {selectedSubject.name} Room</span>
+               </button>
+             </div>
           </div>
         </div>
       </div>
@@ -3360,6 +3428,34 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
               <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Portal: Shared Study Room (Firebase Realtime Sync) */}
+              <div
+                id="portal-card-study-room"
+                className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all border-2 border-indigo-400/50 shadow-md relative overflow-hidden"
+                onClick={() => setCurrentView(AppView.STUDY_ROOM)}
+              >
+                <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping"></span>
+                  Firebase Realtime Live
+                </div>
+                <div>
+                  <div className="w-12 h-12 bg-indigo-500/30 border border-indigo-400/40 text-indigo-300 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-500/20">
+                    <i className="fa-solid fa-chalkboard-user"></i>
+                  </div>
+                  <h4 className="text-lg font-black text-white mb-1 flex items-center gap-2">
+                    <span>Shared Study Room</span>
+                    <span className="text-[10px] bg-indigo-500/40 text-indigo-200 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-bold">New</span>
+                  </h4>
+                  <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                    Study together in subject rooms! Exchange quick revision tips, formula mnemonics, and chief examiner traps in real-time.
+                  </p>
+                </div>
+                <div className="pt-4 mt-2 border-t border-indigo-800/80 flex items-center justify-between text-xs font-black text-indigo-300">
+                  <span>Enter Live Subject Rooms</span>
+                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition text-emerald-400"></i>
+                </div>
+              </div>
+
               {/* Portal Schools Directory */}
               <div
                 className="bg-indigo-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-500/20 transition border-2 border-indigo-500/40 shadow-sm hover:shadow-lg relative overflow-hidden"
@@ -3702,10 +3798,11 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         {/* QUIZ MODAL */}
         {isQuizModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative overflow-hidden">
+            <div className="bg-white rounded-3xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 sm:p-7 shadow-2xl relative">
               <button 
                 onClick={() => setIsQuizModalOpen(false)} 
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1"
+                aria-label="Close Quiz"
               >
                 <i className="fa-solid fa-xmark text-2xl"></i>
               </button>
@@ -3720,22 +3817,27 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                 </div>
               ) : currentQuiz ? (
                 <div>
-                   <div className="flex items-center gap-2 mb-6 text-tz-blue font-bold uppercase text-xs tracking-widest">
+                   <div className="flex items-center gap-2 mb-4 text-tz-blue font-bold uppercase text-xs tracking-widest">
                      <i className="fa-solid fa-graduation-cap"></i> Practice Quiz
+                     {selectedTopic && (
+                       <span className="text-slate-400 font-normal truncate max-w-[200px]">
+                         • {selectedTopic.title}
+                       </span>
+                     )}
                    </div>
                    
-                   <h3 className="text-xl font-bold text-gray-800 mb-6 leading-relaxed">
+                   <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-6 leading-relaxed">
                      {currentQuiz.question}
                    </h3>
 
                    <div className="space-y-3">
                      {currentQuiz.options.map((opt, idx) => {
-                       let btnStyle = 'border-gray-100 hover:border-tz-blue hover:bg-blue-50 text-gray-800';
+                       let btnStyle = 'border-gray-200 hover:border-tz-blue hover:bg-blue-50 text-gray-800 bg-white';
                        if (quizResult !== 'none') {
                          if (idx === currentQuiz.correctIndex) {
                            btnStyle = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold';
                          } else if (idx === selectedQuizOptionIndex && quizResult === 'incorrect') {
-                           btnStyle = 'border-red-500 bg-red-50 text-red-900 font-bold';
+                           btnStyle = 'border-rose-500 bg-rose-50 text-rose-900 font-bold';
                          } else {
                            btnStyle = 'border-gray-100 opacity-50 text-gray-400';
                          }
@@ -3750,12 +3852,17 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                              quizResult === 'incorrect' && idx === selectedQuizOptionIndex ? 'shake-animation' : ''
                            }`}
                          >
-                           <span>{opt}</span>
+                           <div className="flex items-center gap-3">
+                             <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-xs font-black shrink-0">
+                               {String.fromCharCode(65 + idx)}
+                             </span>
+                             <span>{opt}</span>
+                           </div>
                            {quizResult !== 'none' && idx === currentQuiz.correctIndex && (
                              <i className="fa-solid fa-circle-check text-emerald-600 text-base ml-2 shrink-0"></i>
                            )}
                            {quizResult === 'incorrect' && idx === selectedQuizOptionIndex && (
-                             <i className="fa-solid fa-circle-xmark text-red-600 text-base ml-2 shrink-0"></i>
+                             <i className="fa-solid fa-circle-xmark text-rose-600 text-base ml-2 shrink-0"></i>
                            )}
                          </button>
                        );
@@ -3787,59 +3894,40 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                      </div>
                    )}
                    
-                   {quizResult === 'incorrect' && (
-                     <div className="mt-6 p-5 bg-red-50/90 rounded-2xl border-2 border-red-200 text-red-950 space-y-4 animate-fade-in text-left">
-                        <div className="flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center text-lg shrink-0 shadow-md">
-                            <i className="fa-solid fa-triangle-exclamation"></i>
-                          </div>
-                          <div>
-                            <h4 className="font-black text-sm text-red-950">Not Quite Right!</h4>
-                            <p className="text-xs text-red-800 font-medium mt-0.5 leading-relaxed">
-                              Don't worry! Review the lesson note to master this concept, then try again.
-                            </p>
-                          </div>
-                        </div>
-
-                        {currentQuiz.explanation && (
-                          <div className="p-3 bg-white/80 rounded-xl border border-red-200 text-xs text-slate-800 font-medium leading-relaxed">
-                            <strong className="text-red-950 font-black flex items-center gap-1 mb-1">
-                              <i className="fa-solid fa-lightbulb text-amber-500"></i> Explanation & Concept Guide:
-                            </strong>
-                            {currentQuiz.explanation}
-                          </div>
-                        )}
-
-                        {/* Action Buttons: Review Note & Try Again */}
-                        <div className="pt-1 flex flex-col sm:flex-row items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setIsQuizModalOpen(false);
-                              if (selectedTopic && selectedSubject) {
-                                setCurrentView(AppView.TOPIC_CONTENT);
-                                setActiveTab('notes');
-                              }
-                            }}
-                            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
-                            title={`Deep-link to ${selectedTopic?.title || 'Topic'} Lesson Notes`}
-                          >
-                            <i className="fa-solid fa-book-open text-cyan-300"></i>
-                            <span>Review Note 📖</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setQuizResult('none');
-                              setSelectedQuizOptionIndex(null);
-                            }}
-                            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-300/50 transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
-                            title="Re-attempt this Quiz Question"
-                          >
-                            <i className="fa-solid fa-rotate-right"></i>
-                            <span>Try Again 🔄</span>
-                          </button>
-                        </div>
-                     </div>
+                   {quizResult === 'incorrect' && selectedQuizOptionIndex !== null && (
+                     <QuizFeedbackCard
+                       feedback={quizMistakeFeedback}
+                       isLoading={quizFeedbackLoading}
+                       selectedOptionText={currentQuiz.options[selectedQuizOptionIndex]}
+                       selectedOptionIndex={selectedQuizOptionIndex}
+                       correctOptionText={currentQuiz.options[currentQuiz.correctIndex]}
+                       correctOptionIndex={currentQuiz.correctIndex}
+                       question={currentQuiz.question}
+                       topicTitle={selectedTopic?.title}
+                       subjectName={selectedSubject?.name}
+                       onAskYunChat={() => {
+                         setIsQuizModalOpen(false);
+                         const chosenTxt = currentQuiz.options[selectedQuizOptionIndex];
+                         const correctTxt = currentQuiz.options[currentQuiz.correctIndex];
+                         const gap = quizMistakeFeedback?.conceptualGap || 'misinterpreting the question concept';
+                         setYunContext(
+                           `I am practicing a quiz for ${selectedSubject?.name || 'Syllabus'} on "${selectedTopic?.title || 'this topic'}". For the question: "${currentQuiz.question}", I chose "${chosenTxt}" instead of the correct answer "${correctTxt}". Yun diagnosed my conceptual gap as: "${gap}". Please explain this concept step-by-step and show me where to focus more so I master this for NECTA exams!`
+                         );
+                         setCurrentView(AppView.CHAT);
+                       }}
+                       onReviewNotes={() => {
+                         setIsQuizModalOpen(false);
+                         if (selectedTopic && selectedSubject) {
+                           setCurrentView(AppView.TOPIC_CONTENT);
+                           setActiveTab('notes');
+                         }
+                       }}
+                       onTryAgain={() => {
+                         setQuizResult('none');
+                         setSelectedQuizOptionIndex(null);
+                         setQuizMistakeFeedback(null);
+                       }}
+                     />
                    )}
                 </div>
               ) : (
@@ -4375,6 +4463,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
       />
     )}
     {currentView === AppView.EXAMS && <ExamVault />}
+    {currentView === AppView.STUDY_ROOM && <StudyRoom onNavigateHome={goHome} />}
     {currentView === AppView.VIDEOS && <VideoLessonsSearch />}
     {currentView === AppView.SCHOOLS && <TanzaniaSchoolsDatabase />}
     {currentView === AppView.NEWS_SCHOLARSHIPS && <EducationalNewsPortal />}

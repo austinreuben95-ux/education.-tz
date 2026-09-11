@@ -47,6 +47,18 @@ service cloud.firestore {
              data.updatedAt is string;
     }
 
+    function isValidStudyTip(data) {
+      return data.keys().hasAll(['id', 'subjectId', 'authorName', 'authorId', 'type', 'content', 'likes', 'createdAt']) &&
+             data.id is string &&
+             data.subjectId is string &&
+             data.authorName is string &&
+             data.authorId is string &&
+             data.type in ['tip', 'trap', 'formula', 'question'] &&
+             data.content is string && data.content.size() <= 2000 &&
+             data.likes is number &&
+             data.createdAt is string;
+    }
+
     // Collection: users
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -69,6 +81,18 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read: if isSignedIn();
       allow write: if false; // System only
+    }
+
+    // Collection: study_tips (Shared Study Room real-time exchange)
+    match /study_tips/{tipId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidStudyTip(incoming()) && incoming().authorId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy']) ||
+        (existing().authorId == request.auth.uid && isValidStudyTip(incoming())) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (existing().authorId == request.auth.uid || isAdmin());
     }
   }
 }

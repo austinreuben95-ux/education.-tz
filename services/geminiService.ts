@@ -1,3 +1,5 @@
+import { QuizMistakeFeedback } from '../types';
+
 export interface ChatResponse {
   text: string;
   groundingSources?: { title: string; uri: string }[];
@@ -152,3 +154,49 @@ export const editAndEnhanceTextWithGemini = async (content: string): Promise<str
     return 'Could not enhance text at this moment.';
   }
 };
+
+export const getQuizMistakeFeedback = async (params: {
+  question: string;
+  options: string[];
+  studentAnswerIndex: number;
+  studentAnswerText: string;
+  correctAnswerIndex: number;
+  correctAnswerText: string;
+  subject?: string;
+  grade?: string;
+  topic?: string;
+  baseExplanation?: string;
+}): Promise<QuizMistakeFeedback> => {
+  try {
+    const res = await fetch('/api/quiz-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) throw new Error(`Quiz feedback endpoint responded with ${res.status}`);
+    const data = await res.json();
+    if (data.feedback) return data.feedback;
+    throw new Error('No feedback returned');
+  } catch (error) {
+    console.error('Quiz feedback error:', error);
+    return {
+      conceptualGap: `You picked "${params.studentAnswerText || 'this choice'}" instead of the correct answer "${params.correctAnswerText}". In ${params.topic || 'this topic'}, students often make this mistake by overlooking subtle question qualifiers, applying incomplete formulas, or confusing inverse concepts.`,
+      whyOptionIsIncorrect: `"${params.studentAnswerText}" does not fully satisfy all theoretical and calculation constraints. ${params.baseExplanation ? params.baseExplanation + ' ' : ''}"${params.correctAnswerText}" strictly adheres to official NECTA syllabus principles.`,
+      underlyingPrinciple: `Mastering ${params.topic || 'this concept'} in ${params.subject || 'this subject'} requires breaking the problem down into given data, target variables, and official definition criteria.`,
+      whereToFocus: {
+        primaryFocusTopic: `${params.topic || 'Topic'}: Key Definitions & Formula Applications`,
+        keyTakeaway: 'Always write down the formula, list your known variables, and test your answer against common distractors before finalizing.',
+        actionSteps: [
+          `Review the dedicated lesson notes for "${params.topic || 'this topic'}" in your syllabus hub.`,
+          `Attempt 2-3 similar NECTA past paper problems under timed conditions.`,
+          `Consult Yun AI in study chat for a step-by-step breakdown of this exact concept.`
+        ],
+        nectaTrapToAvoid: 'NECTA examiners deliberately place intermediate calculation results and sign inversions among the choices. Always verify each step!'
+      },
+      bilingualQuickTip: 'Kidokezo cha NECTA: Makosa katika majaribio ni fursa ya dhahabu ya kujifunza. Elewa kwanini jibu hili halikuwa sahihi ili ufaulu mtihani wako wa mwisho!',
+      source: 'heuristic'
+    };
+  }
+};
+

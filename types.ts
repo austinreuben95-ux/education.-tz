@@ -138,7 +138,28 @@ export enum AppView {
   ROADMAP = 'ROADMAP',
   NEWS_SCHOLARSHIPS = 'NEWS_SCHOLARSHIPS',
   VIDEOS = 'VIDEOS',
-  SCHOOLS = 'SCHOOLS'
+  SCHOOLS = 'SCHOOLS',
+  STUDY_ROOM = 'STUDY_ROOM'
+}
+
+export type StudyTipType = 'tip' | 'trap' | 'formula' | 'question';
+
+export interface StudyRoomMessage {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  gradeLevel?: string;
+  authorName: string;
+  authorId: string;
+  authorRole?: 'Student' | 'Candidate' | 'Teacher' | 'Peer Tutor';
+  type: StudyTipType;
+  title?: string;
+  content: string;
+  likes: number;
+  likedBy?: string[];
+  createdAt: string;
+  isNectaTrap?: boolean;
+  topicRef?: string;
 }
 
 export interface UserProgress {
@@ -157,4 +178,24 @@ export interface QuizQuestion {
   options: string[];
   correctIndex: number;
   explanation: string;
+  nectaTip?: string;
+  subject?: string;
+  topic?: string;
 }
+
+export interface QuizWhereToFocus {
+  primaryFocusTopic: string;
+  keyTakeaway: string;
+  actionSteps: string[];
+  nectaTrapToAvoid: string;
+}
+
+export interface QuizMistakeFeedback {
+  conceptualGap: string;
+  whyOptionIsIncorrect: string;
+  underlyingPrinciple: string;
+  whereToFocus: QuizWhereToFocus;
+  bilingualQuickTip?: string;
+  source?: 'gemini' | 'heuristic';
+}
+

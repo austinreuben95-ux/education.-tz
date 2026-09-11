@@ -1,188 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ShareProgressModal } from './ShareProgressModal';
+import { ExamItem, ALL_NECTA_PAST_PAPERS } from '../src/data/nectaPastPapersData';
 
-export interface ExamItem {
-  id: string;
-  title: string;
-  level: 'PSLE' | 'FTNA' | 'CSEE' | 'ACSEE';
-  levelFull: string;
-  subject: string;
-  year: string;
-  examType: 'National NECTA' | 'Regional Mock' | 'Terminal Exam';
-  questionCount: number;
-  durationMinutes: number;
-  pdfQuestionsUrl?: string;
-  pdfMarkingSchemeUrl?: string;
-  examinerReport: {
-    summary: string;
-    commonPitfalls: string[];
-    examinerAdvice: string;
-  };
-  sampleQuestions: {
-    qNum: number;
-    question: string;
-    options?: string[];
-    answerKey: string;
-    markingNotes: string;
-  }[];
-}
+export type { ExamItem };
+export { ALL_NECTA_PAST_PAPERS };
 
-const EXAM_VAULT_DATA: ExamItem[] = [
-  {
-    id: 'csee-math-2023',
-    title: 'CSEE Mathematics 2023 Paper 1',
-    level: 'CSEE',
-    levelFull: 'Form 4 Certificate of Secondary Education',
-    subject: 'Mathematics',
-    year: '2023',
-    examType: 'National NECTA',
-    questionCount: 10,
-    durationMinutes: 180,
-    examinerReport: {
-      summary: 'Overall candidate performance was satisfactory, with 68.4% passing. However, many lost marks in Quadratic Equations and Trigonometric ratios.',
-      commonPitfalls: [
-        'Failing to simplify radical expressions before substituting values.',
-        'Misinterpreting word problems involving simultaneous linear equations.',
-        'Ignoring negative square roots in quadratic formula steps.'
-      ],
-      examinerAdvice: 'Candidates must show all clear working steps. Marks are awarded for method even if final arithmetic contains minor errors.'
-    },
-    sampleQuestions: [
-      {
-        qNum: 1,
-        question: 'Solve for x: 2x² - 5x + 2 = 0 using the quadratic formula.',
-        options: ['x = 2 or x = 0.5', 'x = -2 or x = -0.5', 'x = 3 or x = 1', 'x = 5 or x = 2'],
-        answerKey: 'x = 2 or x = 0.5',
-        markingNotes: 'Award 1 mark for correct formula setup, 1 mark for discriminant evaluation (b²-4ac = 9), 1 mark for correct roots.'
-      },
-      {
-        qNum: 2,
-        question: 'A ladder 5m long rests against a vertical wall. If the foot of the ladder is 3m from the base, find the height reached.',
-        options: ['4 meters', '3.5 meters', '2.5 meters', '4.5 meters'],
-        answerKey: '4 meters',
-        markingNotes: 'Use Pythagoras theorem: h = √(5² - 3²) = √16 = 4m. Award full marks for labeled diagram and working.'
-      }
-    ]
-  },
-  {
-    id: 'csee-phy-2023',
-    title: 'CSEE Physics 1 2023',
-    level: 'CSEE',
-    levelFull: 'Form 4 Certificate of Secondary Education',
-    subject: 'Physics',
-    year: '2023',
-    examType: 'National NECTA',
-    questionCount: 11,
-    durationMinutes: 180,
-    examinerReport: {
-      summary: 'Candidates performed strongly in Mechanics but struggled in Current Electricity circuits and Electromagnetic induction calculations.',
-      commonPitfalls: [
-        'Forgetting SI unit labels in final numerical responses (e.g., writing 20 instead of 20 Amperes or 20 A).',
-        'Incorrect parallel resistor combination formula setup (1/Rt = 1/R1 + 1/R2).',
-        'Confusing Snell Law angle of incidence with angle to the mirror surface.'
-      ],
-      examinerAdvice: 'Always state the physics principle or formula first before plugging in numerical values with proper SI units.'
-    },
-    sampleQuestions: [
-      {
-        qNum: 1,
-        question: 'Calculate the total resistance when two 6Ω resistors are connected in parallel.',
-        options: ['3 Ω', '12 Ω', '6 Ω', '1.5 Ω'],
-        answerKey: '3 Ω',
-        markingNotes: '1/Rt = 1/6 + 1/6 = 2/6 = 1/3 => Rt = 3 Ω. Penalty of 0.5 marks for omitting the Ohm symbol.'
-      }
-    ]
-  },
-  {
-    id: 'ftna-sci-2023',
-    title: 'FTNA Basic Science 2023',
-    level: 'FTNA',
-    levelFull: 'Form 2 National Assessment',
-    subject: 'Science',
-    year: '2023',
-    examType: 'National NECTA',
-    questionCount: 8,
-    durationMinutes: 150,
-    examinerReport: {
-      summary: 'Performance was high across urban regions. Rural candidates showed weakness in plant cell diagram labeling.',
-      commonPitfalls: [
-        'Confusing cell wall (plant cells only) with cell membrane (both plant and animal cells).',
-        'Incomplete balancing of chemical reaction equations.'
-      ],
-      examinerAdvice: 'Practice drawing neat, labeled diagrams with straight guidelines and clear title captions.'
-    },
-    sampleQuestions: [
-      {
-        qNum: 1,
-        question: 'Which organelle is responsible for cellular respiration and energy production in ATP form?',
-        options: ['Mitochondria', 'Chloroplast', 'Ribosome', 'Golgi Apparatus'],
-        answerKey: 'Mitochondria',
-        markingNotes: 'Mitochondria. Full mark for correct spelling.'
-      }
-    ]
-  },
-  {
-    id: 'psle-math-2023',
-    title: 'PSLE Hisabati (Mathematics) 2023',
-    level: 'PSLE',
-    levelFull: 'Standard 7 Primary School Leaving Examination',
-    subject: 'Mathematics',
-    year: '2023',
-    examType: 'National NECTA',
-    questionCount: 45,
-    durationMinutes: 120,
-    examinerReport: {
-      summary: 'Kiwango cha ufaulu kilikuwa 74.2%. Watahiniwa wengi walipoteza alama kwenye maswali ya sehemu na asilimia.',
-      commonPitfalls: [
-        'Kutobadili sehemu mseto kuwa sehemu za kawaida kabla ya kuzidisha au kugawanya.',
-        'Kutoelewa tofauti ya eneo la mduara na mzingo wa mduara.'
-      ],
-      examinerAdvice: 'Wanafunzi wasome swali kwa makini na kukagua majibu yao kabla ya kukabidhi karatasi.'
-    },
-    sampleQuestions: [
-      {
-        qNum: 1,
-        question: 'Tafuta eneo la mstatili wenye urefu wa sm 12 na upana wa sm 8.',
-        options: ['sm² 96', 'sm 40', 'sm² 48', 'sm² 20'],
-        answerKey: 'sm² 96',
-        markingNotes: 'Eneo = Urefu × Upana = 12 × 8 = sm² 96.'
-      }
-    ]
-  },
-  {
-    id: 'acsee-chem-2023',
-    title: 'ACSEE Chemistry Paper 1 2023',
-    level: 'ACSEE',
-    levelFull: 'Form 6 Advanced Certificate of Secondary Education',
-    subject: 'Chemistry',
-    year: '2023',
-    examType: 'National NECTA',
-    questionCount: 10,
-    durationMinutes: 180,
-    examinerReport: {
-      summary: 'High performance in Physical Chemistry, moderate in Organic mechanisms (electrophilic additions).',
-      commonPitfalls: [
-        'Omitting curved arrows indicating electron pair movement in organic reaction mechanisms.',
-        'Incorrect unit conversions in gas constant R calculations (J mol⁻¹ K⁻¹ vs L atm mol⁻¹ K⁻¹).'
-      ],
-      examinerAdvice: 'Re-read thermodynamic state definitions and ensure unit consistency in all physical equations.'
-    },
-    sampleQuestions: [
-      {
-        qNum: 1,
-        question: 'State Le Chatelier Principle regarding chemical equilibrium in dynamic systems.',
-        options: [
-          'If a system at equilibrium is disturbed, the equilibrium shifts to counteract the disturbance.',
-          'Energy cannot be created or destroyed in chemical reactions.',
-          'The rate of reaction is directly proportional to reactant concentration.',
-          'Gases at the same temperature have identical kinetic energies.'
-        ],
-        answerKey: 'If a system at equilibrium is disturbed, the equilibrium shifts to counteract the disturbance.',
-        markingNotes: 'Exact state definition awarded 2 marks.'
-      }
-    ]
-  }
-];
+const EXAM_VAULT_DATA = ALL_NECTA_PAST_PAPERS;
 
 export interface NectaCandidateResult {
   indexNumber: string;
@@ -516,16 +339,151 @@ const EXAM_STRATEGY_DATA: Record<'PSLE' | 'CSEE' | 'ACSEE', ExamStrategyGuide> =
   }
 };
 
+const GRADE_METADATA: Record<string, { label: string; full: string; desc: string; icon: string }> = {
+  ALL: {
+    label: 'All Grades',
+    full: 'All National NECTA Examinations',
+    desc: 'Browse complete repository spanning Primary (Std 7) to Advanced Level (Form 6).',
+    icon: 'fa-layer-group',
+  },
+  PSLE: {
+    label: 'PSLE (Std 7)',
+    full: 'Primary School Leaving Examination',
+    desc: 'Standard 7 national examinations for secondary school selection.',
+    icon: 'fa-child-reaching',
+  },
+  FTNA: {
+    label: 'FTNA (Form 2)',
+    full: 'Form Two National Assessment',
+    desc: 'Lower secondary assessment evaluating mastery before senior secondary.',
+    icon: 'fa-graduation-cap',
+  },
+  CSEE: {
+    label: 'CSEE (Form 4)',
+    full: 'Certificate of Secondary Education Examination',
+    desc: 'Ordinary Level (Form IV) national examination certification papers.',
+    icon: 'fa-award',
+  },
+  ACSEE: {
+    label: 'ACSEE (Form 6)',
+    full: 'Advanced Certificate of Secondary Education Examination',
+    desc: 'Advanced Level (Form VI) examinations for university direct entry.',
+    icon: 'fa-user-graduate',
+  },
+};
+
 const ExamVault: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'PAPERS' | 'RESULTS' | 'CALCULATOR' | 'STRATEGY'>('PAPERS');
   const [selectedStrategyLevel, setSelectedStrategyLevel] = useState<'PSLE' | 'CSEE' | 'ACSEE'>('CSEE');
   const [selectedLevel, setSelectedLevel] = useState<string>('ALL');
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL');
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [activeExam, setActiveExam] = useState<ExamItem | null>(null);
   const [cbtMode, setCbtMode] = useState<boolean>(false);
   const [cbtAnswers, setCbtAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState<boolean>(false);
+
+  // View layout: 'grid' vs 'list'
+  const [viewLayout, setViewLayout] = useState<'grid' | 'list'>('grid');
+  // Downloading state and toast alert
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadToast, setDownloadToast] = useState<{ title: string; filename: string } | null>(null);
+
+  // Dynamic fetch state for grade-specific NECTA past papers
+  const [fetchedPapers, setFetchedPapers] = useState<ExamItem[]>([]);
+  const [isLoadingPapers, setIsLoadingPapers] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [availableSubjectsForLevel, setAvailableSubjectsForLevel] = useState<{ name: string; count: number }[]>([]);
+  const [availableYearsForLevel, setAvailableYearsForLevel] = useState<{ year: string; count: number }[]>([]);
+  const [totalForGrade, setTotalForGrade] = useState<number>(ALL_NECTA_PAST_PAPERS.length);
+
+  // Dynamic fetch function that queries papers specific to the selected grade level and filters
+  const fetchPapers = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoadingPapers(true);
+    }
+    setFetchError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (selectedLevel) params.append('level', selectedLevel);
+      if (selectedSubject && selectedSubject !== 'ALL') params.append('subject', selectedSubject);
+      if (selectedYear && selectedYear !== 'ALL') params.append('year', selectedYear);
+      if (searchKeyword.trim()) params.append('q', searchKeyword.trim());
+
+      const res = await fetch(`/api/necta-past-papers?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setFetchedPapers(data.papers || []);
+      setTotalForGrade(data.totalForLevel ?? (data.papers ? data.papers.length : 0));
+      setAvailableSubjectsForLevel(data.availableSubjects || []);
+      setAvailableYearsForLevel(data.availableYears || []);
+    } catch (err: any) {
+      console.warn("Dynamic API fetch error, switching to resilient local fallback:", err);
+      // Fallback calculation using ALL_NECTA_PAST_PAPERS
+      const gradePapers = ALL_NECTA_PAST_PAPERS.filter((p) => selectedLevel === 'ALL' || p.level === selectedLevel);
+      
+      const sMap: Record<string, number> = {};
+      const yMap: Record<string, number> = {};
+      gradePapers.forEach((p) => {
+        sMap[p.subject] = (sMap[p.subject] || 0) + 1;
+        yMap[p.year] = (yMap[p.year] || 0) + 1;
+      });
+
+      const subjects = Object.keys(sMap).sort().map((name) => ({ name, count: sMap[name] }));
+      const years = Object.keys(yMap).sort((a, b) => Number(b) - Number(a)).map((year) => ({ year, count: yMap[year] }));
+
+      setTotalForGrade(gradePapers.length);
+      setAvailableSubjectsForLevel(subjects);
+      setAvailableYearsForLevel(years);
+
+      const filtered = gradePapers.filter((item) => {
+        if (selectedSubject !== 'ALL' && !item.subject.toLowerCase().includes(selectedSubject.toLowerCase())) return false;
+        if (selectedYear !== 'ALL' && item.year !== selectedYear) return false;
+        if (searchKeyword.trim()) {
+          const q = searchKeyword.toLowerCase();
+          const matchTitle = item.title.toLowerCase().includes(q);
+          const matchSubject = item.subject.toLowerCase().includes(q);
+          const matchLevel = item.level.toLowerCase().includes(q) || item.levelFull.toLowerCase().includes(q);
+          const matchCode = item.code ? item.code.toLowerCase().includes(q) : false;
+          const matchQuestions = item.sampleQuestions.some(sq => sq.question.toLowerCase().includes(q));
+          if (!matchTitle && !matchSubject && !matchLevel && !matchCode && !matchQuestions) return false;
+        }
+        return true;
+      });
+
+      setFetchedPapers(filtered);
+    } finally {
+      setIsLoadingPapers(false);
+      setIsRefreshing(false);
+    }
+  }, [selectedLevel, selectedSubject, selectedYear, searchKeyword]);
+
+  // Trigger dynamic fetch when grade level, subject, year, or search keyword changes
+  useEffect(() => {
+    fetchPapers();
+  }, [fetchPapers]);
+
+  // Change grade level and reset subject/year to avoid mismatched state
+  const handleSelectGrade = (newLevel: string) => {
+    if (newLevel === selectedLevel) return;
+    setSelectedLevel(newLevel);
+    setSelectedSubject('ALL');
+    setSelectedYear('ALL');
+  };
+
+  // Reset all active filters
+  const handleResetFilters = () => {
+    setSelectedSubject('ALL');
+    setSelectedYear('ALL');
+    setSearchKeyword('');
+  };
 
   // NECTA Results Lookup state
   const [searchIndex, setSearchIndex] = useState<string>('');
@@ -697,12 +655,91 @@ const ExamVault: React.FC = () => {
     return { sum, div, best7Count: best7.length };
   };
 
-  const filteredExams = EXAM_VAULT_DATA.filter((item) => {
-    if (selectedLevel !== 'ALL' && item.level !== selectedLevel) return false;
-    if (selectedSubject !== 'ALL' && !item.subject.toLowerCase().includes(selectedSubject.toLowerCase())) return false;
-    if (selectedYear !== 'ALL' && item.year !== selectedYear) return false;
-    return true;
-  });
+  const filteredExams = fetchedPapers;
+
+  const handleDownloadPaper = (exam: ExamItem) => {
+    setDownloadingId(exam.id);
+    try {
+      const content = `===============================================================
+THE NATIONAL EXAMINATIONS COUNCIL OF TANZANIA (NECTA)
+${exam.levelFull.toUpperCase()} (${exam.level})
+${exam.title.toUpperCase()}
+Subject Code: ${exam.code || 'N/A'} | Examination Year: ${exam.year}
+Time Allowed: ${exam.durationMinutes} Minutes | Number of Questions: ${exam.questionCount}
+===============================================================
+
+INSTRUCTIONS TO CANDIDATES:
+1. This paper consists of questions based on the official NECTA syllabus for ${exam.levelFull}.
+2. Answer all questions clearly. Show all mathematical and logical steps where applicable.
+3. Write your Candidate Index Number clearly on every answer sheet.
+4. Cell phones, programmable calculators, and unauthorized materials are strictly prohibited.
+
+===============================================================
+OFFICIAL NECTA EXAMINER (CIRA) REPORT & PITFALL ADVICE
+===============================================================
+Performance Summary:
+${exam.examinerReport.summary}
+
+Common Candidate Pitfalls & Error Analysis:
+${exam.examinerReport.commonPitfalls.map((p, idx) => `  [${idx + 1}] ${p}`).join('\n')}
+
+Chief Examiner's Guidance for Scoring Grade A:
+${exam.examinerReport.examinerAdvice}
+
+===============================================================
+EXAMINATION QUESTIONS:
+===============================================================
+${exam.sampleQuestions.map((q) => {
+  let text = `QUESTION ${q.qNum}: ${q.question}\n`;
+  if (q.options && q.options.length > 0) {
+    text += q.options.map((opt, i) => `   (${String.fromCharCode(65 + i)}) ${opt}`).join('\n') + '\n';
+  }
+  return text;
+}).join('\n')}
+
+===============================================================
+OFFICIAL NECTA MARKING SCHEME & STEP-BY-STEP RUBRIC
+===============================================================
+${exam.sampleQuestions.map((q) => {
+  return `QUESTION ${q.qNum}:
+  Official Answer Key: ${q.answerKey}
+  Marking Scheme Rubric & Step Allocation:
+  ${q.markingNotes}
+---------------------------------------------------------------`;
+}).join('\n')}
+
+===============================================================
+Generated by EducationTZ - Tanzania National Exam Preparation
+Official Website: https://www.necta.go.tz
+===============================================================`;
+
+      const filename = `NECTA_${exam.level}_${exam.subject.replace(/[^a-zA-Z0-9]/g, '_')}_${exam.year}.txt`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setDownloadToast({
+        title: exam.title,
+        filename,
+      });
+      setTimeout(() => {
+        setDownloadToast(null);
+      }, 4000);
+    } catch (err) {
+      console.error("Client blob download error, redirecting to server endpoint:", err);
+      window.location.href = `/api/necta-past-papers/download/${exam.id}`;
+    } finally {
+      setTimeout(() => {
+        setDownloadingId(null);
+      }, 600);
+    }
+  };
 
   const handleStartCbt = (exam: ExamItem) => {
     setActiveExam(exam);
@@ -1422,112 +1459,580 @@ const ExamVault: React.FC = () => {
       {/* TAB 1: Main Grid or CBT Viewer */}
       {activeTab === 'PAPERS' && (
         <>
-          {/* Filters Bar */}
-          <div className="bg-white rounded-2xl p-5 border-2 border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              {/* Level Filter */}
-              <select
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-              >
-                <option value="ALL">All Exam Levels</option>
-                <option value="PSLE">PSLE (Standard 7)</option>
-                <option value="FTNA">FTNA (Form 2)</option>
-                <option value="CSEE">CSEE (Form 4)</option>
-                <option value="ACSEE">ACSEE (Form 6)</option>
-              </select>
-
-              {/* Subject Filter */}
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-              >
-                <option value="ALL">All Subjects</option>
-                <option value="Mathematics">Mathematics / Hisabati</option>
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="Science">Basic Science</option>
-              </select>
-
-              {/* Year Filter */}
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-              >
-                <option value="ALL">All NECTA Years</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
-                <option value="2021">2021</option>
-                <option value="2020">2020</option>
-              </select>
+          {/* Grade Level Selector Banner */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-2">
+                <i className="fa-solid fa-graduation-cap text-indigo-600"></i> Select Grade Level for Past Papers:
+              </span>
+              <span className="text-xs text-gray-500 font-bold">
+                {totalForGrade} Past Papers Available
+              </span>
             </div>
 
-            <div className="text-xs font-bold text-gray-500">
-              Showing <span className="text-indigo-600 font-black">{filteredExams.length}</span> Exam Papers
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { id: 'ALL', code: 'ALL', name: 'All Grades', stage: 'Std 7 to Form 6', count: ALL_NECTA_PAST_PAPERS.length },
+                { id: 'PSLE', code: 'PSLE', name: 'Standard 7', stage: 'Primary Leaving', count: ALL_NECTA_PAST_PAPERS.filter(e => e.level === 'PSLE').length },
+                { id: 'FTNA', code: 'FTNA', name: 'Form 2', stage: 'National Assessment', count: ALL_NECTA_PAST_PAPERS.filter(e => e.level === 'FTNA').length },
+                { id: 'CSEE', code: 'CSEE', name: 'Form 4', stage: 'O-Level Certificate', count: ALL_NECTA_PAST_PAPERS.filter(e => e.level === 'CSEE').length },
+                { id: 'ACSEE', code: 'ACSEE', name: 'Form 6', stage: 'A-Level Advanced', count: ALL_NECTA_PAST_PAPERS.filter(e => e.level === 'ACSEE').length }
+              ].map((tab) => {
+                const isActive = selectedLevel === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleSelectGrade(tab.id)}
+                    className={`p-3.5 rounded-2xl text-left transition-all border-2 flex flex-col justify-between group ${
+                      isActive
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                        : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <span className={`px-2.5 py-0.5 rounded-md font-black text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                        {tab.code}
+                      </span>
+                      <span className={`text-[11px] font-bold ${isActive ? 'text-indigo-100' : 'text-gray-500'}`}>
+                        {tab.count} papers
+                      </span>
+                    </div>
+                    <div>
+                      <div className={`font-black text-sm ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-indigo-600'}`}>
+                        {tab.name}
+                      </div>
+                      <div className={`text-[11px] ${isActive ? 'text-indigo-100' : 'text-gray-500'}`}>
+                        {tab.stage}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-      {/* Main Grid or CBT Viewer */}
-      {!cbtMode ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredExams.map((exam) => (
-            <div
-              key={exam.id}
-              className="bg-white rounded-3xl p-6 border-2 border-gray-100 hover:border-indigo-300 transition-all shadow-sm hover:shadow-xl flex flex-col justify-between space-y-6 group"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-black text-xs border border-indigo-100">
-                    {exam.level} • {exam.year}
+          {/* Dynamic Filter & Control Console */}
+          <div className="bg-white rounded-3xl p-6 border-2 border-gray-100 shadow-sm space-y-5">
+            {/* Grade Context Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-extrabold text-xs border border-indigo-100 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Dynamic Past Papers Repository
                   </span>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
-                    <i className="fa-solid fa-circle-check mr-1"></i> Marking Scheme Included
+                  <span className="text-xs font-bold text-gray-500">
+                    Grade: <strong className="text-gray-900">{GRADE_METADATA[selectedLevel]?.label || selectedLevel}</strong>
                   </span>
                 </div>
-
-                <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors">
-                  {exam.title}
-                </h3>
-                <p className="text-xs text-gray-500 font-medium mt-1">{exam.levelFull}</p>
-
-                {/* Examiner's Pitfall Box */}
-                <div className="mt-4 p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-black text-amber-900">
-                    <i className="fa-solid fa-triangle-exclamation text-amber-600"></i>
-                    <span>NECTA Examiner Report (CIRA) Insight</span>
-                  </div>
-                  <p className="text-xs text-amber-950 font-medium leading-relaxed">
-                    "{exam.examinerReport.summary}"
-                  </p>
-                  <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-900">
-                    <strong>Common Mistake:</strong> {exam.examinerReport.commonPitfalls[0]}
-                  </div>
-                </div>
+                <h4 className="text-lg font-black text-gray-900">
+                  {GRADE_METADATA[selectedLevel]?.full || selectedLevel}
+                </h4>
+                <p className="text-xs text-gray-600 font-medium">
+                  {GRADE_METADATA[selectedLevel]?.desc}
+                </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button
-                  onClick={() => handleStartCbt(exam)}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2"
+                  onClick={() => fetchPapers(true)}
+                  disabled={isLoadingPapers || isRefreshing}
+                  className="px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-xs transition flex items-center gap-2 disabled:opacity-50"
+                  title="Re-query past papers from dynamic endpoint"
                 >
-                  <i className="fa-solid fa-pen-to-square"></i> Timed Practice
-                </button>
-
-                <button
-                  onClick={() => setActiveExam(exam)}
-                  className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 font-extrabold text-xs transition flex items-center gap-2"
-                >
-                  <i className="fa-solid fa-book-open"></i> Marking Scheme & CIRA Report
+                  <i className={`fa-solid fa-arrows-rotate text-indigo-600 ${isRefreshing ? 'animate-spin' : ''}`}></i>
+                  <span>{isRefreshing ? 'Fetching...' : 'Refresh Papers'}</span>
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
+
+            {/* Clearly Presented Available Subject Filters */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
+                  <i className="fa-solid fa-book-open text-indigo-500"></i> Available Subjects for {selectedLevel === 'ALL' ? 'All Grades' : selectedLevel} ({availableSubjectsForLevel.length}):
+                </span>
+                {selectedSubject !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedSubject('ALL')}
+                    className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                  >
+                    <i className="fa-solid fa-xmark"></i> Clear Subject Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Interactive Subject Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setSelectedSubject('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition flex items-center gap-1.5 ${
+                    selectedSubject === 'ALL'
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <span>All Subjects</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${selectedSubject === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    {totalForGrade}
+                  </span>
+                </button>
+
+                {availableSubjectsForLevel.map((sub) => {
+                  const isSubActive = selectedSubject === sub.name;
+                  return (
+                    <button
+                      key={sub.name}
+                      onClick={() => setSelectedSubject(isSubActive ? 'ALL' : sub.name)}
+                      className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition flex items-center gap-1.5 ${
+                        isSubActive
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      <span>{sub.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${isSubActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                        {sub.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Clearly Presented Available Year Filters */}
+            <div className="space-y-2 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
+                  <i className="fa-regular fa-calendar-check text-indigo-500"></i> Available Examination Years ({availableYearsForLevel.length}):
+                </span>
+                {selectedYear !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedYear('ALL')}
+                    className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                  >
+                    <i className="fa-solid fa-xmark"></i> Clear Year Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Interactive Year Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setSelectedYear('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition flex items-center gap-1.5 ${
+                    selectedYear === 'ALL'
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <span>All Years</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${selectedYear === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    {totalForGrade}
+                  </span>
+                </button>
+
+                {availableYearsForLevel.map((yr) => {
+                  const isYrActive = selectedYear === yr.year;
+                  return (
+                    <button
+                      key={yr.year}
+                      onClick={() => setSelectedYear(isYrActive ? 'ALL' : yr.year)}
+                      className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition flex items-center gap-1.5 ${
+                        isYrActive
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      <span>{yr.year}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${isYrActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                        {yr.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Keyword Search & Quick-Select Dropdowns */}
+            <div className="pt-3 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-3">
+              {/* Search Box */}
+              <div className="relative flex-1 w-full">
+                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input
+                  type="text"
+                  placeholder={`Search in ${selectedLevel === 'ALL' ? 'all' : selectedLevel} papers by topic, question, or code...`}
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition"
+                />
+                {searchKeyword && (
+                  <button
+                    onClick={() => setSearchKeyword('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Select Dropdowns */}
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="px-3.5 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none transition flex-1 md:flex-none"
+                  aria-label="Filter by subject"
+                >
+                  <option value="ALL">All Subjects ({totalForGrade})</option>
+                  {availableSubjectsForLevel.map(s => (
+                    <option key={s.name} value={s.name}>{s.name} ({s.count})</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-3.5 py-2.5 rounded-xl border border-gray-200 font-bold text-xs text-gray-700 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none transition flex-1 md:flex-none"
+                  aria-label="Filter by examination year"
+                >
+                  <option value="ALL">All Years ({totalForGrade})</option>
+                  {availableYearsForLevel.map(y => (
+                    <option key={y.year} value={y.year}>{y.year} ({y.count})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Active Filters Summary Bar */}
+            {(selectedSubject !== 'ALL' || selectedYear !== 'ALL' || searchKeyword.trim()) && (
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-gray-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-gray-500 font-bold">Active Filters:</span>
+                  {selectedSubject !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200">
+                      Subject: {selectedSubject}
+                      <button onClick={() => setSelectedSubject('ALL')} className="hover:text-red-500"><i className="fa-solid fa-xmark"></i></button>
+                    </span>
+                  )}
+                  {selectedYear !== 'ALL' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200">
+                      Year: {selectedYear}
+                      <button onClick={() => setSelectedYear('ALL')} className="hover:text-red-500"><i className="fa-solid fa-xmark"></i></button>
+                    </span>
+                  )}
+                  {searchKeyword.trim() && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 font-extrabold border border-amber-200">
+                      Query: "{searchKeyword}"
+                      <button onClick={() => setSearchKeyword('')} className="hover:text-red-500"><i className="fa-solid fa-xmark"></i></button>
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={handleResetFilters}
+                  className="text-indigo-600 hover:text-indigo-800 font-extrabold flex items-center gap-1 underline"
+                >
+                  <i className="fa-solid fa-arrow-rotate-left"></i> Reset All Filters
+                </button>
+              </div>
+            )}
+
+            {/* Results Count & Layout Mode Switcher */}
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-gray-500 border-t border-gray-100">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>
+                  Showing <strong className="text-indigo-600 font-black">{filteredExams.length}</strong> of{' '}
+                  <strong className="text-gray-800 font-black">{totalForGrade}</strong> past papers in{' '}
+                  <strong className="text-gray-800">{GRADE_METADATA[selectedLevel]?.label || selectedLevel}</strong>
+                </span>
+                {isLoadingPapers && (
+                  <span className="text-indigo-600 font-bold flex items-center gap-1.5">
+                    <i className="fa-solid fa-circle-notch animate-spin"></i> Loading papers...
+                  </span>
+                )}
+              </div>
+
+              {/* View Layout Toggle: Grid View vs List View */}
+              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
+                <button
+                  id="btn-layout-grid"
+                  onClick={() => setViewLayout('grid')}
+                  className={`px-3 py-1.5 rounded-lg font-black text-xs transition flex items-center gap-1.5 ${
+                    viewLayout === 'grid'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  title="Switch to Grid View"
+                >
+                  <i className="fa-solid fa-grip"></i> Grid
+                </button>
+                <button
+                  id="btn-layout-list"
+                  onClick={() => setViewLayout('list')}
+                  className={`px-3 py-1.5 rounded-lg font-black text-xs transition flex items-center gap-1.5 ${
+                    viewLayout === 'list'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  title="Switch to List View"
+                >
+                  <i className="fa-solid fa-list"></i> List
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Grid or CBT Viewer */}
+          {!cbtMode ? (
+            <>
+              {isLoadingPapers ? (
+                /* Animated Skeletons during dynamic fetch */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-white rounded-3xl p-6 border-2 border-gray-100 shadow-sm space-y-4 animate-pulse">
+                      <div className="flex items-center justify-between">
+                        <div className="h-5 w-24 bg-gray-200 rounded-full"></div>
+                        <div className="h-5 w-32 bg-gray-200 rounded-md"></div>
+                      </div>
+                      <div className="h-7 w-3/4 bg-gray-200 rounded-lg"></div>
+                      <div className="h-4 w-1/2 bg-gray-200 rounded"></div>
+                      <div className="p-4 bg-gray-50 rounded-2xl space-y-2">
+                        <div className="h-3 w-1/3 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-full bg-gray-200 rounded"></div>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <div className="h-10 flex-1 bg-gray-200 rounded-xl"></div>
+                        <div className="h-10 flex-1 bg-gray-200 rounded-xl"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : fetchError ? (
+                <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-black">
+                    <i className="fa-solid fa-triangle-exclamation"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-black text-gray-900 text-base">Unable to Load Past Papers</h4>
+                    <p className="text-xs text-gray-600 mt-1">{fetchError}</p>
+                  </div>
+                  <button
+                    onClick={() => fetchPapers(true)}
+                    className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-black text-xs hover:bg-red-700 transition"
+                  >
+                    <i className="fa-solid fa-arrow-rotate-right mr-1.5"></i> Try Again
+                  </button>
+                </div>
+              ) : filteredExams.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 border-2 border-dashed border-gray-200 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl">
+                    <i className="fa-solid fa-filter-circle-xmark"></i>
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1">
+                    <h4 className="font-black text-gray-900 text-lg">No Past Papers Found</h4>
+                    <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                      We could not find any past papers matching your current filters in{' '}
+                      <strong className="text-gray-800">{GRADE_METADATA[selectedLevel]?.label || selectedLevel}</strong>.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-black text-xs hover:bg-indigo-700 transition inline-flex items-center gap-2"
+                  >
+                    <i className="fa-solid fa-arrow-rotate-left"></i> Reset Subject & Year Filters
+                  </button>
+                </div>
+              ) : viewLayout === 'list' ? (
+                /* Dedicated List Item View */
+                <div className="space-y-3" role="list">
+                  {filteredExams.map((exam) => {
+                    const isDownloading = downloadingId === exam.id;
+                    return (
+                      <div
+                        key={exam.id}
+                        id={`paper-list-item-${exam.id}`}
+                        role="listitem"
+                        className="bg-white rounded-2xl p-5 border-2 border-gray-100 hover:border-indigo-300 transition-all shadow-sm hover:shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+                      >
+                        <div className="space-y-2 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-black text-xs border border-indigo-100">
+                              {exam.level} • {exam.year}
+                            </span>
+                            {exam.code && (
+                              <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                Code: {exam.code}
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
+                              <i className="fa-solid fa-circle-check text-emerald-500"></i> Marking Scheme Included
+                            </span>
+                          </div>
+
+                          <div>
+                            <h4 className="text-lg font-black text-gray-900 group-hover:text-indigo-600 transition-colors">
+                              {exam.title}
+                            </h4>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 font-medium mt-0.5">
+                              <span>{exam.levelFull}</span>
+                              <span>•</span>
+                              <span><i className="fa-regular fa-clock mr-1 text-gray-400"></i>{exam.durationMinutes} mins</span>
+                              <span>•</span>
+                              <span><i className="fa-solid fa-list-check mr-1 text-gray-400"></i>{exam.questionCount} Questions</span>
+                            </div>
+                          </div>
+
+                          {/* Examiner pitfall snippet */}
+                          <div className="text-xs text-amber-900 bg-amber-50/70 border border-amber-200/70 rounded-xl px-3 py-2 flex items-start gap-2">
+                            <i className="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 shrink-0"></i>
+                            <span className="line-clamp-1">
+                              <strong className="text-amber-950">Examiner Advice:</strong> {exam.examinerReport.commonPitfalls[0]}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons for List Item */}
+                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+                          {/* Download Button on Each List Item */}
+                          <button
+                            id={`download-paper-list-${exam.id}`}
+                            onClick={() => handleDownloadPaper(exam)}
+                            disabled={isDownloading}
+                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow-sm shadow-emerald-200 flex items-center gap-2 disabled:opacity-50"
+                            title={`Download official NECTA ${exam.title} past paper & marking scheme (.txt)`}
+                          >
+                            <i className={`fa-solid ${isDownloading ? 'fa-circle-notch fa-spin' : 'fa-download'}`}></i>
+                            <span>{isDownloading ? 'Downloading...' : 'Download Paper'}</span>
+                            <span className="text-[10px] bg-emerald-700/50 px-1.5 py-0.5 rounded text-emerald-100 font-mono">.TXT</span>
+                          </button>
+
+                          {/* Marking Scheme */}
+                          <button
+                            id={`scheme-list-${exam.id}`}
+                            onClick={() => setActiveExam(exam)}
+                            className="px-3.5 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 font-extrabold text-xs transition flex items-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-book-open"></i> Scheme
+                          </button>
+
+                          {/* Timed Practice */}
+                          <button
+                            id={`cbt-list-${exam.id}`}
+                            onClick={() => handleStartCbt(exam)}
+                            className="px-3.5 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 font-extrabold text-xs transition flex items-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-pen-to-square"></i> CBT
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Grid View */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredExams.map((exam) => {
+                    const isDownloading = downloadingId === exam.id;
+                    return (
+                      <div
+                        key={exam.id}
+                        id={`paper-card-${exam.id}`}
+                        className="bg-white rounded-3xl p-6 border-2 border-gray-100 hover:border-indigo-300 transition-all shadow-sm hover:shadow-xl flex flex-col justify-between space-y-6 group"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-black text-xs border border-indigo-100">
+                                {exam.level} • {exam.year}
+                              </span>
+                              {exam.code && (
+                                <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                  Code: {exam.code}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                                <i className="fa-solid fa-circle-check mr-1"></i> Scheme Included
+                              </span>
+                              <button
+                                id={`quick-download-top-${exam.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadPaper(exam);
+                                }}
+                                disabled={isDownloading}
+                                className="w-8 h-8 rounded-lg bg-gray-50 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300 flex items-center justify-center text-xs transition disabled:opacity-50"
+                                title={`Quick download ${exam.title}`}
+                              >
+                                <i className={`fa-solid ${isDownloading ? 'fa-circle-notch fa-spin text-emerald-600' : 'fa-arrow-down-to-line'}`}></i>
+                              </button>
+                            </div>
+                          </div>
+
+                          <h3 className="text-xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors">
+                            {exam.title}
+                          </h3>
+                          <div className="flex items-center justify-between mt-1 text-xs text-gray-500 font-medium">
+                            <span>{exam.levelFull}</span>
+                            <span><i className="fa-regular fa-clock mr-1"></i>{exam.durationMinutes} mins • {exam.questionCount} Questions</span>
+                          </div>
+
+                          {/* Examiner's Pitfall Box */}
+                          <div className="mt-4 p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-black text-amber-900">
+                              <i className="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                              <span>NECTA Examiner Report (CIRA) Insight</span>
+                            </div>
+                            <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                              "{exam.examinerReport.summary}"
+                            </p>
+                            <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-900">
+                              <strong>Common Mistake:</strong> {exam.examinerReport.commonPitfalls[0]}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              id={`cbt-btn-${exam.id}`}
+                              onClick={() => handleStartCbt(exam)}
+                              className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2"
+                            >
+                              <i className="fa-solid fa-pen-to-square"></i> Timed Practice
+                            </button>
+
+                            <button
+                              id={`scheme-btn-${exam.id}`}
+                              onClick={() => setActiveExam(exam)}
+                              className="px-3.5 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 font-extrabold text-xs transition flex items-center gap-2"
+                            >
+                              <i className="fa-solid fa-book-open"></i> Marking Scheme
+                            </button>
+                          </div>
+
+                          {/* Download Button on Each Card */}
+                          <button
+                            id={`download-paper-grid-${exam.id}`}
+                            onClick={() => handleDownloadPaper(exam)}
+                            disabled={isDownloading}
+                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow-sm shadow-emerald-200 flex items-center gap-2 disabled:opacity-50"
+                            title={`Download official NECTA ${exam.title} past paper & marking scheme (.txt)`}
+                          >
+                            <i className={`fa-solid ${isDownloading ? 'fa-circle-notch fa-spin' : 'fa-download'}`}></i>
+                            <span>{isDownloading ? 'Downloading...' : 'Download Paper'}</span>
+                            <span className="text-[10px] bg-emerald-700/50 px-1.5 py-0.5 rounded text-emerald-100 font-mono">.TXT</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
         /* Interactive CBT Quiz Renderer */
         <div className="bg-white rounded-3xl p-8 border-2 border-indigo-200 shadow-xl space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
@@ -1672,13 +2177,28 @@ const ExamVault: React.FC = () => {
               ))}
             </div>
 
-            <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+            <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
               <button
-                onClick={() => handleStartCbt(activeExam)}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md"
+                onClick={() => handleDownloadPaper(activeExam)}
+                className="px-4 py-2.5 rounded-xl bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-extrabold text-xs transition flex items-center gap-2 shadow-sm"
               >
-                Start Timed CBT Exam
+                <i className="fa-solid fa-download text-indigo-600"></i> Download / Print Paper (.txt)
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveExam(null)}
+                  className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 font-bold text-xs transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleStartCbt(activeExam)}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-stopwatch"></i> Start Timed CBT Exam
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1709,6 +2229,31 @@ const ExamVault: React.FC = () => {
               }
         }
       />
+      {/* Download Success Notification Toast */}
+      {downloadToast && (
+        <div
+          id="toast-download-success"
+          className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 flex items-center gap-3 animate-bounce"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg shrink-0">
+            <i className="fa-solid fa-circle-arrow-down"></i>
+          </div>
+          <div className="text-xs space-y-0.5">
+            <div className="font-bold text-gray-100 flex items-center gap-2">
+              <span>Paper Downloaded</span>
+              <span className="text-[10px] bg-emerald-900/60 text-emerald-300 font-mono px-1.5 py-0.5 rounded">.TXT</span>
+            </div>
+            <p className="text-gray-300 line-clamp-1">{downloadToast.title}</p>
+            <p className="text-[11px] text-gray-400 font-mono">{downloadToast.filename}</p>
+          </div>
+          <button
+            onClick={() => setDownloadToast(null)}
+            className="text-gray-400 hover:text-white p-1 text-xs ml-2"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
