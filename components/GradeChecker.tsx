@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import NectaCalculator from './NectaCalculator';
+import AverageSumCalculator from './AverageSumCalculator';
 import { exportNectaGradingPdf } from '../utils/nectaPdfExport';
 
-export type ScaleType = '50_MARK' | '100_MARK' | 'NECTA_CSEE' | 'NECTA_ACSEE';
+export type ScaleType = '25_MARK' | '50_MARK' | '100_MARK' | 'NECTA_CSEE' | 'NECTA_ACSEE';
 
 export interface SubjectScore {
   id: string;
   name: string;
   score: number; // raw mark
-  maxMark: number; // 50 or 100
+  maxMark: number; // 25, 50, or 100
 }
 
 export interface GradeResult {
@@ -26,7 +27,70 @@ export interface GradeResult {
 export function evaluateGrade(score: number, maxMark: number = 50, scaleType: ScaleType = '50_MARK'): GradeResult {
   const percentage = Math.round((Math.max(0, Math.min(score, maxMark)) / maxMark) * 100);
 
-  if (scaleType === '50_MARK' || maxMark === 50) {
+  if (scaleType === '25_MARK' || maxMark === 25) {
+    // 25-Mark Scale: 21-25 A, 16-20 B, 11-15 C, 6-10 D, 0-5 F
+    if (score >= 21) {
+      return {
+        grade: 'A',
+        percentage,
+        points: 1,
+        englishRemark: 'Excellent (Vyema Sana)',
+        swahiliRemark: 'Vyema Sana (Maksi 21 - 25)',
+        colorClass: 'text-emerald-600',
+        bgClass: 'bg-emerald-50 text-emerald-950',
+        borderClass: 'border-emerald-400',
+        advice: 'Outstanding score on the 25-mark scale! You demonstrate deep mastery of the concepts tested.'
+      };
+    } else if (score >= 16) {
+      return {
+        grade: 'B',
+        percentage,
+        points: 2,
+        englishRemark: 'Very Good (Vyema)',
+        swahiliRemark: 'Vyema (Maksi 16 - 20)',
+        colorClass: 'text-blue-600',
+        bgClass: 'bg-blue-50 text-blue-950',
+        borderClass: 'border-blue-400',
+        advice: 'Very good performance on this test. A quick review of missed points will easily secure Grade A.'
+      };
+    } else if (score >= 11) {
+      return {
+        grade: 'C',
+        percentage,
+        points: 3,
+        englishRemark: 'Good / Credit (Wastani)',
+        swahiliRemark: 'Wastani (Maksi 11 - 15)',
+        colorClass: 'text-amber-600',
+        bgClass: 'bg-amber-50 text-amber-950',
+        borderClass: 'border-amber-400',
+        advice: 'Good pass. Practice extra questions on difficult topics to advance to Grade B.'
+      };
+    } else if (score >= 6) {
+      return {
+        grade: 'D',
+        percentage,
+        points: 4,
+        englishRemark: 'Pass Mark (Dhaifu)',
+        swahiliRemark: 'Dhaifu (Maksi 6 - 10)',
+        colorClass: 'text-orange-600',
+        bgClass: 'bg-orange-50 text-orange-950',
+        borderClass: 'border-orange-400',
+        advice: 'Minimum pass achieved. Target core definitions and formulas to raise your score.'
+      };
+    } else {
+      return {
+        grade: 'F',
+        percentage,
+        points: 5,
+        englishRemark: 'Fail / Below Pass Mark (Vibaya)',
+        swahiliRemark: 'Vibaya (Maksi 0 - 5)',
+        colorClass: 'text-red-600',
+        bgClass: 'bg-red-50 text-red-950',
+        borderClass: 'border-red-400',
+        advice: 'Below the passing threshold (6/25). Review revision notes with Yun AI tutor today.'
+      };
+    }
+  } else if (scaleType === '50_MARK' || maxMark === 50) {
     // User requested 50-Mark Scale: 41-50 A, 31-40 B, 21-30 C, 11-20 D, 0-10 F
     if (score >= 41) {
       return {
@@ -196,14 +260,17 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
     { id: '7', name: 'Geography', score: 33, maxMark: 50 },
   ]);
 
-  const [activeTab, setActiveTab] = useState<'single' | 'matrix' | 'multi' | 'necta_calc'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'matrix' | 'multi' | 'necta_calc' | 'average_sum'>('average_sum');
   const [boundaryFilter, setBoundaryFilter] = useState<'ALL' | 'O_LEVEL' | 'A_LEVEL'>('ALL');
   const [testMarkBoundary, setTestMarkBoundary] = useState<number>(70);
 
   // Handle Scale Change
   const handleScaleChange = (type: ScaleType) => {
     setScaleType(type);
-    if (type === '50_MARK') {
+    if (type === '25_MARK') {
+      setMaxMark(25);
+      if (rawScore > 25) setRawScore(21);
+    } else if (type === '50_MARK') {
       setMaxMark(50);
       if (rawScore > 50) setRawScore(42);
     } else if (type === '100_MARK') {
@@ -307,8 +374,19 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
       {/* Main Tabs Navigation */}
       <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-xs">
         <button
+          onClick={() => setActiveTab('average_sum')}
+          className={`px-4 sm:px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+            activeTab === 'average_sum'
+              ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+              : 'bg-amber-50 text-amber-900 hover:bg-amber-100'
+          }`}
+        >
+          <i className="fa-solid fa-calculator text-amber-600"></i> Average & Sum Calculator (25 / 50 / 100)
+        </button>
+
+        <button
           onClick={() => setActiveTab('single')}
-          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'single'
               ? 'bg-slate-900 text-white shadow-md'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -319,35 +397,35 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
 
         <button
           onClick={() => setActiveTab('matrix')}
-          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'matrix'
               ? 'bg-indigo-600 text-white shadow-md'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          <i className="fa-solid fa-table text-indigo-400"></i> 50 vs 100 Scale Reference Table
+          <i className="fa-solid fa-table text-indigo-400"></i> Reference Table (25/50/100)
         </button>
 
         <button
           onClick={() => setActiveTab('multi')}
-          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'multi'
               ? 'bg-emerald-600 text-white shadow-md'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          <i className="fa-solid fa-chart-line text-emerald-400"></i> Multi-Subject NECTA Division Predictor
+          <i className="fa-solid fa-chart-line text-emerald-400"></i> Multi-Subject Predictor
         </button>
 
         <button
           onClick={() => setActiveTab('necta_calc')}
-          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'necta_calc'
               ? 'bg-purple-600 text-white shadow-md'
               : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
           }`}
         >
-          <i className="fa-solid fa-calculator text-purple-400"></i> Form 4 Division & GPA Calculator
+          <i className="fa-solid fa-graduation-cap text-purple-400"></i> Form 4 Division & GPA
         </button>
       </div>
 
@@ -371,7 +449,26 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 Select Exam Grading Scale:
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div
+                  onClick={() => handleScaleChange('25_MARK')}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition flex items-center gap-3 ${
+                    scaleType === '25_MARK'
+                      ? 'bg-rose-50/80 border-rose-400 text-slate-950 shadow-sm'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    scaleType === '25_MARK' ? 'border-rose-600 bg-rose-500 text-white' : 'border-gray-300'
+                  }`}>
+                    {scaleType === '25_MARK' && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900">25-Mark Scale (Test)</h4>
+                    <p className="text-[10px] text-gray-500 font-medium">21-25 A | 16-20 B | 11-15 C | 6-10 D | 0-5 F</p>
+                  </div>
+                </div>
+
                 <div
                   onClick={() => handleScaleChange('50_MARK')}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition flex items-center gap-3 ${
@@ -386,7 +483,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                     {scaleType === '50_MARK' && <div className="w-2 h-2 rounded-full bg-slate-950"></div>}
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-xs text-slate-900">50-Mark Scale (Default)</h4>
+                    <h4 className="font-extrabold text-xs text-slate-900">50-Mark Scale (Mid-term)</h4>
                     <p className="text-[10px] text-gray-500 font-medium">41-50 A | 31-40 B | 21-30 C | 11-20 D | 0-10 F</p>
                   </div>
                 </div>
@@ -565,27 +662,28 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
             <div>
               <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
                 <i className="fa-solid fa-table-list text-amber-500"></i>
-                50-Mark & 100-Mark Official Scale Conversion Matrix
+                25-Mark, 50-Mark & 100-Mark Scale Conversion Matrix
               </h3>
               <p className="text-xs text-gray-500 font-medium mt-1">
-                Standard Tanzanian school grading breakdown comparing 50-mark tests and 100-mark examinations.
+                Standard Tanzanian school grading breakdown comparing 25-mark weekly tests, 50-mark midterms, and 100-mark examinations.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
               <i className="fa-solid fa-circle-info text-indigo-600"></i>
-              A: 41-50 (50 Scale) = 81-100 (100 Scale)
+              A: 21-25 (25 Scale) = 41-50 (50 Scale) = 81-100 (100 Scale)
             </div>
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[650px]">
               <thead className="bg-slate-900 text-white uppercase font-black text-[11px] tracking-wider">
                 <tr>
                   <th className="px-4 py-3.5">Grade</th>
-                  <th className="px-4 py-3.5 bg-amber-950/80 text-amber-300">50-Mark Scale Range</th>
-                  <th className="px-4 py-3.5 bg-indigo-950/80 text-indigo-200">100-Mark Scale Range (%)</th>
+                  <th className="px-4 py-3.5 bg-rose-950/80 text-rose-300">25-Mark Scale</th>
+                  <th className="px-4 py-3.5 bg-amber-950/80 text-amber-300">50-Mark Scale</th>
+                  <th className="px-4 py-3.5 bg-indigo-950/80 text-indigo-200">100-Mark Scale (%)</th>
                   <th className="px-4 py-3.5">Swahili Remark (Maelezo)</th>
                   <th className="px-4 py-3.5">NECTA Point Value</th>
                   <th className="px-4 py-3.5">Status & Action</th>
@@ -595,6 +693,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 {/* Grade A */}
                 <tr className="bg-emerald-50/50 hover:bg-emerald-50 transition">
                   <td className="px-4 py-4 font-black text-lg text-emerald-600">A</td>
+                  <td className="px-4 py-4 font-extrabold text-rose-900 bg-rose-50/60">21 – 25 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-amber-900 bg-amber-50/60">41 – 50 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-indigo-900 bg-indigo-50/60">81% – 100%</td>
                   <td className="px-4 py-4 font-bold text-slate-900">Vyema Sana (Excellent)</td>
@@ -605,6 +704,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 {/* Grade B */}
                 <tr className="bg-blue-50/50 hover:bg-blue-50 transition">
                   <td className="px-4 py-4 font-black text-lg text-blue-600">B</td>
+                  <td className="px-4 py-4 font-extrabold text-rose-900 bg-rose-50/60">16 – 20 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-amber-900 bg-amber-50/60">31 – 40 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-indigo-900 bg-indigo-50/60">61% – 80%</td>
                   <td className="px-4 py-4 font-bold text-slate-900">Vyema (Very Good)</td>
@@ -615,6 +715,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 {/* Grade C */}
                 <tr className="bg-amber-50/50 hover:bg-amber-50 transition">
                   <td className="px-4 py-4 font-black text-lg text-amber-600">C</td>
+                  <td className="px-4 py-4 font-extrabold text-rose-900 bg-rose-50/60">11 – 15 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-amber-900 bg-amber-50/60">21 – 30 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-indigo-900 bg-indigo-50/60">41% – 60%</td>
                   <td className="px-4 py-4 font-bold text-slate-900">Wastani (Good / Credit)</td>
@@ -625,6 +726,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 {/* Grade D */}
                 <tr className="bg-orange-50/50 hover:bg-orange-50 transition">
                   <td className="px-4 py-4 font-black text-lg text-orange-600">D</td>
+                  <td className="px-4 py-4 font-extrabold text-rose-900 bg-rose-50/60">6 – 10 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-amber-900 bg-amber-50/60">11 – 20 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-indigo-900 bg-indigo-50/60">21% – 40%</td>
                   <td className="px-4 py-4 font-bold text-slate-900">Dhaifu (Pass)</td>
@@ -635,6 +737,7 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
                 {/* Grade F */}
                 <tr className="bg-red-50/50 hover:bg-red-50 transition">
                   <td className="px-4 py-4 font-black text-lg text-red-600">F</td>
+                  <td className="px-4 py-4 font-extrabold text-rose-900 bg-rose-50/60">0 – 5 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-amber-900 bg-amber-50/60">0 – 10 Marks</td>
                   <td className="px-4 py-4 font-extrabold text-indigo-900 bg-indigo-50/60">0% – 20%</td>
                   <td className="px-4 py-4 font-bold text-slate-900">Vibaya (Fail)</td>
@@ -998,6 +1101,9 @@ export const GradeChecker: React.FC<GradeCheckerProps> = ({
           )}
         </div>
       </div>
+
+    {/* TAB: AVERAGE OR SUM CALCULATOR (25 / 50 / 100) */}
+    {activeTab === 'average_sum' && <AverageSumCalculator />}
 
     {/* TAB 4: NECTA FORM 4 DIVISION & GPA CALCULATOR */}
     {activeTab === 'necta_calc' && <NectaCalculator />}
