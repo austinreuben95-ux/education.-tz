@@ -26,6 +26,8 @@ import { RoadmapModal } from './components/RoadmapModal';
 import { VideoLessonsSearch } from './components/VideoLessonsSearch';
 import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
 import StudyRoom from './components/StudyRoom';
+import { HeaderNavDropdowns } from './components/HeaderNavDropdowns';
+import { EssentialHubs } from './components/EssentialHubs';
 import { QuizFeedbackCard } from './components/QuizFeedbackCard';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
@@ -315,6 +317,7 @@ const App: React.FC = () => {
   const [celebratoryQuickStudyToast, setCelebratoryQuickStudyToast] = useState<string | null>(null);
   const [showClearHistoryConfirmToast, setShowClearHistoryConfirmToast] = useState(false);
   const [clearedHistoryNotice, setClearedHistoryNotice] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Study Room live activity for portal preview & hover expansion
   const [activeStudyRoomSubject, setActiveStudyRoomSubject] = useState<string>('ALL');
@@ -1578,148 +1581,26 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">
-          <div className="hidden lg:flex items-center gap-1.5">
-            <button 
-              id="nav-btn-study-room"
-              onClick={() => setCurrentView(AppView.STUDY_ROOM)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.STUDY_ROOM ? 'bg-indigo-600 text-white shadow-sm font-black' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'}`}
-              title="Shared Study Room: Exchange NECTA Traps, Tips & Formulas in Real-time"
-            >
-              <i className="fa-solid fa-chalkboard-user text-indigo-500"></i>
-              <span>Study Room</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.NEWS_SCHOLARSHIPS)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.NEWS_SCHOLARSHIPS ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="TAMISEMI Selection Alerts, NECTA/TCU/HESLB Updates & Scholarship Portal"
-            >
-              <i className="fa-solid fa-bullhorn text-amber-500 animate-pulse"></i> Selection & Scholarships 🎓
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.EXAMS)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.EXAMS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="NECTA Results Statement & Past Papers"
-            >
-              <i className="fa-solid fa-square-poll-vertical text-emerald-500"></i> NECTA Results & Exams
-            </button>
-            <button 
-              onClick={() => {
-                setSelectedLevel(EducationLevel.SECONDARY);
-                setSelectedGrade(null);
-                setSelectedSubject(null);
-                setCurrentView(AppView.SYLLABUS);
-              }}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.SYLLABUS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Browse All Subjects (Std 1 - Form 6)"
-            >
-              <i className="fa-solid fa-layer-group text-indigo-500"></i> All Subjects
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.PLANNER)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.PLANNER ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Weekly Study Planner, YouTube Music Hub & Automated Reminders"
-            >
-              <i className="fa-solid fa-music text-red-500"></i> Planner & Music 🎵
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.NOTES)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.NOTES ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Study Notes & Notebooks"
-            >
-              <i className="fa-solid fa-note-sticky text-emerald-600"></i> Notes
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.DICTIONARY)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.DICTIONARY ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Bilingual Dictionary & Vocabulary Builder"
-            >
-              <i className="fa-solid fa-book-bookmark text-amber-500"></i> Vocabulary & Dictionary
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.TEACHERS)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.TEACHERS ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
-              <i className="fa-solid fa-chalkboard-user"></i> Teachers
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.PREDICTOR)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.PREDICTOR ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Predict School & University Admission Cutoffs"
-            >
-              <i className="fa-solid fa-graduation-cap text-emerald-600"></i> Admission Predictor 🇹🇿
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.ASSIGNMENTS_TESTS ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Assignments, Speed Tests & NECTA Exam Papers"
-            >
-              <i className="fa-solid fa-list-check text-indigo-500"></i> Assignments & Tests 📝
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.BADGES)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.BADGES ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="Scholar Badges, Streaks & Subject Mastery Trophies"
-            >
-              <i className="fa-solid fa-trophy text-amber-500"></i> Badges 🏆
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.GRADE_CHECKER)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.GRADE_CHECKER ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-              title="NECTA Grade Check (50-Mark & 100-Mark Scales: 41-50 A, 31-40 B, 21-30 C, 11-20 D, 0-10 F)"
-            >
-              <i className="fa-solid fa-check-double text-emerald-500"></i> Grade Check 📊
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.ALEVEL_GUIDE)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.ALEVEL_GUIDE ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
-              <i className="fa-solid fa-compass-drafting"></i> A-Level
-            </button>
-            <button 
-              onClick={() => setCurrentView(AppView.CALCULATOR)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 ${currentView === AppView.CALCULATOR ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
-              <i className="fa-solid fa-calculator"></i> Calc
-            </button>
-            <button 
-              onClick={() => setIsRoadmapModalOpen(true)}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-xs transition flex items-center gap-1.5 bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/30 hover:bg-amber-300 border border-amber-300 cursor-pointer`}
-              title="150 Strategic Ideas & Master Platform Roadmap"
-            >
-              <i className="fa-solid fa-rocket text-amber-900"></i> 150 Ideas 🚀
-            </button>
-
-            {/* Low-MB Data Saver Toggle */}
-            <button
-              onClick={() => setDataSaver(!dataSaver)}
-              className={`ml-1 px-3 py-1.5 rounded-full font-extrabold text-[11px] border transition flex items-center gap-1.5 ${
-                dataSaver 
-                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse-glow'
-                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-              }`}
-              title="Low-Bandwidth Mode for 3G & Limited Data"
-            >
-              <i className="fa-solid fa-bolt"></i> {dataSaver ? 'Low MB (ON)' : 'Data Saver'}
-            </button>
-
-            {/* Network Status Indicator */}
-            <button
-              onClick={() => {
-                setShowOfflineToast(true);
-                setOfflineToastDismissed(false);
-              }}
-              className={`px-3 py-1.5 rounded-full font-extrabold text-[11px] border transition flex items-center gap-1.5 ${
-                !isOnline
-                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}
-              title={!isOnline ? "Offline Mode Active - Saved Notes & Core Syllabus Available" : "Online & Connected"}
-            >
-              <i className={`fa-solid ${!isOnline ? 'fa-wifi-slash' : 'fa-wifi'}`}></i>
-              <span>{!isOnline ? 'Offline Mode' : 'Online'}</span>
-            </button>
-          </div>
+          <HeaderNavDropdowns
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            onSelectAllSubjects={() => {
+              setSelectedLevel(EducationLevel.SECONDARY);
+              setSelectedGrade(null);
+              setSelectedSubject(null);
+              setCurrentView(AppView.SYLLABUS);
+            }}
+            onOpenRoadmap={() => setIsRoadmapModalOpen(true)}
+            dataSaver={dataSaver}
+            setDataSaver={setDataSaver}
+            isOnline={isOnline}
+            onOpenOfflineToast={() => {
+              setShowOfflineToast(true);
+              setOfflineToastDismissed(false);
+            }}
+            mobileMenuOpen={mobileNavOpen}
+            setMobileMenuOpen={setMobileNavOpen}
+          />
 
           {/* Stats & Profile Button */}
           <div className="hidden md:flex items-center gap-2">
@@ -3543,301 +3424,14 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             <StudyTrendChart userPoints={user.points} isParentView={false} />
           </div>
 
-          {/* Quick Access Portals Grid */}
-          <div className="max-w-6xl mx-auto px-4 space-y-4 mb-12">
-            <h2 className="text-2xl font-black text-tz-dark flex items-center gap-2">
-              <i className="fa-solid fa-grid-2 text-indigo-600"></i> Essential Learning Hubs
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Portal: Shared Study Room (Firebase Realtime Sync) */}
-              <div
-                id="portal-card-study-room"
-                className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border-2 border-indigo-400/50 hover:border-indigo-400 shadow-md relative overflow-hidden self-start w-full"
-                onClick={() => {
-                  setActiveStudyRoomSubject('ALL');
-                  setCurrentView(AppView.STUDY_ROOM);
-                }}
-              >
-                <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs flex items-center gap-1.5 z-10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping"></span>
-                  Firebase Realtime Live
-                </div>
-                <div>
-                  <div className="w-12 h-12 bg-indigo-500/30 border border-indigo-400/40 text-indigo-300 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-500/20">
-                    <i className="fa-solid fa-chalkboard-user"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-white mb-1 flex items-center gap-2">
-                    <span>Shared Study Room</span>
-                    <span className="text-[10px] bg-indigo-500/40 text-indigo-200 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-bold">New</span>
-                  </h4>
-                  <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                    Study together in subject rooms! Exchange quick revision tips, formula mnemonics, and chief examiner traps in real-time.
-                  </p>
-
-                  {/* Hover State: Temporarily expands to display current subject with highest discussion activity */}
-                  <div
-                    id="study-room-activity-expansion"
-                    className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-60 group-hover:opacity-100 group-hover:mt-3.5 group-hover:pt-3 transition-all duration-300 ease-out border-t border-transparent group-hover:border-indigo-500/30"
-                  >
-                    <div className="bg-slate-950/85 rounded-2xl p-3 border border-indigo-500/40 backdrop-blur-sm space-y-2 shadow-inner">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                          </span>
-                          Highest Discussion Activity
-                        </span>
-                        <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <i className="fa-solid fa-fire text-amber-400 text-[9px]"></i>
-                          <span>Trending Now</span>
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/25 border border-indigo-400/40 text-cyan-300 flex items-center justify-center text-base shrink-0 shadow-xs">
-                          <i className={`fa-solid ${highestActivitySubject.icon || 'fa-chalkboard-user'}`}></i>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <h5 className="font-black text-xs text-white truncate">
-                              {highestActivitySubject.name}
-                            </h5>
-                            <span className="text-[10px] font-black text-cyan-300 whitespace-nowrap bg-cyan-950/60 px-1.5 py-0.5 rounded-md border border-cyan-500/30">
-                              {highestActivitySubject.likes} <i className="fa-solid fa-thumbs-up text-[9px]"></i>
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-300 truncate mt-0.5">
-                            {highestActivitySubject.latestTopic ? `Topic: ${highestActivitySubject.latestTopic}` : `${highestActivitySubject.count} active discussion threads`}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-indigo-300/90 font-medium pt-1 border-t border-indigo-900/60">
-                        <span>{highestActivitySubject.count} tips & NECTA traps shared</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveStudyRoomSubject(highestActivitySubject.id);
-                            setCurrentView(AppView.STUDY_ROOM);
-                          }}
-                          className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition cursor-pointer"
-                        >
-                          <span>Open Room</span>
-                          <i className="fa-solid fa-chevron-right text-[8px]"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-4 mt-2 border-t border-indigo-800/80 flex items-center justify-between text-xs font-black text-indigo-300">
-                  <span className="group-hover:hidden">Enter Live Subject Rooms</span>
-                  <span className="hidden group-hover:inline text-cyan-300 flex items-center gap-1.5 font-black">
-                    <i className="fa-solid fa-door-open text-xs"></i> Enter {highestActivitySubject.name} Room
-                  </span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1.5 transition text-emerald-400"></i>
-                </div>
-              </div>
-
-              {/* Portal Schools Directory */}
-              <div
-                className="bg-indigo-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-500/20 transition border-2 border-indigo-500/40 shadow-sm hover:shadow-lg relative overflow-hidden"
-                onClick={() => setCurrentView(AppView.SCHOOLS)}
-              >
-                <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
-                  ★ NECTA Cut-offs & Codes
-                </div>
-                <div>
-                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-500/30">
-                    <i className="fa-solid fa-school text-white"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 mb-1">Schools & Pass Marks</h4>
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                    Search primary & secondary schools in Tanzania by name, NECTA center code, or region with minimum pass marks & grade scales.
-                  </p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-indigo-300 flex items-center justify-between text-xs font-black text-indigo-700">
-                  <span>Explore Schools Directory</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal Video Lessons: Video Library */}
-              <div
-                className="bg-red-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-red-500/20 transition border-2 border-red-500/40 shadow-sm hover:shadow-lg relative overflow-hidden"
-                onClick={() => setCurrentView(AppView.VIDEOS)}
-              >
-                <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
-                  ★ Swahili & English Videos
-                </div>
-                <div>
-                  <div className="w-12 h-12 bg-red-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-red-500/30">
-                    <i className="fa-solid fa-play text-white"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 mb-1">Video Lessons & Tutorials</h4>
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                    Search top-rated video walkthroughs by subject or topic (Maths, Physics, Chemistry, Kiswahili) with embedded YouTube player.
-                  </p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-red-300 flex items-center justify-between text-xs font-black text-red-700">
-                  <span>Watch Video Lessons</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 0: News & Scholarships */}
-              <div
-                className="bg-amber-500/10 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-500/20 transition border-2 border-amber-400 shadow-sm hover:shadow-lg relative overflow-hidden"
-                onClick={() => setCurrentView(AppView.NEWS_SCHOLARSHIPS)}
-              >
-                <div className="absolute top-0 right-0 bg-amber-400 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-xs">
-                  ★ TAMISEMI & Scholarships
-                </div>
-                <div>
-                  <div className="w-12 h-12 bg-amber-400 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30">
-                    <i className="fa-solid fa-bullhorn text-slate-950"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 mb-1">Selection Alerts & Scholarships</h4>
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                    Form 1 & Form 5 TAMISEMI selection lists, NECTA results, TCU & HESLB loan releases + MasterCard, Chevening & Chinese Scholarships!
-                  </p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-amber-300 flex items-center justify-between text-xs font-black text-slate-900">
-                  <span>Open Selection & Scholarships</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-              {/* Portal 1: NECTA Results */}
-              <div
-                className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.EXAMS)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
-                    <i className="fa-solid fa-square-poll-vertical"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-emerald-950 mb-1">NECTA Results Portal</h4>
-                  <p className="text-xs text-emerald-800 font-medium leading-relaxed">Check index statements, candidate results, and calculate division points.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
-                  <span>Access Results</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 2: Vocabulary & Dictionary */}
-              <div
-                className="bg-amber-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-amber-100/80 transition border-2 border-amber-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.DICTIONARY)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-200">
-                    <i className="fa-solid fa-book-bookmark"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-amber-950 mb-1">Vocabulary & Kamusi</h4>
-                  <p className="text-xs text-amber-800 font-medium leading-relaxed">Swahili & English academic term definitions, audio pronunciation, and flashcards.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-amber-200/60 flex items-center justify-between text-xs font-black text-amber-700">
-                  <span>Open Dictionary</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 3: Notes Hub */}
-              <div
-                className="bg-indigo-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-indigo-100/80 transition border-2 border-indigo-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.NOTES)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-indigo-200">
-                    <i className="fa-solid fa-note-sticky"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-indigo-950 mb-1">Study Notes Hub</h4>
-                  <p className="text-xs text-indigo-800 font-medium leading-relaxed">Create personal subject notebooks, save Yun AI summaries, and export PDFs.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-indigo-200/60 flex items-center justify-between text-xs font-black text-indigo-700">
-                  <span>Open Notebooks</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 4: Grade Calculator */}
-              <div
-                className="bg-purple-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-purple-100/80 transition border-2 border-purple-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.CALCULATOR)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-purple-200">
-                    <i className="fa-solid fa-calculator"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-purple-950 mb-1">Grade Calculator</h4>
-                  <p className="text-xs text-purple-800 font-medium leading-relaxed">Calculate subject grade averages, sum scores, and academic percentages.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-purple-200/60 flex items-center justify-between text-xs font-black text-purple-700">
-                  <span>Calculate Grades</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 5: School Admission Predictor */}
-              <div
-                className="bg-emerald-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-emerald-100/80 transition border-2 border-emerald-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.PREDICTOR)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-emerald-200">
-                    <i className="fa-solid fa-graduation-cap"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-emerald-950 mb-1">School & University Predictor</h4>
-                  <p className="text-xs text-emerald-800 font-medium leading-relaxed">Predict exactly which Special National Schools, A-Level Combos, or University programs (UDSM, MUHAS) you qualify for!</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-black text-emerald-700">
-                  <span>Predict School Admission</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 6: Assignments & Practice Test Center */}
-              <div
-                className="bg-sky-50/80 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:bg-sky-100/80 transition border-2 border-sky-100 shadow-sm hover:shadow-md"
-                onClick={() => setCurrentView(AppView.ASSIGNMENTS_TESTS)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-sky-200">
-                    <i className="fa-solid fa-list-check"></i>
-                  </div>
-                  <h4 className="text-lg font-black text-sky-950 mb-1">Assignments & Practice Tests</h4>
-                  <p className="text-xs text-sky-800 font-medium leading-relaxed">Practice weekly homework tasks, timed speed tests, and past papers with model answer keys.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-sky-200/60 flex items-center justify-between text-xs font-black text-sky-700">
-                  <span>Open Test Bank</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              {/* Portal 7: 150 Strategic Ideas & Master Blueprint */}
-              <div
-                className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/15 rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:from-amber-500/20 hover:to-amber-400/10 transition border-2 border-amber-300 shadow-sm hover:shadow-md relative overflow-hidden"
-                onClick={() => setIsRoadmapModalOpen(true)}
-              >
-                <div>
-                  <div className="w-12 h-12 bg-amber-500 text-slate-950 rounded-2xl flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition shadow-md shadow-amber-400/30 font-black">
-                    <i className="fa-solid fa-rocket"></i>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/30 text-amber-900 font-extrabold text-[10px] uppercase mb-1 border border-amber-400/40">
-                    <span>150 Strategic Features</span>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 mb-1">150 Innovation Ideas & Blueprint</h4>
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">Explore the complete 150-point master roadmap powering NECTA exam tech, STEM labs, low-bandwidth PWA, AI tools & Swahili localization.</p>
-                </div>
-                <div className="pt-4 mt-2 border-t border-amber-300/60 flex items-center justify-between text-xs font-black text-amber-900">
-                  <span>Explore 150 Strategy Points</span>
-                  <i className="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Grouped Essential Learning Hubs Portals */}
+          <EssentialHubs
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setActiveStudyRoomSubject={setActiveStudyRoomSubject}
+            highestActivitySubject={highestActivitySubject}
+            setIsRoadmapModalOpen={setIsRoadmapModalOpen}
+          />
         </>
       )}
     </div>
