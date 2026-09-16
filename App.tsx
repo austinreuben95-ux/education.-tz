@@ -1567,20 +1567,20 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
     return (
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={goHome}>
-          <div className="w-11 h-11 bg-vibrant-gradient rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0" onClick={goHome}>
+          <div className="w-9 h-9 sm:w-11 sm:h-11 bg-vibrant-gradient rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-extrabold text-xl sm:text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform shrink-0">
             E
           </div>
-          <div className="flex flex-col">
-            <span className="font-black text-2xl leading-none text-tz-dark tracking-tight">Education<span className="gradient-text">TZ</span></span>
-            <span className="text-[10px] text-indigo-600 font-extrabold tracking-widest uppercase flex items-center gap-1">
+          <div className="flex flex-col min-w-0">
+            <span className="font-black text-xl sm:text-2xl leading-none text-tz-dark tracking-tight truncate">Education<span className="gradient-text">TZ</span></span>
+            <span className="text-[10px] text-indigo-600 font-extrabold tracking-widest uppercase items-center gap-1 hidden sm:flex">
               <i className="fa-solid fa-sparkles text-[8px]"></i> {totalTopicsCount}+ Topics & Videos
             </span>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 shrink-0">
           <HeaderNavDropdowns
             currentView={currentView}
             setCurrentView={setCurrentView}
@@ -1600,9 +1600,38 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             }}
             mobileMenuOpen={mobileNavOpen}
             setMobileMenuOpen={setMobileNavOpen}
+            onOpenProfile={() => setIsProfileModalOpen(true)}
+            streak={user.streak}
+            points={user.points}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => {
+              const email = currentUser?.email?.toLowerCase().trim();
+              const isMaster = email === 'austinreuben95@gmail.com';
+              let isGrantedAdmin = false;
+              try {
+                const savedCollabs = localStorage.getItem('tz_app_collaborators');
+                if (savedCollabs) {
+                  const list = JSON.parse(savedCollabs);
+                  isGrantedAdmin = list.some((c: any) => c.status === 'Active' && c.email && c.email.toLowerCase().trim() === email);
+                }
+                const savedSpot2 = localStorage.getItem('tz_admin_spot_2');
+                if (savedSpot2 && savedSpot2.toLowerCase().trim() === email) {
+                  isGrantedAdmin = true;
+                }
+              } catch (e) {}
+
+              if (!isMaster && !isGrantedAdmin) {
+                window.location.href = 'https://aistudio.google.com/';
+              } else {
+                setCurrentView(AppView.ADMIN);
+              }
+            }}
+            onOpenParents={() => setCurrentView(AppView.PARENTS)}
+            onStartChat={startChat}
+            onGoHome={goHome}
           />
 
-          {/* Stats & Profile Button */}
+          {/* Stats & Profile Button (hidden on mobile, fully integrated into hamburger & bottom bar) */}
           <div className="hidden md:flex items-center gap-2">
             <div 
               onClick={() => setCurrentView(AppView.BADGES)}
@@ -1640,7 +1669,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
           <button 
             onClick={() => setCurrentView(AppView.PARENTS)}
-            className="text-gray-500 hover:text-purple-700 transition p-2 rounded-lg hover:bg-purple-50 flex items-center gap-1 font-bold text-xs"
+            className="hidden sm:flex text-gray-500 hover:text-purple-700 transition p-2 rounded-lg hover:bg-purple-50 items-center gap-1 font-bold text-xs"
             title="Parent Dashboard"
           >
             <i className="fa-solid fa-user-shield text-lg text-purple-600"></i>
@@ -1671,7 +1700,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   setCurrentView(AppView.ADMIN);
                 }
               }}
-              className="text-red-500 hover:text-red-600 transition flex items-center gap-1 font-bold text-xs"
+              className="hidden sm:flex text-red-500 hover:text-red-600 transition items-center gap-1 font-bold text-xs"
               title="Admin Panel"
             >
               <i className="fa-solid fa-lock text-sm"></i>
@@ -1681,7 +1710,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
           <button 
             onClick={startChat}
-            className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-4 py-2 rounded-xl font-black shadow-[0_4px_0_rgb(30,27,75)] hover:translate-y-[2px] transition-all flex items-center gap-2.5 border border-cyan-400/50"
+            className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl font-black shadow-[0_4px_0_rgb(30,27,75)] hover:translate-y-[2px] transition-all flex items-center gap-1.5 sm:gap-2.5 border border-cyan-400/50"
           >
             <YunAvatar3D size="sm" />
             <span className="hidden sm:inline text-xs uppercase tracking-wider text-cyan-300">Ask Yun</span>
@@ -3571,7 +3600,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800">
       {renderHeader()}
 
-      <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full relative">
+      <main className="flex-grow p-3 sm:p-4 md:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto w-full relative">
         
         {/* QUIZ MODAL */}
         {isQuizModalOpen && (
@@ -4484,6 +4513,95 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         />
 
       </main>
+
+      {/* PERSISTENT MOBILE BOTTOM NAVIGATION BAR */}
+      <nav
+        id="mobile-bottom-nav-bar"
+        aria-label="Mobile Bottom Navigation"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-2 py-1.5 flex items-center justify-around safe-area-bottom"
+      >
+        {/* 1. Home */}
+        <button
+          id="mobile-bottom-nav-home"
+          type="button"
+          onClick={goHome}
+          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
+            currentView === AppView.HOME
+              ? 'text-indigo-600 font-black scale-105'
+              : 'text-gray-500 hover:text-indigo-600 font-bold'
+          }`}
+        >
+          <i className="fa-solid fa-house text-base"></i>
+          <span className="text-[10px]">Home</span>
+        </button>
+
+        {/* 2. Syllabus */}
+        <button
+          id="mobile-bottom-nav-syllabus"
+          type="button"
+          onClick={() => {
+            setSelectedLevel(EducationLevel.SECONDARY);
+            setSelectedGrade(null);
+            setSelectedSubject(null);
+            setCurrentView(AppView.SYLLABUS);
+          }}
+          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
+            currentView === AppView.SYLLABUS || currentView === AppView.TOPIC_CONTENT
+              ? 'text-indigo-600 font-black scale-105'
+              : 'text-gray-500 hover:text-indigo-600 font-bold'
+          }`}
+        >
+          <i className="fa-solid fa-book-open text-base"></i>
+          <span className="text-[10px]">Syllabus</span>
+        </button>
+
+        {/* 3. Ask Yun AI (Center Prominent CTA) */}
+        <button
+          id="mobile-bottom-nav-yun"
+          type="button"
+          onClick={startChat}
+          className="min-w-[54px] min-h-[48px] -mt-4 bg-gradient-to-tr from-indigo-600 via-indigo-700 to-cyan-500 text-white rounded-2xl shadow-lg shadow-indigo-500/35 border-2 border-white flex flex-col items-center justify-center px-2 py-1 active:scale-95 transition-transform cursor-pointer group"
+          title="Ask Yun AI"
+        >
+          <div className="w-5 h-5 flex items-center justify-center">
+            <YunAvatar3D size="sm" />
+          </div>
+          <span className="text-[10px] font-black tracking-wide text-cyan-200 group-hover:text-white">Yun AI</span>
+        </button>
+
+        {/* 4. Exams & Vault */}
+        <button
+          id="mobile-bottom-nav-exams"
+          type="button"
+          onClick={() => setCurrentView(AppView.EXAMS)}
+          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
+            currentView === AppView.EXAMS || currentView === AppView.ASSIGNMENTS_TESTS || currentView === AppView.GRADE_CHECKER
+              ? 'text-indigo-600 font-black scale-105'
+              : 'text-gray-500 hover:text-indigo-600 font-bold'
+          }`}
+        >
+          <i className="fa-solid fa-clipboard-check text-base"></i>
+          <span className="text-[10px]">Exams</span>
+        </button>
+
+        {/* 5. Menu / Hamburger Drawer Toggle */}
+        <button
+          id="mobile-bottom-nav-menu"
+          type="button"
+          onClick={() => setMobileNavOpen(true)}
+          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
+            mobileNavOpen
+              ? 'text-indigo-600 font-black scale-105'
+              : 'text-gray-500 hover:text-indigo-600 font-bold'
+          }`}
+        >
+          <div className="relative">
+            <i className="fa-solid fa-bars text-base"></i>
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400"></span>
+          </div>
+          <span className="text-[10px]">Menu</span>
+        </button>
+      </nav>
     </div>
   );
 };

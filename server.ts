@@ -371,7 +371,22 @@ app.post("/api/chat/stream", async (req, res) => {
           streamResponse = await liteChat.sendMessageStream({ message: prompt });
           modelUsed = "gemini-3.1-flash-lite";
         } catch (liteErr: any) {
-          console.error("All stream model attempts failed:", liteErr?.message || liteErr);
+          console.warn("Fallback to 3.1-flash-lite stream failed:", liteErr?.message || liteErr);
+        }
+      }
+
+      // Fallback 3: gemini-2.5-flash (workhorse fallback when 3.8/3.1 experience 503 high demand)
+      if (!streamResponse) {
+        try {
+          const stableChat = ai.chats.create({
+            model: "gemini-2.5-flash",
+            config: { systemInstruction: chatConfig.systemInstruction },
+            history: formattedHistory,
+          });
+          streamResponse = await stableChat.sendMessageStream({ message: prompt });
+          modelUsed = "gemini-2.5-flash";
+        } catch (stableErr: any) {
+          console.error("All stream model attempts failed:", stableErr?.message || stableErr);
         }
       }
     }
@@ -502,7 +517,22 @@ app.post("/api/chat", async (req, res) => {
           response = await liteChat.sendMessage({ message: prompt });
           modelUsed = "gemini-3.1-flash-lite";
         } catch (liteErr: any) {
-          console.error("All AI model attempts encountered an error:", liteErr?.message || liteErr);
+          console.warn("Fallback to gemini-3.1-flash-lite failed:", liteErr?.message || liteErr);
+        }
+      }
+
+      // Fallback 3: gemini-2.5-flash (workhorse fallback when 3.8/3.1 experience 503 high demand)
+      if (!response || !response.text) {
+        try {
+          const stableChat = ai.chats.create({
+            model: "gemini-2.5-flash",
+            config: { systemInstruction: chatConfig.systemInstruction },
+            history: formattedHistory,
+          });
+          response = await stableChat.sendMessage({ message: prompt });
+          modelUsed = "gemini-2.5-flash";
+        } catch (stableErr: any) {
+          console.error("All AI model attempts encountered an error:", stableErr?.message || stableErr);
         }
       }
     }
