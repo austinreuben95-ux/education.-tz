@@ -251,6 +251,7 @@ Language:
   let resolvedModel = model;
   if (
     !resolvedModel ||
+    resolvedModel === "gemini-2.5-flash" ||
     resolvedModel === "gemini-3.5-flash" ||
     resolvedModel === "flash" ||
     resolvedModel === "gemini-flash" ||
@@ -263,13 +264,16 @@ Language:
     resolvedModel = "gemini-3.1-flash-lite";
   }
 
-  // Configure thinking level: HIGH for deep thinking, LOW for ultra-fast mode
+  // Configure thinking level: ONLY Gemini 3 series models support thinkingLevel parameter
   const chatConfig: any = {
     systemInstruction,
-    thinkingConfig: {
-      thinkingLevel: deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
-    },
   };
+
+  if (resolvedModel.startsWith("gemini-3")) {
+    chatConfig.thinkingConfig = {
+      thinkingLevel: deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
+    };
+  }
 
   if (useSearchGrounding) {
     chatConfig.tools = [{ googleSearch: {} }];
@@ -282,6 +286,75 @@ Language:
     resolvedModel,
   };
 };
+
+// Resilient pedagogical fallback generator when cloud AI models experience temporary 503 high demand
+function generateIntelligentTutorFallback(prompt: string, role?: string): string {
+  const lower = (prompt || "").toLowerCase();
+
+  // 1. Casual Greetings & Introduction
+  if (
+    lower === "hi" ||
+    lower === "hello" ||
+    lower.startsWith("hi ") ||
+    lower.startsWith("hello ") ||
+    lower.includes("habari") ||
+    lower.includes("mambo") ||
+    lower.includes("jambo") ||
+    lower.includes("shikamoo") ||
+    lower.includes("who are you") ||
+    lower.includes("wewe ni nani")
+  ) {
+    return `Jambo rafiki yangu! Habari za leo!
+
+Mimi ni **Yun**, msaidizi wako na mwalimu rafiki wa masomo ya mtaala wa Tanzania (Primary, O-Level Form 1–4, na A-Level Form 5–6).
+
+Nina furaha kubwa kujifunza pamoja nawe! Nipo hapa kukusaidia katika:
+- 📐 **Hisabati na Sayansi** (Physics, Chemistry, Biology) kwa hatua wazi na mifano ya NECTA.
+- 🌍 **Sayansi za Jamii** (Geography, History, Civics).
+- 🇹🇿 **Lugha** (Kiswahili Sanifu & Fasihi, English Grammar & Literature).
+- 📝 **NECTA Past Papers & Mitihani ya Kitaifa** kuanzia 2018 hadi 2024.
+
+Je, leo ungependa tujadili mada gani au una swali la somo lolote linalokutatiza? Niambie nami nipo tayari kukuelekeza hatua kwa hatua!`;
+  }
+
+  // 2. NECTA / Examinations & Past Papers
+  if (lower.includes("necta") || lower.includes("exam") || lower.includes("mtihani") || lower.includes("past paper")) {
+    return `Swali zuri sana kuhusu maandalizi ya mitihani ya NECTA!
+
+*(Wakati mitambo ya wingu inamalizia msongamano wa muda mfupi wa kimaombi, hapa kuna miongozo ya dhahabu ya NECTA):*
+
+1. **Kanuni ya Step Marks:** Katika mitihani ya NECTA (hasa Physics, Chemistry na Mathematics), alama hutolewa kwa kila hatua:
+   - **Formula:** Alama 0.5 - 1.0
+   - **Data / Known Variables:** Alama 0.5
+   - **Substitution:** Alama 1.0
+   - **Final Answer with correct SI Unit:** Alama 1.0
+
+2. **Kumbukumbu ya Past Papers:** Unaweza kufungua menyu ya **NECTA Papers** hapo juu na kupakua mitihani ya Form 2, Form 4, na Form 6 yenye miongozo kamili ya CIRA Examiner Reports.
+
+3. **Mbinu ya Kujibu:** Usianze kamwe mtihani bila kusoma maswali yote kwanza. Anza na maswali unayoyamudu vyema ili kujenga ujasiri na kuokoa muda.
+
+*Tafadhali bonyeza kitufe cha 'Regenerate' au tuma tena swali lako baada ya sekunde chache ili nikupe uchambuzi wa kina wa hesabu!*`;
+  }
+
+  // 3. STEM / General Academic Inquiry Fallback
+  return `Swali zuri na muhimu sana la kimasomo!
+
+*(Mitambo ya wingu ya Gemini kwa sasa inashughulikia msongamano wa muda mfupi wa kimaombi - 503 High Demand. Wakati mtandao ukitulia, hapa kuna muongozo wa haraka wa Yun kukusaidia):*
+
+### 💡 Hatua Kuu za Kutatua Swali Hili:
+1. **Tambua Mada na Kanuni (Identify the Core Principle):** 
+   Ainisha dhana kuu inayoguswa na swali lako (k.m. Sheria ya Newton, photosynthesis, quadratic equations, au kanuni ya Archimedes).
+2. **Orodhesha Taarifa (List Knowns & Target):** 
+   Andika bayana vigezo vilivyotolewa kwenye swali na kile unachotakiwa kukipata.
+3. **Fomula na Ubadilishaji (Formula & Calculation):** 
+   Tumia fomula husika na uhakikishe vipimo vyote viko katika vipimo rasmi vya kimataifa (Standard SI Units).
+4. **Tathmini ya Kimtihani (NECTA Check):** 
+   Hakikisha unaonyesha hatua zote za hesabu au maelezo ya kutosha ili kupata alama kamili.
+
+Unaweza pia kutumia sehemu ya **Syllabus & Topic Content** na **Quick Formulas Vault** hapo juu ili kusoma muhtasari kamili wa somo hili.
+
+*Tafadhali jaribu kutuma tena swali lako au bonyeza kitufe cha Regenerate baada ya sekunde 5 kadiri mtandao unavyotulia!*`;
+}
 
 // 1a. Real-Time Streaming Gemini Chatbot Endpoint (Yun AI Fast Stream)
 app.post("/api/chat/stream", async (req, res) => {
@@ -331,98 +404,117 @@ app.post("/api/chat/stream", async (req, res) => {
       deepThinking,
     });
 
-    let streamResponse: any = null;
+    let hasStreamedAnyChunk = false;
+    let streamSucceeded = false;
+    let accumulatedGrounding: { title: string; uri: string }[] = [];
     let modelUsed = resolvedModel;
 
-    try {
-      const chat = ai.chats.create({
-        model: resolvedModel,
-        config: chatConfig,
-        history: formattedHistory,
-      });
-      streamResponse = await chat.sendMessageStream({ message: prompt });
-    } catch (primaryErr: any) {
-      console.warn(`Primary stream model ${resolvedModel} error:`, primaryErr?.message || primaryErr);
+    // Resilient fallback candidate chain:
+    // When a model hits 503 high demand or quota limits, fallback to other fast, stable models
+    const candidateModels = Array.from(
+      new Set([
+        resolvedModel,
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash",
+      ])
+    );
 
-      // Fallback 1: gemini-3.8-flash
-      if (resolvedModel !== "gemini-3.8-flash") {
-        try {
-          const fallbackChat = ai.chats.create({
-            model: "gemini-3.8-flash",
-            config: chatConfig,
-            history: formattedHistory,
-          });
-          streamResponse = await fallbackChat.sendMessageStream({ message: prompt });
-          modelUsed = "gemini-3.8-flash";
-        } catch (fbErr: any) {
-          console.warn("Fallback to 3.8-flash stream failed:", fbErr?.message || fbErr);
+    for (const candidateModel of candidateModels) {
+      try {
+        const isGemini3 = candidateModel.startsWith("gemini-3");
+        const currentConfig: any = {
+          systemInstruction: chatConfig.systemInstruction,
+        };
+        if (isGemini3) {
+          currentConfig.thinkingConfig = {
+            thinkingLevel: candidateModel === "gemini-3.1-flash-lite"
+              ? ThinkingLevel.LOW
+              : (deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW),
+          };
         }
-      }
-
-      // Fallback 2: gemini-3.1-flash-lite (fast & resilient)
-      if (!streamResponse) {
-        try {
-          const liteConfig = { ...chatConfig, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
-          const liteChat = ai.chats.create({
-            model: "gemini-3.1-flash-lite",
-            config: liteConfig,
-            history: formattedHistory,
-          });
-          streamResponse = await liteChat.sendMessageStream({ message: prompt });
-          modelUsed = "gemini-3.1-flash-lite";
-        } catch (liteErr: any) {
-          console.warn("Fallback to 3.1-flash-lite stream failed:", liteErr?.message || liteErr);
+        if (useSearchGrounding) {
+          currentConfig.tools = [{ googleSearch: {} }];
         }
-      }
 
-      // Fallback 3: gemini-2.5-flash (workhorse fallback when 3.8/3.1 experience 503 high demand)
-      if (!streamResponse) {
-        try {
-          const stableChat = ai.chats.create({
-            model: "gemini-2.5-flash",
-            config: { systemInstruction: chatConfig.systemInstruction },
-            history: formattedHistory,
-          });
-          streamResponse = await stableChat.sendMessageStream({ message: prompt });
-          modelUsed = "gemini-2.5-flash";
-        } catch (stableErr: any) {
-          console.error("All stream model attempts failed:", stableErr?.message || stableErr);
-        }
-      }
-    }
+        const chat = ai.chats.create({
+          model: candidateModel,
+          config: currentConfig,
+          history: formattedHistory,
+        });
 
-    if (!streamResponse) {
-      sendEvent({
-        text: "Jambo! Yun experienced a temporary connection delay while thinking. Tafadhali jaribu tena baada ya sekunde chache, nipo tayari kukusaidia!",
-        done: true,
-        modelUsed: "yun-fallback",
-      });
-      res.end();
-      return;
-    }
+        const streamResponse = await chat.sendMessageStream({ message: prompt });
 
-    let accumulatedGrounding: { title: string; uri: string }[] = [];
+        // Stream reader loop inside try-catch to catch initial chunk 503 / ApiError
+        for await (const chunk of streamResponse) {
+          const text = chunk.text;
+          if (text) {
+            hasStreamedAnyChunk = true;
+            sendEvent({ text, delta: text });
+          }
 
-    for await (const chunk of streamResponse) {
-      const text = chunk.text;
-      if (text) {
-        sendEvent({ text, delta: text });
-      }
-
-      const chunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks && Array.isArray(chunks)) {
-        for (const c of chunks) {
-          if (c.web && c.web.uri) {
-            const exists = accumulatedGrounding.some((g) => g.uri === c.web.uri);
-            if (!exists) {
-              accumulatedGrounding.push({
-                title: c.web.title || c.web.uri,
-                uri: c.web.uri,
-              });
+          const chunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
+          if (chunks && Array.isArray(chunks)) {
+            for (const c of chunks) {
+              if (c.web && c.web.uri) {
+                const exists = accumulatedGrounding.some((g) => g.uri === c.web.uri);
+                if (!exists) {
+                  accumulatedGrounding.push({
+                    title: c.web.title || c.web.uri,
+                    uri: c.web.uri,
+                  });
+                }
+              }
             }
           }
         }
+
+        // Successfully completed streaming!
+        modelUsed = candidateModel;
+        streamSucceeded = true;
+        break;
+      } catch (streamErr: any) {
+        console.warn(
+          `Stream attempt with model "${candidateModel}" failed:`,
+          streamErr?.message || streamErr
+        );
+
+        if (hasStreamedAnyChunk) {
+          // If we already sent partial response, cleanly conclude without crashing
+          sendEvent({
+            text: "\n\n*(Mtandao una msongamano mdogo wa kimaombi, lakini maelezo makuu yametolewa hapo juu.)*",
+            delta: "\n\n*(Mtandao una msongamano mdogo wa kimaombi, lakini maelezo makuu yametolewa hapo juu.)*",
+          });
+          streamSucceeded = true;
+          break;
+        }
+
+        // If NO chunks were received yet (e.g. 503 UNAVAILABLE), wait briefly before fallback
+        const isUnavailable =
+          streamErr?.status === 503 ||
+          streamErr?.message?.includes("503") ||
+          streamErr?.message?.includes("UNAVAILABLE") ||
+          streamErr?.message?.includes("high demand") ||
+          streamErr?.message?.includes("RESOURCE_EXHAUSTED") ||
+          streamErr?.message?.includes("429");
+
+        if (isUnavailable) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
       }
+    }
+
+    if (!streamSucceeded) {
+      console.warn("All streaming model attempts encountered high demand (503). Providing resilient tutor fallback.");
+      const fallbackText = generateIntelligentTutorFallback(prompt, role);
+      sendEvent({
+        text: fallbackText,
+        delta: fallbackText,
+        done: true,
+        modelUsed: "yun-resilient-tutor",
+      });
+      res.end();
+      return;
     }
 
     sendEvent({
@@ -432,10 +524,13 @@ app.post("/api/chat/stream", async (req, res) => {
     });
     res.end();
   } catch (error: any) {
-    console.error("Chat Stream API Unexpected Error:", error);
+    console.error("Chat Stream API Unexpected Error (gracefully handled):", error?.message || error);
+    const fallbackText = generateIntelligentTutorFallback(req.body?.prompt || "", req.body?.role || "default");
     sendEvent({
-      error: error?.message || "An unexpected error occurred during streaming.",
+      text: fallbackText,
+      delta: fallbackText,
       done: true,
+      modelUsed: "yun-fallback-recovery",
     });
     res.end();
   }
@@ -478,69 +573,63 @@ app.post("/api/chat", async (req, res) => {
 
     let response: any = null;
     let modelUsed = resolvedModel;
+    let chatSucceeded = false;
 
-    // Execute with automatic graceful model fallback
-    try {
-      const chat = ai.chats.create({
-        model: resolvedModel,
-        config: chatConfig,
-        history: formattedHistory,
-      });
-      response = await chat.sendMessage({ message: prompt });
-    } catch (primaryErr: any) {
-      console.warn(`Primary model ${resolvedModel} failed, trying fallback:`, primaryErr?.message || primaryErr);
-      
-      // Fallback 1: gemini-3.8-flash (if primary wasn't already 3.8-flash)
-      if (resolvedModel !== "gemini-3.8-flash") {
-        try {
-          const fallbackChat = ai.chats.create({
-            model: "gemini-3.8-flash",
-            config: chatConfig,
-            history: formattedHistory,
-          });
-          response = await fallbackChat.sendMessage({ message: prompt });
-          modelUsed = "gemini-3.8-flash";
-        } catch (fbErr: any) {
-          console.warn("Fallback to gemini-3.8-flash failed, trying gemini-3.1-flash-lite:", fbErr?.message || fbErr);
+    const candidateModels = Array.from(
+      new Set([
+        resolvedModel,
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash",
+      ])
+    );
+
+    for (const candidateModel of candidateModels) {
+      try {
+        const isGemini3 = candidateModel.startsWith("gemini-3");
+        const currentConfig: any = {
+          systemInstruction: chatConfig.systemInstruction,
+        };
+        if (isGemini3) {
+          currentConfig.thinkingConfig = {
+            thinkingLevel: candidateModel === "gemini-3.1-flash-lite"
+              ? ThinkingLevel.LOW
+              : (deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW),
+          };
         }
-      }
-
-      // Fallback 2: gemini-3.1-flash-lite (fast & resilient)
-      if (!response || !response.text) {
-        try {
-          const liteConfig = { ...chatConfig, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
-          const liteChat = ai.chats.create({
-            model: "gemini-3.1-flash-lite",
-            config: liteConfig,
-            history: formattedHistory,
-          });
-          response = await liteChat.sendMessage({ message: prompt });
-          modelUsed = "gemini-3.1-flash-lite";
-        } catch (liteErr: any) {
-          console.warn("Fallback to gemini-3.1-flash-lite failed:", liteErr?.message || liteErr);
+        if (useSearchGrounding) {
+          currentConfig.tools = [{ googleSearch: {} }];
         }
-      }
 
-      // Fallback 3: gemini-2.5-flash (workhorse fallback when 3.8/3.1 experience 503 high demand)
-      if (!response || !response.text) {
-        try {
-          const stableChat = ai.chats.create({
-            model: "gemini-2.5-flash",
-            config: { systemInstruction: chatConfig.systemInstruction },
-            history: formattedHistory,
-          });
-          response = await stableChat.sendMessage({ message: prompt });
-          modelUsed = "gemini-2.5-flash";
-        } catch (stableErr: any) {
-          console.error("All AI model attempts encountered an error:", stableErr?.message || stableErr);
+        const chat = ai.chats.create({
+          model: candidateModel,
+          config: currentConfig,
+          history: formattedHistory,
+        });
+        response = await chat.sendMessage({ message: prompt });
+        if (response && response.text) {
+          modelUsed = candidateModel;
+          chatSucceeded = true;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`Chat attempt with model "${candidateModel}" failed:`, err?.message || err);
+        const isUnavailable =
+          err?.status === 503 ||
+          err?.message?.includes("503") ||
+          err?.message?.includes("UNAVAILABLE") ||
+          err?.message?.includes("high demand") ||
+          err?.message?.includes("429");
+        if (isUnavailable) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
         }
       }
     }
 
     let text = response?.text;
-    if (!text) {
-      text = "Jambo rafiki yangu! Yun is right here. I experienced a momentary network delay while thinking, but I am ready to help you. Please ask your question again, or let me know what topic you'd like to explore, and I will walk you through it step-by-step!";
-      modelUsed = "yun-fallback";
+    if (!text || !chatSucceeded) {
+      text = generateIntelligentTutorFallback(prompt, role);
+      modelUsed = "yun-resilient-tutor";
     }
 
     // Extract search grounding metadata if available
@@ -561,10 +650,9 @@ app.post("/api/chat", async (req, res) => {
       modelUsed,
     });
   } catch (error: any) {
-    console.error("Chat API Unexpected Error:", error);
-    // Respond nicely and politely even in error cases!
+    console.error("Chat API Unexpected Error (recovered):", error?.message || error);
     res.json({
-      text: "Jambo! Asante kwa kuniuliza. Yun amepata changamoto ndogo ya kiufundi kwa muda mfupi, lakini nipo tayari kukusaidia. Tafadhali jaribu kutuma tena swali lako au chagua mada nyingine ya somo lako tufanye kazi pamoja!",
+      text: generateIntelligentTutorFallback(req.body?.prompt || "", req.body?.role || "default"),
       groundingSources: [],
       modelUsed: "yun-polite-recovery",
     });
@@ -585,19 +673,29 @@ app.post("/api/search", async (req, res) => {
       return;
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: `Search for accurate, up-to-date real-time educational information, NECTA curriculum details, or current facts about: "${query}". Provide a clear, structured, well-formatted summary with key facts and bullet points.`,
-      config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction: "You are an educational search research assistant for Tanzanian students and teachers. Summarize findings clearly with high accuracy and cite real-world data.",
-      },
-    });
+    let response: any = null;
+    const searchModels = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
 
-    const text = response.text || "No search results returned.";
+    for (const model of searchModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: `Search for accurate, up-to-date real-time educational information, NECTA curriculum details, or current facts about: "${query}". Provide a clear, structured, well-formatted summary with key facts and bullet points.`,
+          config: {
+            tools: [{ googleSearch: {} }],
+            systemInstruction: "You are an educational search research assistant for Tanzanian students and teachers. Summarize findings clearly with high accuracy and cite real-world data.",
+          },
+        });
+        if (response?.text) break;
+      } catch (searchErr: any) {
+        console.warn(`Search model ${model} failed:`, searchErr?.message || searchErr);
+      }
+    }
+
+    const text = response?.text || `Taarifa kuhusu "${query}" zinaandaliwa. Tafadhali pitia mada zetu za mtaala au jaribu tena kwa swali mahsusi.`;
 
     let groundingSources: { title: string; uri: string }[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks && Array.isArray(chunks)) {
       groundingSources = chunks
         .filter((chunk: any) => chunk.web && chunk.web.uri)
@@ -613,8 +711,12 @@ app.post("/api/search", async (req, res) => {
       query,
     });
   } catch (error: any) {
-    console.error("Search Grounding API Error:", error);
-    res.status(500).json({ error: error.message || "Failed to search web." });
+    console.error("Search Grounding API Error (recovered):", error);
+    res.json({
+      text: `Utafutaji wa "${req.body?.query || ""}" haukupatikana kwa sasa kutokana na msongamano wa mtandao. Tafadhali tumia muhtasari wa mada zilizopo kwenye jukwaa hili.`,
+      groundingSources: [],
+      query: req.body?.query || "",
+    });
   }
 });
 

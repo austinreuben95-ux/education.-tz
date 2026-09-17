@@ -1,16 +1,4 @@
 import React, { useState } from 'react';
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ReferenceLine
-} from 'recharts';
 
 export interface WeeklyStudyData {
   day: string;
@@ -40,12 +28,11 @@ const DEFAULT_WEEKLY_DATA: WeeklyStudyData[] = [
   { day: 'Sunday', shortDay: 'Sun', date: 'Jul 26', timeSpentMinutes: 40, quizScorePercent: 85, quizzesTaken: 2, topicsCompleted: 2, topSubject: 'Civics' },
 ];
 
-const SUBJECT_BREAKDOWN_DATA: SubjectTrendData[] = [
-  { subject: 'Mathematics', totalTimeMinutes: 110, avgQuizScore: 88, quizzesTaken: 6 },
-  { subject: 'Physics', totalTimeMinutes: 85, avgQuizScore: 82, quizzesTaken: 4 },
-  { subject: 'Chemistry', totalTimeMinutes: 60, avgQuizScore: 79, quizzesTaken: 3 },
-  { subject: 'Biology', totalTimeMinutes: 95, avgQuizScore: 94, quizzesTaken: 5 },
-  { subject: 'Kiswahili', totalTimeMinutes: 50, avgQuizScore: 90, quizzesTaken: 2 },
+const PAST_MONTH_DATA: WeeklyStudyData[] = [
+  { day: 'Week 1', shortDay: 'W1', date: 'Jul 1-7', timeSpentMinutes: 320, quizScorePercent: 79, quizzesTaken: 12, topicsCompleted: 14, topSubject: 'Mathematics' },
+  { day: 'Week 2', shortDay: 'W2', date: 'Jul 8-14', timeSpentMinutes: 390, quizScorePercent: 84, quizzesTaken: 15, topicsCompleted: 18, topSubject: 'Physics' },
+  { day: 'Week 3', shortDay: 'W3', date: 'Jul 15-21', timeSpentMinutes: 420, quizScorePercent: 88, quizzesTaken: 18, topicsCompleted: 22, topSubject: 'Biology' },
+  { day: 'Week 4', shortDay: 'W4', date: 'Jul 22-28', timeSpentMinutes: 460, quizScorePercent: 91, quizzesTaken: 21, topicsCompleted: 25, topSubject: 'Kiswahili' },
 ];
 
 interface StudyTrendChartProps {
@@ -59,66 +46,71 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
   targetScoreGoal = 85,
   isParentView = false,
 }) => {
-  const [timeRange, setTimeRange] = useState<'thisWeek' | 'lastMonth' | 'bySubject'>('thisWeek');
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('ALL');
+  const [timeRange, setTimeRange] = useState<'thisWeek' | 'lastMonth'>('thisWeek');
   const [showGoalLine, setShowGoalLine] = useState<boolean>(true);
-  const [weeklyData, setWeeklyData] = useState<WeeklyStudyData[]>(DEFAULT_WEEKLY_DATA);
+  const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
 
-  // Quick stats calculations
-  const filteredData = weeklyData.filter(d => 
-    selectedSubjectFilter === 'ALL' || d.topSubject === selectedSubjectFilter
-  );
+  const rawData = timeRange === 'thisWeek' ? DEFAULT_WEEKLY_DATA : PAST_MONTH_DATA;
 
-  const totalMinutes = filteredData.reduce((acc, curr) => acc + curr.timeSpentMinutes, 0);
+  const totalMinutes = rawData.reduce((acc, curr) => acc + curr.timeSpentMinutes, 0);
   const totalHours = (totalMinutes / 60).toFixed(1);
-  const avgQuizScore = filteredData.length > 0
-    ? Math.round(filteredData.reduce((acc, curr) => acc + curr.quizScorePercent, 0) / filteredData.length)
+  const avgQuizScore = rawData.length > 0
+    ? Math.round(rawData.reduce((acc, curr) => acc + curr.quizScorePercent, 0) / rawData.length)
     : 0;
-  const totalQuizzes = filteredData.reduce((acc, curr) => acc + curr.quizzesTaken, 0);
-  const totalTopics = filteredData.reduce((acc, curr) => acc + curr.topicsCompleted, 0);
+  const totalQuizzes = rawData.reduce((acc, curr) => acc + curr.quizzesTaken, 0);
+  const totalTopics = rawData.reduce((acc, curr) => acc + curr.topicsCompleted, 0);
+  const peakDay = [...rawData].sort((a, b) => b.timeSpentMinutes - a.timeSpentMinutes)[0];
 
-  const peakDay = [...filteredData].sort((a, b) => b.timeSpentMinutes - a.timeSpentMinutes)[0];
+  // SVG Chart Geometry
+  const chartWidth = 640;
+  const chartHeight = 240;
+  const paddingLeft = 45;
+  const paddingRight = 45;
+  const paddingTop = 25;
+  const paddingBottom = 35;
 
-  // Custom Recharts Tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data: WeeklyStudyData = payload[0].payload;
-      return (
-        <div className="bg-slate-900/95 text-white p-4 rounded-2xl shadow-2xl border border-indigo-500/30 text-xs space-y-2 backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-2">
-            <span className="font-extrabold text-sm text-amber-400">{data.day} ({data.date})</span>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px] font-black border border-indigo-400/30">
-              {data.topSubject}
-            </span>
-          </div>
+  const plotWidth = chartWidth - paddingLeft - paddingRight;
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-indigo-400"></div>
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-black">Study Time</p>
-                <p className="font-extrabold text-sm text-indigo-200">{data.timeSpentMinutes} mins</p>
-              </div>
-            </div>
+  // Max scale for minutes: dynamic based on data
+  const maxMinutes = timeRange === 'thisWeek' ? 120 : 500;
+  // Score domain: 50% to 100%
+  const minScore = 50;
+  const maxScore = 100;
 
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-black">Quiz Performance</p>
-                <p className="font-extrabold text-sm text-amber-300">{data.quizScorePercent}%</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-300 font-medium">
-            <span>Quizzes: <strong>{data.quizzesTaken}</strong></span>
-            <span>Topics Completed: <strong>{data.topicsCompleted}</strong></span>
-          </div>
-        </div>
-      );
-    }
-    return null;
+  const getBarX = (index: number) => {
+    const step = plotWidth / rawData.length;
+    return paddingLeft + step * index + step / 2;
   };
+
+  const getMinutesY = (mins: number) => {
+    const clamped = Math.max(0, Math.min(mins, maxMinutes));
+    return paddingTop + plotHeight - (clamped / maxMinutes) * plotHeight;
+  };
+
+  const getScoreY = (score: number) => {
+    const clamped = Math.max(minScore, Math.min(score, maxScore));
+    const ratio = (clamped - minScore) / (maxScore - minScore);
+    return paddingTop + plotHeight - ratio * plotHeight;
+  };
+
+  const goalY = getScoreY(targetScoreGoal);
+
+  // Line path coordinates for quiz scores
+  const scorePoints = rawData.map((d, i) => ({
+    x: getBarX(i),
+    y: getScoreY(d.quizScorePercent),
+    data: d,
+    index: i,
+  }));
+
+  const linePathD = scorePoints.reduce((acc, p, i) => {
+    if (i === 0) return `M ${p.x} ${p.y}`;
+    // Catmull-Rom or clean linear line
+    return `${acc} L ${p.x} ${p.y}`;
+  }, '');
+
+  const hoveredData = activeItemIndex !== null ? rawData[activeItemIndex] : null;
 
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-100/80 space-y-6 text-left">
@@ -147,7 +139,7 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <div className="bg-gray-100 p-1 rounded-2xl flex items-center gap-1 border border-gray-200 text-xs font-bold">
             <button
-              onClick={() => setTimeRange('thisWeek')}
+              onClick={() => { setTimeRange('thisWeek'); setActiveItemIndex(null); }}
               className={`px-3 py-1.5 rounded-xl transition ${
                 timeRange === 'thisWeek'
                   ? 'bg-indigo-600 text-white shadow-sm font-black'
@@ -157,7 +149,7 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
               This Week
             </button>
             <button
-              onClick={() => setTimeRange('lastMonth')}
+              onClick={() => { setTimeRange('lastMonth'); setActiveItemIndex(null); }}
               className={`px-3 py-1.5 rounded-xl transition ${
                 timeRange === 'lastMonth'
                   ? 'bg-indigo-600 text-white shadow-sm font-black'
@@ -190,7 +182,7 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
             <i className="fa-solid fa-clock"></i>
           </div>
           <div className="text-2xl font-black text-gray-900">{totalHours} hrs</div>
-          <p className="text-[10px] text-indigo-700 font-bold mt-1">{totalMinutes} mins logged this week</p>
+          <p className="text-[10px] text-indigo-700 font-bold mt-1">{totalMinutes} mins logged</p>
         </div>
 
         <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-100">
@@ -210,21 +202,23 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
             <i className="fa-solid fa-circle-check"></i>
           </div>
           <div className="text-2xl font-black text-gray-900">{totalQuizzes} Quizzes</div>
-          <p className="text-[10px] text-emerald-800 font-bold mt-1">{totalTopics} syllabus topics covered</p>
+          <p className="text-[10px] text-emerald-800 font-bold mt-1">{totalTopics} topics completed</p>
         </div>
 
         <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100">
           <div className="flex items-center justify-between text-purple-700 text-xs font-extrabold uppercase mb-1">
-            <span>Peak Day</span>
+            <span>Peak Session</span>
             <i className="fa-solid fa-fire"></i>
           </div>
           <div className="text-2xl font-black text-gray-900">{peakDay?.day || 'Thursday'}</div>
-          <p className="text-[10px] text-purple-800 font-bold mt-1">{peakDay?.timeSpentMinutes || 90} mins ({peakDay?.quizScorePercent || 92}%)</p>
+          <p className="text-[10px] text-purple-800 font-bold mt-1">
+            {peakDay?.timeSpentMinutes || 90} mins ({peakDay?.quizScorePercent || 92}%)
+          </p>
         </div>
       </div>
 
-      {/* Main Recharts Graphic Container */}
-      <div className="bg-slate-50/80 p-4 sm:p-6 rounded-3xl border border-gray-200/80">
+      {/* Main SVG Interactive Chart */}
+      <div className="bg-slate-50/80 p-4 sm:p-6 rounded-3xl border border-gray-200/80 relative">
         <div className="flex items-center justify-between mb-4 px-2">
           <div className="flex items-center gap-4 text-xs font-extrabold">
             <span className="flex items-center gap-1.5 text-indigo-700">
@@ -233,94 +227,216 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
             <span className="flex items-center gap-1.5 text-amber-600">
               <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Quiz Score (%)
             </span>
+            {showGoalLine && (
+              <span className="hidden sm:flex items-center gap-1.5 text-amber-700">
+                <span className="w-4 border-b-2 border-dashed border-amber-500 inline-block"></span> Target Goal ({targetScoreGoal}%)
+              </span>
+            )}
           </div>
 
           <div className="text-xs text-gray-500 font-bold hidden sm:block">
-            Hover or tap chart points for breakdown
+            Hover or tap bars for details
           </div>
         </div>
 
-        <div className="w-full h-72 sm:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={timeRange === 'thisWeek' ? filteredData : DEFAULT_WEEKLY_DATA}
-              margin={{ top: 20, right: 20, bottom: 20, left: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              
-              <XAxis 
-                dataKey="shortDay" 
-                tickLine={false} 
-                axisLine={false} 
-                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
-              />
+        {/* SVG Canvas */}
+        <div className="w-full relative overflow-x-auto">
+          <svg
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            className="w-full h-auto max-h-80 select-none"
+          >
+            <defs>
+              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#4338ca" />
+              </linearGradient>
+              <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#818cf8" />
+                <stop offset="100%" stopColor="#4f46e5" />
+              </linearGradient>
+            </defs>
 
-              {/* Left Y-Axis: Minutes */}
-              <YAxis
-                yAxisId="left"
-                orientation="left"
-                stroke="#4f46e5"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: '#4f46e5', fontSize: 11, fontWeight: 700 }}
-                unit="m"
-                domain={[0, 120]}
-              />
+            {/* Horizontal Gridlines & Y-Axis Labels */}
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+              const y = paddingTop + plotHeight * (1 - ratio);
+              const minVal = Math.round(maxMinutes * ratio);
+              const scoreVal = Math.round(minScore + (maxScore - minScore) * ratio);
+              return (
+                <g key={ratio}>
+                  <line
+                    x1={paddingLeft}
+                    y1={y}
+                    x2={chartWidth - paddingRight}
+                    y2={y}
+                    stroke="#e2e8f0"
+                    strokeDasharray={ratio === 0 ? undefined : "3 3"}
+                    strokeWidth={1}
+                  />
+                  {/* Left Label: Minutes */}
+                  <text
+                    x={paddingLeft - 8}
+                    y={y + 4}
+                    textAnchor="end"
+                    className="text-[10px] fill-indigo-600 font-bold"
+                  >
+                    {minVal}m
+                  </text>
+                  {/* Right Label: Score % */}
+                  <text
+                    x={chartWidth - paddingRight + 8}
+                    y={y + 4}
+                    textAnchor="start"
+                    className="text-[10px] fill-amber-600 font-bold"
+                  >
+                    {scoreVal}%
+                  </text>
+                </g>
+              );
+            })}
 
-              {/* Right Y-Axis: Score Percent */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#d97706"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: '#d97706', fontSize: 11, fontWeight: 700 }}
-                unit="%"
-                domain={[50, 100]}
-              />
-
-              <Tooltip content={<CustomTooltip />} />
-
-              <Legend 
-                wrapperStyle={{ paddingTop: '10px', fontSize: '12px', fontWeight: 'bold' }}
-              />
-
-              {/* Goal Reference Line */}
-              {showGoalLine && (
-                <ReferenceLine
-                  yAxisId="right"
-                  y={targetScoreGoal}
-                  label={{ value: `Goal (${targetScoreGoal}%)`, fill: '#b45309', fontSize: 10, fontWeight: 'bold', position: 'insideTopRight' }}
+            {/* Target Goal Line */}
+            {showGoalLine && (
+              <g>
+                <line
+                  x1={paddingLeft}
+                  y1={goalY}
+                  x2={chartWidth - paddingRight}
+                  y2={goalY}
                   stroke="#f59e0b"
                   strokeDasharray="4 4"
                   strokeWidth={2}
                 />
-              )}
+                <text
+                  x={chartWidth - paddingRight - 6}
+                  y={goalY - 6}
+                  textAnchor="end"
+                  className="text-[10px] fill-amber-700 font-black"
+                >
+                  Goal {targetScoreGoal}%
+                </text>
+              </g>
+            )}
 
-              {/* Bar: Study Time */}
-              <Bar
-                yAxisId="left"
-                dataKey="timeSpentMinutes"
-                name="Study Time (Mins)"
-                fill="#4f46e5"
-                radius={[8, 8, 0, 0]}
-                barSize={28}
-              />
+            {/* Bars for Study Time */}
+            {rawData.map((d, i) => {
+              const x = getBarX(i);
+              const barWidth = Math.min(32, (plotWidth / rawData.length) * 0.45);
+              const barY = getMinutesY(d.timeSpentMinutes);
+              const barH = paddingTop + plotHeight - barY;
+              const isHovered = activeItemIndex === i;
 
-              {/* Line: Quiz Performance */}
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="quizScorePercent"
-                name="Quiz Performance (%)"
-                stroke="#f59e0b"
-                strokeWidth={3}
-                dot={{ r: 5, fill: '#f59e0b', strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 8, fill: '#d97706' }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+              return (
+                <g key={`bar-${i}`}>
+                  <rect
+                    x={x - barWidth / 2}
+                    y={barY}
+                    width={barWidth}
+                    height={Math.max(2, barH)}
+                    rx={6}
+                    ry={6}
+                    fill={isHovered ? 'url(#barGradientHover)' : 'url(#barGradient)'}
+                    className="transition-all duration-200 cursor-pointer"
+                    onMouseEnter={() => setActiveItemIndex(i)}
+                    onClick={() => setActiveItemIndex(i)}
+                  />
+                  {/* Day Label underneath */}
+                  <text
+                    x={x}
+                    y={chartHeight - 12}
+                    textAnchor="middle"
+                    className={`text-[11px] font-bold ${
+                      isHovered ? 'fill-indigo-700 font-black' : 'fill-slate-500'
+                    }`}
+                  >
+                    {d.shortDay}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Line Path for Quiz Scores */}
+            <path
+              d={linePathD}
+              fill="none"
+              stroke="#f59e0b"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            {/* Dots on Quiz Scores */}
+            {scorePoints.map((p) => {
+              const isHovered = activeItemIndex === p.index;
+              return (
+                <g key={`dot-${p.index}`}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={isHovered ? 8 : 5}
+                    fill={isHovered ? '#d97706' : '#f59e0b'}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    className="cursor-pointer transition-all duration-150"
+                    onMouseEnter={() => setActiveItemIndex(p.index)}
+                    onClick={() => setActiveItemIndex(p.index)}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Transparent click/hover zones across columns */}
+            {rawData.map((_, i) => {
+              const step = plotWidth / rawData.length;
+              const x = paddingLeft + step * i;
+              return (
+                <rect
+                  key={`zone-${i}`}
+                  x={x}
+                  y={paddingTop}
+                  width={step}
+                  height={plotHeight}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() => setActiveItemIndex(i)}
+                  onClick={() => setActiveItemIndex(i)}
+                />
+              );
+            })}
+          </svg>
         </div>
+
+        {/* Floating Detail Tooltip Card */}
+        {hoveredData && (
+          <div className="mt-4 bg-slate-900/95 text-white p-4 rounded-2xl shadow-2xl border border-indigo-500/30 text-xs space-y-2 backdrop-blur-md animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-2">
+              <span className="font-extrabold text-sm text-amber-400">
+                {hoveredData.day} ({hoveredData.date})
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[11px] font-black border border-indigo-400/30">
+                Top Subject: {hoveredData.topSubject}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black">Study Duration</p>
+                <p className="font-extrabold text-sm text-indigo-200">{hoveredData.timeSpentMinutes} mins</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black">Quiz Performance</p>
+                <p className="font-extrabold text-sm text-amber-300">{hoveredData.quizScorePercent}%</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black">Quizzes Taken</p>
+                <p className="font-extrabold text-sm text-emerald-300">{hoveredData.quizzesTaken}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black">Topics Mastered</p>
+                <p className="font-extrabold text-sm text-purple-300">{hoveredData.topicsCompleted}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Parent Insights & Actionable Feedback */}
@@ -333,7 +449,7 @@ export const StudyTrendChart: React.FC<StudyTrendChartProps> = ({
             </h4>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed max-w-2xl font-medium">
-            <strong>Key Insight:</strong> High correlation detected! Days with over 60 minutes of focused study time (Thursday & Saturday) resulted in 90%+ quiz scores. Sustaining a 45-minute daily habit maintains retention above 85%.
+            <strong>Key Insight:</strong> High correlation detected! Days with over 60 minutes of focused study time ({timeRange === 'thisWeek' ? 'Thursday & Saturday' : 'Weeks 3 & 4'}) resulted in 90%+ quiz scores. Sustaining a 45-minute daily habit maintains retention above 85%.
           </p>
         </div>
 

@@ -42,6 +42,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -70,6 +71,101 @@
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 40%, #e0f2fe 100%);
         min-height: 100vh;
         color: #0f172a;
+        transition: background-color 0.25s ease, color 0.25s ease;
+      }
+
+      /* Global Late-Night High-Contrast Study Mode */
+      html.dark {
+        color-scheme: dark;
+      }
+      html.dark body {
+        background: #090d16 !important;
+        color: #f8fafc !important;
+      }
+      html.dark .text-tz-dark {
+        color: #f8fafc !important;
+      }
+      html.dark header {
+        background: rgba(11, 15, 25, 0.96) !important;
+        border-color: rgba(51, 65, 85, 0.7) !important;
+        box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.6) !important;
+      }
+      html.dark #mobile-bottom-nav-bar {
+        background: rgba(11, 15, 25, 0.96) !important;
+        border-color: rgba(51, 65, 85, 0.7) !important;
+      }
+      html.dark .glass-card {
+        background: rgba(15, 23, 42, 0.92) !important;
+        border-color: rgba(51, 65, 85, 0.8) !important;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7) !important;
+        color: #f8fafc !important;
+      }
+      html.dark .glass-card-vibrant {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%) !important;
+        border-color: rgba(56, 189, 248, 0.3) !important;
+        box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.8) !important;
+        color: #f8fafc !important;
+      }
+      /* Night study surface contrast adjustments */
+      html.dark .bg-white {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+      }
+      html.dark .border-gray-100,
+      html.dark .border-gray-200,
+      html.dark .border-stone-100,
+      html.dark .border-stone-200 {
+        border-color: #1e293b !important;
+      }
+      html.dark .border-gray-300,
+      html.dark .border-stone-300 {
+        border-color: #334155 !important;
+      }
+      html.dark .text-gray-900,
+      html.dark .text-stone-900,
+      html.dark .text-gray-800,
+      html.dark .text-stone-800 {
+        color: #f8fafc !important;
+      }
+      html.dark .text-gray-700,
+      html.dark .text-stone-700,
+      html.dark .text-gray-600,
+      html.dark .text-stone-600 {
+        color: #cbd5e1 !important;
+      }
+      html.dark .text-gray-500,
+      html.dark .text-stone-500 {
+        color: #94a3b8 !important;
+      }
+      html.dark .text-gray-400,
+      html.dark .text-stone-400 {
+        color: #64748b !important;
+      }
+      html.dark .bg-gray-50,
+      html.dark .bg-stone-50,
+      html.dark .bg-stone-100,
+      html.dark .bg-gray-100 {
+        background-color: #1e293b !important;
+        color: #f1f5f9 !important;
+      }
+      html.dark .bg-stone-200,
+      html.dark .bg-gray-200 {
+        background-color: #334155 !important;
+      }
+      html.dark .bg-stone-900 {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+      }
+      html.dark input:not([type="checkbox"]):not([type="radio"]),
+      html.dark textarea,
+      html.dark select {
+        background-color: #0b0f19 !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+      }
+      html.dark input::placeholder,
+      html.dark textarea::placeholder {
+        color: #64748b !important;
       }
       
       /* Futuristic Glass & Fade Utilities */

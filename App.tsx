@@ -27,6 +27,8 @@ import { VideoLessonsSearch } from './components/VideoLessonsSearch';
 import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
 import StudyRoom from './components/StudyRoom';
 import { HeaderNavDropdowns } from './components/HeaderNavDropdowns';
+import { CurriculumSearchModal } from './components/CurriculumSearchModal';
+import { QuickFormulaVaultModal } from './components/QuickFormulaVaultModal';
 import { EssentialHubs } from './components/EssentialHubs';
 import { QuizFeedbackCard } from './components/QuizFeedbackCard';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
@@ -318,6 +320,31 @@ const App: React.FC = () => {
   const [showClearHistoryConfirmToast, setShowClearHistoryConfirmToast] = useState(false);
   const [clearedHistoryNotice, setClearedHistoryNotice] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Global High-Contrast Late-Night Study Dark Mode
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('tz_dark_mode');
+      if (saved !== null) return saved === 'true';
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('tz_dark_mode', 'true');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('tz_dark_mode', 'false');
+      }
+    } catch (e) {}
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
 
   // Study Room live activity for portal preview & hover expansion
   const [activeStudyRoomSubject, setActiveStudyRoomSubject] = useState<string>('ALL');
@@ -648,12 +675,27 @@ const App: React.FC = () => {
   // Quiz State
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
   const [isRoadmapModalOpen, setIsRoadmapModalOpen] = useState(false);
+  // 5 Important Features Modals
+  const [isCurriculumSearchOpen, setIsCurriculumSearchOpen] = useState(false);
+  const [isFormulaVaultOpen, setIsFormulaVaultOpen] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<QuizQuestion | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<'none' | 'correct' | 'incorrect'>('none');
   const [selectedQuizOptionIndex, setSelectedQuizOptionIndex] = useState<number | null>(null);
   const [quizMistakeFeedback, setQuizMistakeFeedback] = useState<QuizMistakeFeedback | null>(null);
   const [quizFeedbackLoading, setQuizFeedbackLoading] = useState<boolean>(false);
+
+  // Global Keyboard Shortcut: Ctrl+K / Cmd+K to open Curriculum Search
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCurriculumSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // 150 Strategic Ideas Feature Launch Router
   const handleLaunchRoadmapFeature = (point: { id: number; title: string; category: string; summary: string }) => {
@@ -1566,21 +1608,21 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     }
 
     return (
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
+      <header className="sticky top-0 z-50 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-all duration-200 font-sans">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0" onClick={goHome}>
-          <div className="w-9 h-9 sm:w-11 sm:h-11 bg-vibrant-gradient rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-extrabold text-xl sm:text-2xl shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-tr from-tz-blue via-tz-purple to-tz-yellow rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-sky-500/25 group-hover:scale-105 transition-transform shrink-0">
             E
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-black text-xl sm:text-2xl leading-none text-tz-dark tracking-tight truncate">Education<span className="gradient-text">TZ</span></span>
-            <span className="text-[10px] text-indigo-600 font-extrabold tracking-widest uppercase items-center gap-1 hidden sm:flex">
-              <i className="fa-solid fa-sparkles text-[8px]"></i> {totalTopicsCount}+ Topics & Videos
+            <span className="font-extrabold text-lg sm:text-xl leading-none text-slate-900 dark:text-white tracking-tight truncate">Education<span className="gradient-text font-black">TZ</span></span>
+            <span className="text-[10px] text-tz-blue dark:text-cyan-400 font-bold tracking-wider uppercase items-center gap-1 hidden sm:flex">
+              Tanzanian Secondary Portal
             </span>
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
           <HeaderNavDropdowns
             currentView={currentView}
             setCurrentView={setCurrentView}
@@ -1629,50 +1671,60 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             onOpenParents={() => setCurrentView(AppView.PARENTS)}
             onStartChat={startChat}
             onGoHome={goHome}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={toggleDarkMode}
+            onOpenSearch={() => setIsCurriculumSearchOpen(true)}
+            isZenMode={isZenMode}
+            onToggleZenMode={() => setIsZenMode(prev => !prev)}
+            bilingualLang={bilingualLang}
+            onToggleBilingual={() => setBilingualLang(prev => prev === 'EN' ? 'SW' : 'EN')}
+            onOpenFormulaVault={() => setIsFormulaVaultOpen(true)}
           />
 
           {/* Stats & Profile Button (hidden on mobile, fully integrated into hamburger & bottom bar) */}
           <div className="hidden md:flex items-center gap-2">
             <div 
               onClick={() => setCurrentView(AppView.BADGES)}
-              className="cursor-pointer flex items-center gap-2 text-orange-500 font-bold bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-100 transition"
-              title="Study Streak - View Streak Badges"
+              className="cursor-pointer flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800/60 transition shadow-2xs"
+              title="Study Streak"
             >
-               {user.streak} <i className="fa-solid fa-fire"></i>
+              <i className="fa-solid fa-fire text-amber-500"></i>
+              <span>{user.streak}d</span>
             </div>
             <div 
               onClick={() => setCurrentView(AppView.WALLET)}
-              className="cursor-pointer flex items-center gap-2 text-tz-blue font-bold bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition"
+              className="cursor-pointer flex items-center gap-1.5 text-sky-800 dark:text-sky-300 font-bold text-xs bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-800/60 transition shadow-2xs"
               title="Study Wallet"
             >
-              {user.points} EP
+              <i className="fa-solid fa-coins text-sky-500"></i>
+              <span>{user.points} EP</span>
             </div>
             <button 
               onClick={() => setCurrentView(AppView.BADGES)}
-              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-full font-extrabold text-xs transition active:scale-95 shadow-2xs cursor-pointer"
-              title="Scholar Badges & Awards"
+              className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-purple-200 dark:border-slate-700 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full font-bold text-xs transition active:scale-95 cursor-pointer shadow-2xs"
+              title="Scholar Badges"
             >
-              <i className="fa-solid fa-award text-amber-600"></i>
+              <i className="fa-solid fa-award text-purple-600 dark:text-purple-400"></i>
               <span className="hidden sm:inline">Badges</span>
             </button>
 
             {/* Student Profile & Share Progress Button */}
             <button 
               onClick={() => setIsProfileModalOpen(true)}
-              className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-full font-extrabold text-xs transition active:scale-95 shadow-2xs"
-              title="Student Profile & Share Progress"
+              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1 rounded-full font-bold text-xs transition active:scale-95 cursor-pointer"
+              title="Student Profile"
             >
-              <i className="fa-solid fa-id-card text-indigo-600"></i>
+              <i className="fa-solid fa-user text-slate-500 dark:text-slate-400"></i>
               <span className="hidden sm:inline">Profile</span>
             </button>
           </div>
 
           <button 
             onClick={() => setCurrentView(AppView.PARENTS)}
-            className="hidden sm:flex text-gray-500 hover:text-purple-700 transition p-2 rounded-lg hover:bg-purple-50 items-center gap-1 font-bold text-xs"
+            className="hidden sm:flex text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-300 transition px-2.5 py-1 rounded-full hover:bg-purple-50/80 dark:hover:bg-slate-800 items-center gap-1 font-bold text-xs border border-transparent hover:border-purple-200 dark:hover:border-slate-700 cursor-pointer"
             title="Parent Dashboard"
           >
-            <i className="fa-solid fa-user-shield text-lg text-purple-600"></i>
+            <i className="fa-solid fa-user-shield text-purple-500 dark:text-purple-400"></i>
             <span className="hidden xl:inline">Parents</span>
           </button>
 
@@ -1700,20 +1752,22 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   setCurrentView(AppView.ADMIN);
                 }
               }}
-              className="hidden sm:flex text-red-500 hover:text-red-600 transition items-center gap-1 font-bold text-xs"
+              className="hidden sm:flex text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition items-center gap-1 font-bold text-xs px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               title="Admin Panel"
             >
-              <i className="fa-solid fa-lock text-sm"></i>
-              <span className="hidden lg:inline">ADMIN</span>
+              <i className="fa-solid fa-lock text-slate-500 dark:text-slate-400"></i>
+              <span className="hidden lg:inline">Admin</span>
             </button>
           )}
 
+          {/* Ask Yun AI Button - Vibrant Gradient & Sparkle */}
           <button 
             onClick={startChat}
-            className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl font-black shadow-[0_4px_0_rgb(30,27,75)] hover:translate-y-[2px] transition-all flex items-center gap-1.5 sm:gap-2.5 border border-cyan-400/50"
+            className="bg-gradient-to-r from-tz-blue via-indigo-600 to-tz-purple hover:opacity-95 text-white px-3.5 sm:px-4 py-1.5 rounded-full font-bold text-xs shadow-sm shadow-sky-500/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="Ask Yun AI Tutor"
           >
-            <YunAvatar3D size="sm" />
-            <span className="hidden sm:inline text-xs uppercase tracking-wider text-cyan-300">Ask Yun</span>
+            <i className="fa-solid fa-wand-magic-sparkles text-tz-yellow text-xs animate-pulse"></i>
+            <span>Yun AI</span>
           </button>
         </div>
       </div>
@@ -4512,13 +4566,43 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onLaunchFeature={handleLaunchRoadmapFeature}
         />
 
+        {/* 5 IMPORTANT FEATURES MODALS */}
+        {/* 1. CURRICULUM & SUBJECT SEARCH MODAL (Ctrl+K) */}
+        <CurriculumSearchModal
+          isOpen={isCurriculumSearchOpen}
+          onClose={() => setIsCurriculumSearchOpen(false)}
+          onSelectSubject={(subject, grade) => {
+            setSelectedGrade(grade);
+            setSelectedSubject(subject);
+            setSelectedTopic(null);
+            setCurrentView(AppView.SYLLABUS);
+          }}
+          onSelectTopic={(topic, subject, grade) => {
+            setSelectedGrade(grade);
+            setSelectedSubject(subject);
+            setSelectedTopic(topic);
+            setCurrentView(AppView.TOPIC_CONTENT);
+          }}
+          onNavigateView={(view) => setCurrentView(view)}
+        />
+
+        {/* 5. FORMULA & FLASHCARDS VAULT MODAL */}
+        <QuickFormulaVaultModal
+          isOpen={isFormulaVaultOpen}
+          onClose={() => setIsFormulaVaultOpen(false)}
+          onAskYunWithFormula={(prompt) => {
+            setYunContext(prompt);
+            setCurrentView(AppView.CHAT);
+          }}
+        />
+
       </main>
 
-      {/* PERSISTENT MOBILE BOTTOM NAVIGATION BAR */}
+      {/* PERSISTENT MOBILE BOTTOM NAVIGATION BAR - Vibrant, Normal & Clean */}
       <nav
         id="mobile-bottom-nav-bar"
         aria-label="Mobile Bottom Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-2 py-1.5 flex items-center justify-around safe-area-bottom"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800 shadow-lg px-2 py-1.5 flex items-center justify-around safe-area-bottom font-sans"
       >
         {/* 1. Home */}
         <button
@@ -4527,8 +4611,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onClick={goHome}
           className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
             currentView === AppView.HOME
-              ? 'text-indigo-600 font-black scale-105'
-              : 'text-gray-500 hover:text-indigo-600 font-bold'
+              ? 'text-tz-blue dark:text-cyan-400 font-extrabold'
+              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 font-medium'
           }`}
         >
           <i className="fa-solid fa-house text-base"></i>
@@ -4547,8 +4631,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           }}
           className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
             currentView === AppView.SYLLABUS || currentView === AppView.TOPIC_CONTENT
-              ? 'text-indigo-600 font-black scale-105'
-              : 'text-gray-500 hover:text-indigo-600 font-bold'
+              ? 'text-tz-green dark:text-emerald-400 font-extrabold'
+              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 font-medium'
           }`}
         >
           <i className="fa-solid fa-book-open text-base"></i>
@@ -4560,13 +4644,11 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           id="mobile-bottom-nav-yun"
           type="button"
           onClick={startChat}
-          className="min-w-[54px] min-h-[48px] -mt-4 bg-gradient-to-tr from-indigo-600 via-indigo-700 to-cyan-500 text-white rounded-2xl shadow-lg shadow-indigo-500/35 border-2 border-white flex flex-col items-center justify-center px-2 py-1 active:scale-95 transition-transform cursor-pointer group"
+          className="min-w-[50px] min-h-[44px] -mt-3 bg-gradient-to-tr from-tz-blue via-indigo-600 to-tz-purple text-white rounded-full shadow-lg shadow-sky-500/35 border-2 border-white dark:border-[#0f172a] flex flex-col items-center justify-center px-2 py-1 active:scale-95 transition cursor-pointer"
           title="Ask Yun AI"
         >
-          <div className="w-5 h-5 flex items-center justify-center">
-            <YunAvatar3D size="sm" />
-          </div>
-          <span className="text-[10px] font-black tracking-wide text-cyan-200 group-hover:text-white">Yun AI</span>
+          <i className="fa-solid fa-wand-magic-sparkles text-tz-yellow text-sm animate-pulse"></i>
+          <span className="text-[10px] font-extrabold tracking-wide">Yun AI</span>
         </button>
 
         {/* 4. Exams & Vault */}
@@ -4576,8 +4658,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onClick={() => setCurrentView(AppView.EXAMS)}
           className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
             currentView === AppView.EXAMS || currentView === AppView.ASSIGNMENTS_TESTS || currentView === AppView.GRADE_CHECKER
-              ? 'text-indigo-600 font-black scale-105'
-              : 'text-gray-500 hover:text-indigo-600 font-bold'
+              ? 'text-tz-orange dark:text-amber-400 font-extrabold'
+              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 font-medium'
           }`}
         >
           <i className="fa-solid fa-clipboard-check text-base"></i>
@@ -4591,13 +4673,12 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onClick={() => setMobileNavOpen(true)}
           className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
             mobileNavOpen
-              ? 'text-indigo-600 font-black scale-105'
-              : 'text-gray-500 hover:text-indigo-600 font-bold'
+              ? 'text-tz-purple dark:text-purple-400 font-extrabold'
+              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 font-medium'
           }`}
         >
           <div className="relative">
             <i className="fa-solid fa-bars text-base"></i>
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400"></span>
           </div>
           <span className="text-[10px]">Menu</span>
         </button>

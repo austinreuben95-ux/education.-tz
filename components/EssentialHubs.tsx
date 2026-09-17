@@ -56,6 +56,16 @@ export const EssentialHubs: React.FC<EssentialHubsProps> = ({
     { id: 'GUIDANCE', name: 'Schools & Guidance', icon: 'fa-graduation-cap', count: 3 },
   ];
 
+  // Safe fallback for highestActivitySubject
+  const safeHighestSubject = highestActivitySubject || {
+    id: 'biology',
+    name: 'Biology',
+    icon: 'fa-dna',
+    count: 2,
+    likes: 84,
+    latestTopic: 'Genetics & Evolution'
+  };
+
   const hubs: (HubItem & { category: 'STUDY' | 'EXAMS' | 'GUIDANCE' })[] = [
     // 1. Shared Study Room (Realtime)
     {
@@ -73,7 +83,7 @@ export const EssentialHubs: React.FC<EssentialHubsProps> = ({
       borderClass: 'border-2 border-indigo-400/50 hover:border-indigo-400',
       hoverClass: 'hover:shadow-2xl hover:scale-[1.02]',
       onClick: () => {
-        setActiveStudyRoomSubject('ALL');
+        if (setActiveStudyRoomSubject) setActiveStudyRoomSubject('ALL');
         setCurrentView(AppView.STUDY_ROOM);
       },
       extraContent: (
@@ -93,19 +103,19 @@ export const EssentialHubs: React.FC<EssentialHubsProps> = ({
           </div>
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/25 border border-indigo-400/40 text-cyan-300 flex items-center justify-center text-base shrink-0">
-              <i className={`fa-solid ${highestActivitySubject.icon || 'fa-chalkboard-user'}`}></i>
+              <i className={`fa-solid ${safeHighestSubject.icon || 'fa-chalkboard-user'}`}></i>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
                 <h5 className="font-black text-xs text-white truncate">
-                  {highestActivitySubject.name}
+                  {safeHighestSubject.name || 'Biology'}
                 </h5>
                 <span className="text-[10px] font-black text-cyan-300 whitespace-nowrap bg-cyan-950/60 px-1.5 py-0.5 rounded-md border border-cyan-500/30">
-                  {highestActivitySubject.likes} <i className="fa-solid fa-thumbs-up text-[9px]"></i>
+                  {safeHighestSubject.likes || 0} <i className="fa-solid fa-thumbs-up text-[9px]"></i>
                 </span>
               </div>
               <p className="text-[10px] text-slate-300 truncate mt-0.5">
-                {highestActivitySubject.latestTopic ? `Topic: ${highestActivitySubject.latestTopic}` : `${highestActivitySubject.count} active discussion threads`}
+                {safeHighestSubject.latestTopic ? `Topic: ${safeHighestSubject.latestTopic}` : `${safeHighestSubject.count || 0} active discussion threads`}
               </p>
             </div>
           </div>
