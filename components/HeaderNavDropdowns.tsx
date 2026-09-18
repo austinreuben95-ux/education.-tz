@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AppView } from '../types';
 
 export interface NavItem {
@@ -168,11 +169,46 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Track expanded accordion dropdowns in mobile menu
+  // Track expanded accordion dropdowns in mobile menu - expanded by default so all list items are immediately visible
   const [expandedMobileGroups, setExpandedMobileGroups] = useState<Record<string, boolean>>({
     students: true,
     academic: true,
+    necta: true,
+    schools: true,
+    reports: true,
+    more: true,
   });
+
+  const toggleAllMobileGroups = (expand: boolean) => {
+    setExpandedMobileGroups({
+      students: expand,
+      academic: expand,
+      necta: expand,
+      schools: expand,
+      reports: expand,
+      more: expand,
+    });
+  };
+
+  // Prevent background body scroll and handle Escape key when mobile drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen && typeof document !== 'undefined') {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileMenuOpen(false);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [mobileMenuOpen]);
 
   // Close desktop dropdowns when clicking outside
   useEffect(() => {
@@ -1061,12 +1097,12 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* MOBILE FULL-SCREEN SLIDE-OVER DRAWER (SaaS Responsive Menu)               */}
+      {/* MOBILE FULL-SCREEN SLIDE-OVER DRAWER (SaaS Responsive Menu via Portal)    */}
       {/* ========================================================================= */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && typeof document !== 'undefined' && createPortal(
         <div
           id="mobile-nav-portal-root"
-          className="lg:hidden fixed inset-0 z-[100] flex justify-end font-sans"
+          className="lg:hidden fixed inset-0 z-[99999] flex justify-end font-sans"
           role="dialog"
           aria-modal="true"
           aria-label="Mobile Navigation Menu"
@@ -1074,7 +1110,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
           {/* Semi-Transparent Backdrop */}
           <div
             id="mobile-nav-backdrop"
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in cursor-pointer"
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity duration-200 animate-in fade-in cursor-pointer"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
@@ -1082,7 +1118,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
           {/* Slide-over Drawer Panel */}
           <div
             id="mobile-nav-drawer"
-            className="relative z-10 w-full max-w-sm sm:max-w-md h-full bg-slate-50 dark:bg-[#0b0f19] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200 border-l border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100"
+            className="relative z-10 w-full max-w-sm sm:max-w-md h-[100dvh] max-h-[100dvh] bg-slate-50 dark:bg-[#0b0f19] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200 border-l border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100"
           >
             {/* Drawer Header */}
             <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0f172a] flex items-center justify-between shrink-0">
@@ -1112,37 +1148,44 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                 id="mobile-drawer-close-btn"
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
-                aria-label="Close menu"
+                className="min-w-[36px] min-h-[36px] w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 flex items-center justify-center transition cursor-pointer active:scale-95"
+                aria-label="Close navigation menu"
+                title="Close navigation menu"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <i className="fa-solid fa-xmark text-base"></i>
               </button>
             </div>
 
             {/* Quick Metrics & User Strip */}
-            <div className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0">
+            <div className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 font-sans">
               <div className="flex items-center gap-2">
-                <div
+                <button
+                  type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     setCurrentView(AppView.BADGES);
                   }}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-extrabold text-xs cursor-pointer border border-amber-200 dark:border-amber-800/60"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-extrabold text-xs cursor-pointer border border-amber-200 dark:border-amber-800/60 active:scale-95"
+                  title="Daily Streak - View Scholar Badges"
+                  aria-label={`${streak} days streak. View Badges.`}
                 >
-                  <i className="fa-solid fa-fire text-amber-500"></i>
+                  <i className="fa-solid fa-fire text-amber-500" aria-hidden="true"></i>
                   <span>{streak}d Streak</span>
-                </div>
+                </button>
 
-                <div
+                <button
+                  type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     setCurrentView(AppView.WALLET);
                   }}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-extrabold text-xs cursor-pointer border border-sky-200 dark:border-sky-800/60"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-extrabold text-xs cursor-pointer border border-sky-200 dark:border-sky-800/60 active:scale-95"
+                  title="Education Points - View Study Wallet"
+                  aria-label={`${points} Education Points. View Wallet.`}
                 >
-                  <i className="fa-solid fa-coins text-sky-500"></i>
+                  <i className="fa-solid fa-coins text-sky-500" aria-hidden="true"></i>
                   <span>{points} EP</span>
-                </div>
+                </button>
               </div>
 
               {onOpenProfile && (
@@ -1152,9 +1195,10 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                     setMobileMenuOpen(false);
                     onOpenProfile();
                   }}
-                  className="px-3 py-1 rounded-full bg-purple-50 dark:bg-slate-800 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-purple-50 dark:bg-slate-800 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  aria-label="Open student profile"
                 >
-                  <i className="fa-solid fa-user text-[10px]"></i>
+                  <i className="fa-solid fa-user text-[10px]" aria-hidden="true"></i>
                   <span>Profile</span>
                 </button>
               )}
@@ -1169,10 +1213,10 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                     setMobileMenuOpen(false);
                     onOpenSearch();
                   }}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer active:scale-[0.99]"
                 >
                   <div className="flex items-center gap-2">
-                    <i className="fa-solid fa-magnifying-glass text-xs"></i>
+                    <i className="fa-solid fa-magnifying-glass text-xs text-slate-400"></i>
                     <span>Search subjects, topics, formulas...</span>
                   </div>
                   <kbd className="text-[10px] bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-mono">
@@ -1183,208 +1227,279 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
             )}
 
             {/* Quick Top Destination Shortcut Pills */}
-            <div className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 grid grid-cols-3 gap-2 shrink-0 font-sans">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (onGoHome) onGoHome();
-                  else setCurrentView(AppView.HOME);
-                }}
-                className={`min-h-[40px] px-3 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 transition cursor-pointer font-bold text-xs ${
-                  currentView === AppView.HOME || currentView === AppView.LEVEL_SELECT
-                    ? 'bg-sky-600 text-white border-sky-600 shadow-sm shadow-sky-500/30'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-sky-50'
-                }`}
-              >
-                <i className="fa-solid fa-house text-xs"></i>
-                <span>Home</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onSelectAllSubjects();
-                }}
-                className={`min-h-[40px] px-3 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 transition cursor-pointer font-bold text-xs ${
-                  currentView === AppView.SYLLABUS
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/30'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
-                }`}
-              >
-                <i className="fa-solid fa-book-open text-xs"></i>
-                <span>Syllabus</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (onStartChat) onStartChat();
-                  else setCurrentView(AppView.CHAT);
-                }}
-                className={`min-h-[40px] px-3 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 transition cursor-pointer font-extrabold text-xs ${
-                  currentView === AppView.CHAT
-                    ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                    : 'bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white border-transparent shadow-sm shadow-sky-500/25'
-                }`}
-              >
-                <i className="fa-solid fa-wand-magic-sparkles text-xs text-amber-300 animate-pulse"></i>
-                <span>Yun AI</span>
-              </button>
-            </div>
-
-            {/* Scrollable Accordion Navigation Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar font-sans">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
-                Navigation Modules
-              </div>
-
-              {navGroups.map((group) => {
-                const isExpanded = !!expandedMobileGroups[group.id];
-                const hasActiveItem = isGroupActive(group);
-
-                return (
-                  <div
-                    key={group.id}
-                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                      isExpanded
-                        ? 'border-sky-300 dark:border-slate-700 bg-white dark:bg-[#0f172a] shadow-xs'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]'
+            <nav aria-label="Quick Destinations" className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 shrink-0 font-sans">
+              <ul className="grid grid-cols-4 gap-1.5 list-none m-0 p-0" role="list">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      if (onGoHome) onGoHome();
+                      else setCurrentView(AppView.HOME);
+                    }}
+                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                      currentView === AppView.HOME || currentView === AppView.LEVEL_SELECT
+                        ? 'bg-sky-600 text-white border-sky-600 shadow-sm shadow-sky-500/30'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-sky-50'
                     }`}
                   >
-                    {/* Collapsible Accordion Header */}
-                    <button
-                      id={`mobile-group-toggle-${group.id}`}
-                      type="button"
-                      onClick={() => toggleMobileGroup(group.id)}
-                      className="w-full min-h-[46px] p-3 flex items-center justify-between transition cursor-pointer text-left focus:outline-none"
-                      aria-expanded={isExpanded}
+                    <i className="fa-solid fa-house text-xs" aria-hidden="true"></i>
+                    <span>Home</span>
+                  </button>
+                </li>
+
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSelectAllSubjects();
+                    }}
+                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                      currentView === AppView.SYLLABUS
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/30'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <i className="fa-solid fa-book-open text-xs" aria-hidden="true"></i>
+                    <span>Syllabus</span>
+                  </button>
+                </li>
+
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setCurrentView(AppView.EXAMS);
+                    }}
+                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                      currentView === AppView.EXAMS
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    <i className="fa-solid fa-file-lines text-xs" aria-hidden="true"></i>
+                    <span>Past Papers</span>
+                  </button>
+                </li>
+
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      if (onStartChat) onStartChat();
+                      else setCurrentView(AppView.CHAT);
+                    }}
+                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-extrabold text-[11px] ${
+                      currentView === AppView.CHAT
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                        : 'bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white border-transparent shadow-sm shadow-sky-500/25'
+                    }`}
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles text-xs text-amber-300 animate-pulse" aria-hidden="true"></i>
+                    <span>Yun AI</span>
+                  </button>
+                </li>
+              </ul>
+            </nav>
+
+            {/* Scrollable Accordion Navigation Body with all List Items */}
+            <nav aria-label="Mobile Navigation Modules" className="flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar font-sans overscroll-contain">
+              {/* Category Header with Toggle All button */}
+              <div className="flex items-center justify-between px-1">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500" id="mobile-nav-categories-heading">
+                  Platform Menu ({navGroups.reduce((acc, g) => acc + g.items.length, 0)} Items)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleAllMobileGroups(true)}
+                    className="text-[10px] font-bold text-sky-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                    aria-label="Expand all navigation categories"
+                  >
+                    Expand All
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleAllMobileGroups(false)}
+                    className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+                    aria-label="Collapse all navigation categories"
+                  >
+                    Collapse
+                  </button>
+                </div>
+              </div>
+
+              {/* Top-Level Navigation Groups List */}
+              <ul className="space-y-3 list-none m-0 p-0" role="list" aria-labelledby="mobile-nav-categories-heading">
+                {navGroups.map((group) => {
+                  const isExpanded = !!expandedMobileGroups[group.id];
+                  const hasActiveItem = isGroupActive(group);
+                  const panelId = `mobile-group-panel-${group.id}`;
+                  const buttonId = `mobile-group-toggle-${group.id}`;
+
+                  return (
+                    <li
+                      key={group.id}
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                        isExpanded
+                          ? 'border-sky-300 dark:border-slate-700 bg-white dark:bg-[#0f172a] shadow-xs'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]'
+                      }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs shrink-0 transition-colors shadow-2xs ${
-                            isExpanded
-                              ? group.activeBg
-                              : hasActiveItem
-                              ? group.activeSoftBg
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                          }`}
-                        >
-                          <i className={`fa-solid ${group.icon}`}></i>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className={`font-bold text-xs truncate ${
-                                hasActiveItem
-                                  ? 'text-sky-600 dark:text-cyan-300'
-                                  : 'text-slate-800 dark:text-slate-200'
-                              }`}
-                            >
-                              {group.label}
-                            </span>
-                            {group.badge && (
-                              <span
-                                className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold tracking-wide ${
-                                  group.badgeColor || 'bg-amber-400 text-slate-950 font-black'
-                                }`}
-                              >
-                                {group.badge}
-                              </span>
-                            )}
+                      {/* Collapsible Accordion Header */}
+                      <button
+                        id={buttonId}
+                        type="button"
+                        onClick={() => toggleMobileGroup(group.id)}
+                        className="w-full min-h-[46px] p-3 flex items-center justify-between transition cursor-pointer text-left focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-850"
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs shrink-0 transition-colors shadow-2xs ${
+                              isExpanded
+                                ? group.activeBg
+                                : hasActiveItem
+                                ? group.activeSoftBg
+                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <i className={`fa-solid ${group.icon}`}></i>
                           </div>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                            {group.items.length} items
-                          </span>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        {hasActiveItem && (
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active item inside"></span>
-                        )}
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-200 ${
-                            isExpanded
-                              ? 'bg-sky-50 dark:bg-slate-800 text-sky-600 dark:text-cyan-400 rotate-180'
-                              : 'bg-transparent text-slate-400'
-                          }`}
-                        >
-                          <i className="fa-solid fa-chevron-down text-[10px]"></i>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Accordion Items List */}
-                    {isExpanded && (
-                      <div className="px-2.5 pb-3 pt-1 space-y-1.5 border-t border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-1 duration-150">
-                        {group.items.map((item) => {
-                          const isItemActive = item.view === currentView;
-                          return (
-                            <button
-                              key={item.id}
-                              id={`mobile-${item.id}`}
-                              type="button"
-                              onClick={() => handleItemClick(item)}
-                              className={`w-full min-h-[42px] p-2.5 rounded-xl text-left flex items-start gap-2.5 transition border cursor-pointer active:scale-[0.99] ${
-                                isItemActive
-                                  ? `${group.activeBg} font-bold shadow-xs border-transparent`
-                                  : 'bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-100 dark:border-slate-800'
-                              }`}
-                            >
-                              <div
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs mt-0.5 shadow-2xs ${
-                                  isItemActive
-                                    ? 'bg-white/20 text-white'
-                                    : item.iconBg || 'bg-sky-500 text-white'
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                className={`font-bold text-xs truncate ${
+                                  hasActiveItem
+                                    ? 'text-sky-600 dark:text-cyan-300'
+                                    : 'text-slate-800 dark:text-slate-200'
                                 }`}
                               >
-                                <i className={`fa-solid ${item.icon}`}></i>
-                              </div>
+                                {group.label}
+                              </span>
+                              {group.badge && (
+                                <span
+                                  className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold tracking-wide ${
+                                    group.badgeColor || 'bg-amber-400 text-slate-950 font-black'
+                                  }`}
+                                >
+                                  {group.badge}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                              {group.items.length} options available
+                            </span>
+                          </div>
+                        </div>
 
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span
-                                    className={`text-xs font-bold truncate ${
-                                      isItemActive ? 'text-white' : 'text-slate-900 dark:text-slate-100'
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {hasActiveItem && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active item inside" aria-label="Contains active page"></span>
+                          )}
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-200 ${
+                              isExpanded
+                                ? 'bg-sky-50 dark:bg-slate-800 text-sky-600 dark:text-cyan-400 rotate-180'
+                                : 'bg-transparent text-slate-400'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Accordion Items List - Fully visible when expanded and semantic <ul> <li> */}
+                      <div
+                        id={panelId}
+                        role="region"
+                        aria-labelledby={buttonId}
+                        aria-hidden={!isExpanded}
+                        className={isExpanded ? 'block' : 'hidden'}
+                      >
+                        {isExpanded && (
+                          <ul
+                            className="px-2.5 pb-3 pt-1 space-y-1.5 border-t border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-1 duration-150 list-none m-0"
+                            role="list"
+                            aria-label={`${group.label} submenu`}
+                          >
+                            {group.items.map((item) => {
+                              const isItemActive = item.view === currentView;
+                              return (
+                                <li key={item.id}>
+                                  <button
+                                    id={`mobile-${item.id}`}
+                                    type="button"
+                                    onClick={() => handleItemClick(item)}
+                                    aria-current={isItemActive ? 'page' : undefined}
+                                    className={`w-full min-h-[44px] p-2.5 rounded-xl text-left flex items-start gap-2.5 transition border cursor-pointer active:scale-[0.99] ${
+                                      isItemActive
+                                        ? `${group.activeBg} font-bold shadow-xs border-transparent`
+                                        : 'bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-100 dark:border-slate-800'
                                     }`}
                                   >
-                                    {item.label}
-                                  </span>
-                                  {item.badge && (
-                                    <span
-                                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase shrink-0 ${
+                                    <div
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs mt-0.5 shadow-2xs ${
                                         isItemActive
                                           ? 'bg-white/20 text-white'
-                                          : item.badgeColor || 'bg-sky-100 text-sky-800 border border-sky-200'
+                                          : item.iconBg || 'bg-sky-500 text-white'
                                       }`}
+                                      aria-hidden="true"
                                     >
-                                      {item.badge}
-                                    </span>
-                                  )}
-                                </div>
-                                {item.sublabel && (
-                                  <p
-                                    className={`text-[10px] truncate mt-0.5 ${
-                                      isItemActive ? 'text-white/80 font-medium' : 'text-slate-500 dark:text-slate-400'
-                                    }`}
-                                  >
-                                    {item.sublabel}
-                                  </p>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
+                                      <i className={`fa-solid ${item.icon}`}></i>
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span
+                                          className={`text-xs font-bold truncate ${
+                                            isItemActive ? 'text-white' : 'text-slate-900 dark:text-slate-100'
+                                          }`}
+                                        >
+                                          {item.label}
+                                        </span>
+                                        {item.badge && (
+                                          <span
+                                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase shrink-0 ${
+                                              isItemActive
+                                                ? 'bg-white/20 text-white'
+                                                : item.badgeColor || 'bg-sky-100 text-sky-800 border border-sky-200'
+                                            }`}
+                                          >
+                                            {item.badge}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {item.sublabel && (
+                                        <p
+                                          className={`text-[10px] truncate mt-0.5 ${
+                                            isItemActive ? 'text-white/80 font-medium' : 'text-slate-500 dark:text-slate-400'
+                                          }`}
+                                        >
+                                          {item.sublabel}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
 
             {/* Sticky Drawer Footer with Utilities (Night Study, Data Saver, Offline Status) */}
             <div className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0f172a] space-y-2 shrink-0 font-sans">
@@ -1393,7 +1508,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                   <button
                     type="button"
                     onClick={onToggleDarkMode}
-                    className={`min-h-[38px] flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    className={`min-h-[38px] flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 ${
                       isDarkMode
                         ? 'bg-slate-800 text-amber-300 border-slate-700'
                         : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -1407,7 +1522,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                 <button
                   type="button"
                   onClick={() => setDataSaver(!dataSaver)}
-                  className={`min-h-[38px] flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  className={`min-h-[38px] flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 ${
                     dataSaver
                       ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
@@ -1431,7 +1546,8 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

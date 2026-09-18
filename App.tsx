@@ -4577,15 +4577,18 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
         <button
           id="mobile-bottom-nav-menu"
           type="button"
-          onClick={() => setMobileNavOpen(true)}
-          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer ${
+          onClick={() => setMobileNavOpen((prev) => !prev)}
+          className={`min-w-[48px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition cursor-pointer active:scale-95 ${
             mobileNavOpen
               ? 'text-tz-purple dark:text-purple-400 font-extrabold'
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 font-medium'
           }`}
+          title={mobileNavOpen ? 'Close navigation menu' : 'Open all navigation modules'}
+          aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open all navigation modules'}
+          aria-expanded={mobileNavOpen}
         >
           <div className="relative">
-            <i className="fa-solid fa-bars text-base"></i>
+            <i className={`fa-solid ${mobileNavOpen ? 'fa-xmark' : 'fa-bars'} text-base`}></i>
           </div>
           <span className="text-[10px]">Menu</span>
         </button>
