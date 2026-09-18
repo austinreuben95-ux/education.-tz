@@ -1622,7 +1622,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <HeaderNavDropdowns
             currentView={currentView}
             setCurrentView={setCurrentView}
@@ -1673,96 +1673,9 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             onGoHome={goHome}
             isDarkMode={isDarkMode}
             onToggleDarkMode={toggleDarkMode}
+            onOpenSearch={() => setIsCurriculumSearchOpen(true)}
+            onOpenFormulaVault={() => setIsFormulaVaultOpen(true)}
           />
-
-          {/* Stats & Profile Button (hidden on mobile, fully integrated into hamburger & bottom bar) */}
-          <div className="hidden md:flex items-center gap-2">
-            <div 
-              onClick={() => setCurrentView(AppView.BADGES)}
-              className="cursor-pointer flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800/60 transition shadow-2xs"
-              title="Study Streak"
-            >
-              <i className="fa-solid fa-fire text-amber-500"></i>
-              <span>{user.streak}d</span>
-            </div>
-            <div 
-              onClick={() => setCurrentView(AppView.WALLET)}
-              className="cursor-pointer flex items-center gap-1.5 text-sky-800 dark:text-sky-300 font-bold text-xs bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 px-3 py-1 rounded-full border border-sky-200 dark:border-sky-800/60 transition shadow-2xs"
-              title="Study Wallet"
-            >
-              <i className="fa-solid fa-coins text-sky-500"></i>
-              <span>{user.points} EP</span>
-            </div>
-            <button 
-              onClick={() => setCurrentView(AppView.BADGES)}
-              className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-purple-200 dark:border-slate-700 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full font-bold text-xs transition active:scale-95 cursor-pointer shadow-2xs"
-              title="Scholar Badges"
-            >
-              <i className="fa-solid fa-award text-purple-600 dark:text-purple-400"></i>
-              <span className="hidden sm:inline">Badges</span>
-            </button>
-
-            {/* Student Profile & Share Progress Button */}
-            <button 
-              onClick={() => setIsProfileModalOpen(true)}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1 rounded-full font-bold text-xs transition active:scale-95 cursor-pointer"
-              title="Student Profile"
-            >
-              <i className="fa-solid fa-user text-slate-500 dark:text-slate-400"></i>
-              <span className="hidden sm:inline">Profile</span>
-            </button>
-          </div>
-
-          <button 
-            onClick={() => setCurrentView(AppView.PARENTS)}
-            className="hidden sm:flex text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-300 transition px-2.5 py-1 rounded-full hover:bg-purple-50/80 dark:hover:bg-slate-800 items-center gap-1 font-bold text-xs border border-transparent hover:border-purple-200 dark:hover:border-slate-700 cursor-pointer"
-            title="Parent Dashboard"
-          >
-            <i className="fa-solid fa-user-shield text-purple-500 dark:text-purple-400"></i>
-            <span className="hidden xl:inline">Parents</span>
-          </button>
-
-          {isAdmin && (
-            <button 
-              onClick={() => {
-                const email = currentUser?.email?.toLowerCase().trim();
-                const isMaster = email === 'austinreuben95@gmail.com';
-                let isGrantedAdmin = false;
-                try {
-                  const savedCollabs = localStorage.getItem('tz_app_collaborators');
-                  if (savedCollabs) {
-                    const list = JSON.parse(savedCollabs);
-                    isGrantedAdmin = list.some((c: any) => c.status === 'Active' && c.email && c.email.toLowerCase().trim() === email);
-                  }
-                  const savedSpot2 = localStorage.getItem('tz_admin_spot_2');
-                  if (savedSpot2 && savedSpot2.toLowerCase().trim() === email) {
-                    isGrantedAdmin = true;
-                  }
-                } catch (e) {}
-
-                if (!isMaster && !isGrantedAdmin) {
-                  window.location.href = 'https://aistudio.google.com/';
-                } else {
-                  setCurrentView(AppView.ADMIN);
-                }
-              }}
-              className="hidden sm:flex text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition items-center gap-1 font-bold text-xs px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              title="Admin Panel"
-            >
-              <i className="fa-solid fa-lock text-slate-500 dark:text-slate-400"></i>
-              <span className="hidden lg:inline">Admin</span>
-            </button>
-          )}
-
-          {/* Ask Yun AI Button - Vibrant Gradient & Sparkle */}
-          <button 
-            onClick={startChat}
-            className="bg-gradient-to-r from-tz-blue via-indigo-600 to-tz-purple hover:opacity-95 text-white px-3.5 sm:px-4 py-1.5 rounded-full font-bold text-xs shadow-sm shadow-sky-500/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            title="Ask Yun AI Tutor"
-          >
-            <i className="fa-solid fa-wand-magic-sparkles text-tz-yellow text-xs animate-pulse"></i>
-            <span>Yun AI</span>
-          </button>
         </div>
       </div>
     </header>

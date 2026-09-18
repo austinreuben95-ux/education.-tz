@@ -25,5 +25,22 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "App.tsx",
+    "index.tsx",
+    "types.ts",
+    "constants.ts",
+    "soundEffects.ts",
+    "deepTopicNotes.ts",
+    "nectaPastPapersData.ts",
+    "nectaPdfExport.ts",
+    "tanzanianSchoolsData.ts",
+    "components/**/*",
+    "services/**/*",
+    "utils/**/*",
+    "data/**/*",
+    "src/**/*",
+    "vite.config.ts"
+  ]
 }
