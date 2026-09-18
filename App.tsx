@@ -1673,12 +1673,6 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             onGoHome={goHome}
             isDarkMode={isDarkMode}
             onToggleDarkMode={toggleDarkMode}
-            onOpenSearch={() => setIsCurriculumSearchOpen(true)}
-            isZenMode={isZenMode}
-            onToggleZenMode={() => setIsZenMode(prev => !prev)}
-            bilingualLang={bilingualLang}
-            onToggleBilingual={() => setBilingualLang(prev => prev === 'EN' ? 'SW' : 'EN')}
-            onOpenFormulaVault={() => setIsFormulaVaultOpen(true)}
           />
 
           {/* Stats & Profile Button (hidden on mobile, fully integrated into hamburger & bottom bar) */}

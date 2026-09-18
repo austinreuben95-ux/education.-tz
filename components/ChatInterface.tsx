@@ -331,7 +331,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         userMsg.text,
         history,
         {
-          model: 'gemini-3.8-flash',
+          model: 'gemini-3.1-flash-lite',
           role: 'default',
           useSearchGrounding: false,
           deepThinking: false,
@@ -456,7 +456,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Gemini 2.5 Flash
+                Gemini 3.1 Flash
               </span>
             </div>
             <p className="text-[11px] text-stone-500 font-normal">

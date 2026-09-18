@@ -247,21 +247,28 @@ Language:
     parts: [{ text: msg.text }],
   }));
 
-  // Resolve model aliases
+  // Resolve model aliases: default to ultra-fast, high-availability gemini-3.1-flash-lite
   let resolvedModel = model;
   if (
     !resolvedModel ||
+    resolvedModel === "default" ||
+    resolvedModel === "lite" ||
+    resolvedModel === "gemini-lite" ||
+    resolvedModel === "gemini-3.1-flash-lite"
+  ) {
+    resolvedModel = "gemini-3.1-flash-lite";
+  } else if (
     resolvedModel === "gemini-2.5-flash" ||
     resolvedModel === "gemini-3.5-flash" ||
     resolvedModel === "flash" ||
     resolvedModel === "gemini-flash" ||
     resolvedModel === "gemini-flash-latest"
   ) {
+    resolvedModel = "gemini-flash-latest";
+  } else if (resolvedModel === "gemini-3.8-flash") {
     resolvedModel = "gemini-3.8-flash";
   } else if (resolvedModel === "pro" || resolvedModel === "gemini-pro" || resolvedModel === "gemini-3.1-pro") {
-    resolvedModel = "gemini-3.1-pro-preview";
-  } else if (resolvedModel === "lite" || resolvedModel === "gemini-lite" || resolvedModel === "gemini-3.1-flash-lite") {
-    resolvedModel = "gemini-3.1-flash-lite";
+    resolvedModel = "gemini-3.1-flash-lite"; // High capability free-tier safe model
   }
 
   // Configure thinking level: ONLY Gemini 3 series models support thinkingLevel parameter
@@ -269,9 +276,13 @@ Language:
     systemInstruction,
   };
 
-  if (resolvedModel.startsWith("gemini-3")) {
+  if (resolvedModel === "gemini-3.8-flash") {
     chatConfig.thinkingConfig = {
       thinkingLevel: deepThinking ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
+    };
+  } else if (resolvedModel === "gemini-3.1-flash-lite") {
+    chatConfig.thinkingConfig = {
+      thinkingLevel: ThinkingLevel.LOW,
     };
   }
 
@@ -410,12 +421,12 @@ app.post("/api/chat/stream", async (req, res) => {
     let modelUsed = resolvedModel;
 
     // Resilient fallback candidate chain:
-    // When a model hits 503 high demand or quota limits, fallback to other fast, stable models
+    // Start with ultra-responsive gemini-3.1-flash-lite, then fallback to gemini-flash-latest and gemini-3.8-flash
     const candidateModels = Array.from(
       new Set([
+        "gemini-3.1-flash-lite",
         resolvedModel,
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
       ])
     );
@@ -577,9 +588,9 @@ app.post("/api/chat", async (req, res) => {
 
     const candidateModels = Array.from(
       new Set([
+        "gemini-3.1-flash-lite",
         resolvedModel,
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
       ])
     );
@@ -674,7 +685,7 @@ app.post("/api/search", async (req, res) => {
     }
 
     let response: any = null;
-    const searchModels = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+    const searchModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
 
     for (const model of searchModels) {
       try {
@@ -772,7 +783,7 @@ app.post("/api/intelligence", async (req, res) => {
 5. 🇹🇿 Real-world Tanzanian practical application example`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview", // Complex reasoning model
+        model: "gemini-3.1-flash-lite", // Fast, highly available intelligence model
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Tanzanian Secondary Academic Advisor and Curriculum Inspector.",
@@ -790,7 +801,7 @@ app.post("/api/intelligence", async (req, res) => {
 3. 🇹🇿 Swahili Translation / Key Term Equivalents where helpful`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash", // Modern general tasks model
+        model: "gemini-3.1-flash-lite", // Fast, responsive model
         contents: prompt,
       });
 
@@ -802,7 +813,7 @@ app.post("/api/intelligence", async (req, res) => {
       const prompt = `Create an intensive 7-day NECTA study roadmap for a ${grade || "Form 4"} student taking ${subject || "Mathematics and Science"}. Break it down into daily 2-hour actionable modules with topic targets, practice problems, and rest intervals.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-3.1-flash-lite", // Fast, responsive model
         contents: prompt,
       });
 
@@ -930,7 +941,7 @@ REQUIREMENTS:
 
       try {
         const result = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
+          model: "gemini-3.1-flash-lite",
           contents: prompt,
           config: {
             responseMimeType: "application/json",

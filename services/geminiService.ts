@@ -9,7 +9,7 @@ export interface ChatResponse {
 export const sendMessageToYunDetailed = async (
   prompt: string,
   history: { role: 'user' | 'model'; text: string }[],
-  model: string = 'gemini-3.8-flash',
+  model: string = 'gemini-3.1-flash-lite',
   role: string = 'default',
   useSearchGrounding: boolean = false,
   deepThinking: boolean = true
@@ -60,7 +60,7 @@ export const streamMessageToYunDetailed = async (
   } = {}
 ): Promise<ChatResponse> => {
   const {
-    model = 'gemini-3.8-flash',
+    model = 'gemini-3.1-flash-lite',
     role = 'default',
     useSearchGrounding = false,
     deepThinking = true,
@@ -147,7 +147,7 @@ export const sendMessageToYun = async (
   prompt: string,
   history: { role: 'user' | 'model'; text: string }[]
 ): Promise<string> => {
-  const result = await sendMessageToYunDetailed(prompt, history, 'gemini-3.8-flash', 'default', false);
+  const result = await sendMessageToYunDetailed(prompt, history, 'gemini-3.1-flash-lite', 'default', false);
   return result.text;
 };
 
