@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import { streamMessageToYunDetailed, sendMessageToYunDetailed } from '../services/geminiService';
+import { playMicStartSound, playMicStopSound } from '../src/utils/soundEffects';
 
 interface ChatInterfaceProps {
   initialContext?: string;
@@ -216,6 +217,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [speechLang, setSpeechLang] = useState<'en-US' | 'sw-TZ'>('en-US');
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [autoSpeakReplies, setAutoSpeakReplies] = useState(false);
+  const [lastInputWasVoice, setLastInputWasVoice] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'up' | 'down'>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -230,6 +236,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     scrollToBottom(true);
   }, [messages, scrollToBottom]);
 
+  // Cleanup speech synthesis & recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // Adjust textarea height dynamically
   useEffect(() => {
     if (inputRef.current) {
@@ -238,42 +258,124 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [input]);
 
-  // Handle Speech-to-Text
-  const toggleVoiceInput = () => {
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
+  // Start Speech-to-Text with microphone permission check & real-time interim recognition
+  const startListening = async () => {
+    // Stop any active speech synthesis so it doesn't feed into the microphone
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+
+    setVoiceError(null);
+    setInterimTranscript('');
+
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      setVoiceError('Voice speech recognition is not supported in this browser. Please use Chrome, Edge, Safari, or a compatible mobile browser to speak to Yun.');
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser. Please use Google Chrome or Edge.');
-      return;
+    // Verify microphone hardware & user permission
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Close audio track immediately after verification; SpeechRecognition will open its own session
+        stream.getTracks().forEach(t => t.stop());
+      } catch (err: any) {
+        console.warn('Microphone permission check warning:', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setVoiceError('Microphone permission was denied. Please allow microphone access in your browser address bar to speak to Yun.');
+          return;
+        }
+      }
     }
 
     try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
+      }
 
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(prev => (prev ? `${prev} ${transcript}` : transcript));
-        setIsListening(false);
+      const recognition = new SpeechRecognitionClass();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = speechLang;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        playMicStartSound();
       };
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
+
+      recognition.onresult = (event: any) => {
+        let finalStr = '';
+        let interimStr = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalStr += res[0].transcript + ' ';
+          } else {
+            interimStr += res[0].transcript;
+          }
+        }
+
+        if (finalStr) {
+          setInput(prev => {
+            const clean = prev.trim();
+            return clean ? `${clean} ${finalStr.trim()}` : finalStr.trim();
+          });
+          setLastInputWasVoice(true);
+        }
+
+        setInterimTranscript(interimStr);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition event error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          setVoiceError('Microphone access is blocked. Please tap the lock/tune icon in your browser address bar to allow microphone access.');
+        } else if (event.error === 'no-speech') {
+          setVoiceError('No speech detected. Please speak closer to your device and try again!');
+        } else if (event.error === 'audio-capture') {
+          setVoiceError('No microphone detected. Please connect or enable your microphone.');
+        } else if (event.error !== 'aborted') {
+          setVoiceError(`Microphone issue (${event.error}). Please try again!`);
+        }
+        setIsListening(false);
+        playMicStopSound();
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        playMicStopSound();
+      };
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
-      console.error('Speech recognition error:', err);
+    } catch (err: any) {
+      console.error('Speech recognition initiation error:', err);
+      setVoiceError('Unable to start speech recognition. Please check your microphone settings.');
       setIsListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+    }
+    setIsListening(false);
+    playMicStopSound();
+  };
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
   };
 
@@ -290,8 +392,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     window.speechSynthesis.cancel();
     const cleanText = sanitizeTextForSpeech(text);
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
+    utterance.rate = 0.95; // Slightly slower, crystal clear for younger learners
     utterance.pitch = 1.0;
+    if (speechLang === 'sw-TZ') {
+      utterance.lang = 'sw-TZ';
+    }
 
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -303,6 +408,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSend = async (customPrompt?: string) => {
     const promptToSend = (customPrompt || input).trim();
     if (!promptToSend || isLoading) return;
+
+    // If microphone is active, stop it before sending
+    if (isListening) {
+      stopListening();
+    }
+    setInterimTranscript('');
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -331,7 +442,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         userMsg.text,
         history,
         {
-          model: 'gemini-3.8-flash',
+          model: 'gemini-3.1-flash-lite',
           role: 'default',
           useSearchGrounding: false,
           deepThinking: false,
@@ -361,6 +472,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             : m
         )
       );
+
+      // Auto-read response aloud for younger learners or when voice mode was used
+      if (autoSpeakReplies || lastInputWasVoice) {
+        speakMessage(response.text);
+      }
     } catch (err: any) {
       console.error('Chat error:', err);
       setMessages(prev =>
@@ -377,6 +493,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     } finally {
       setIsLoading(false);
       scrollToBottom(true);
+    }
+  };
+
+  // Immediate send from voice mode
+  const handleVoiceSend = () => {
+    stopListening();
+    const promptToSend = (input.trim() || interimTranscript.trim());
+    if (promptToSend) {
+      setLastInputWasVoice(true);
+      handleSend(promptToSend);
+      setInterimTranscript('');
     }
   };
 
@@ -456,7 +583,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Gemini 2.5 Flash
+                Gemini 3.1 Flash
               </span>
             </div>
             <p className="text-[11px] text-stone-500 font-normal">
@@ -466,6 +593,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Read Aloud Toggle for Younger Learners */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isSpeaking) {
+                window.speechSynthesis?.cancel();
+                setIsSpeaking(false);
+              }
+              setAutoSpeakReplies(prev => !prev);
+            }}
+            className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border ${
+              autoSpeakReplies
+                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 border-stone-200'
+            }`}
+            title={autoSpeakReplies ? "Auto-reading answers aloud is ON" : "Enable auto-reading answers aloud for younger learners"}
+            aria-label="Auto-read answers aloud"
+          >
+            <i className={`fa-solid ${autoSpeakReplies ? 'fa-volume-high text-amber-600' : 'fa-volume-slash text-stone-400'}`}></i>
+            <span className="hidden md:inline">{autoSpeakReplies ? 'Read Aloud: On' : 'Read Aloud'}</span>
+          </button>
+
           {/* Clear chat */}
           <button
             type="button"
@@ -597,9 +746,39 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {/* Suggestion Cards when conversation is fresh */}
         {messages.length <= 1 && (
           <div className="pt-4 space-y-3">
-            <div className="text-center sm:text-left">
+            {/* Primary Young Learner Voice Question Starter */}
+            <button
+              type="button"
+              onClick={startListening}
+              className="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white text-left transition-all duration-200 hover:shadow-lg hover:scale-[1.008] active:scale-[0.99] cursor-pointer group flex items-center justify-between gap-4 border border-emerald-500/40 shadow-sm"
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white text-xl shadow-inner group-hover:scale-110 group-hover:bg-white/25 transition-transform shrink-0">
+                  <i className="fa-solid fa-microphone"></i>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h5 className="font-extrabold text-sm sm:text-base text-white">
+                      Speak Your Question to Yun
+                    </h5>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-stone-900 uppercase tracking-wide shadow-2xs">
+                      Young Learners 🎙️
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/90 mt-0.5">
+                    Don't want to type? Tap here and speak your question in English or Kiswahili — Yun will listen and answer!
+                  </p>
+                </div>
+              </div>
+              <span className="px-3.5 py-2 rounded-xl bg-white text-emerald-900 font-extrabold text-xs shrink-0 group-hover:bg-amber-300 transition-colors shadow-xs flex items-center gap-1.5">
+                <span>Start Speaking</span>
+                <i className="fa-solid fa-chevron-right text-[10px]"></i>
+              </span>
+            </button>
+
+            <div className="text-center sm:text-left pt-2">
               <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                Explore with Gemini Prompt Starters
+                Or Explore with Gemini Prompt Starters
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -630,24 +809,191 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Signature Floating Gemini Prompt Bar */}
+      {/* Signature Floating Gemini Prompt Bar with Microphone Access */}
       <footer className="p-4 bg-white border-t border-stone-200">
         <div className="relative max-w-4xl mx-auto">
+          {/* Microphone Permission / Recognition Error Banner */}
+          {voiceError && (
+            <div className="mb-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <i className="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 text-base"></i>
+                <div>
+                  <p className="font-bold text-amber-950">Microphone Notice</p>
+                  <p className="text-amber-800 mt-0.5 leading-relaxed">{voiceError}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={startListening}
+                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition shadow-2xs cursor-pointer"
+                >
+                  Try Again
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVoiceError(null)}
+                  className="w-6 h-6 rounded-full hover:bg-amber-200/80 text-amber-700 flex items-center justify-center transition cursor-pointer"
+                  title="Dismiss error"
+                  aria-label="Dismiss error"
+                >
+                  <i className="fa-solid fa-xmark text-xs"></i>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Live Voice Overlay for Younger Learners */}
+          {isListening && (
+            <div className="mb-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border-2 border-emerald-300 shadow-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-rose-500 text-white shadow-sm shrink-0">
+                    <span className="absolute inset-0 rounded-full bg-rose-400 animate-ping opacity-75"></span>
+                    <i className="fa-solid fa-microphone text-sm relative z-10"></i>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-xs sm:text-sm text-emerald-950">
+                        {speechLang === 'sw-TZ' ? 'Yun anakusikiliza... Ongea sasa!' : 'Yun is listening... Speak now!'}
+                      </span>
+                      {/* Animated live sound wave equalizer */}
+                      <div className="flex items-center gap-1 h-3.5" aria-hidden="true">
+                        <span className="w-1 bg-emerald-600 rounded-full animate-pulse h-3"></span>
+                        <span className="w-1 bg-teal-600 rounded-full animate-pulse h-4 delay-75"></span>
+                        <span className="w-1 bg-sky-600 rounded-full animate-pulse h-2.5 delay-150"></span>
+                        <span className="w-1 bg-emerald-600 rounded-full animate-pulse h-4 delay-100"></span>
+                        <span className="w-1 bg-rose-500 rounded-full animate-pulse h-3 delay-200"></span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-stone-600">
+                      {speechLang === 'sw-TZ' ? 'Ongea swali lako kwa sauti ya kawaida' : 'Speak your question clearly into your microphone'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Speech Language Switcher */}
+                <div className="flex items-center gap-1 bg-white/90 p-1 rounded-xl border border-emerald-200 text-xs font-bold shadow-2xs">
+                  <span className="text-[10px] text-stone-400 uppercase px-1">Lang:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSpeechLang('en-US')}
+                    className={`px-2 py-0.5 rounded-lg transition text-xs ${
+                      speechLang === 'en-US'
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    🇬🇧 English
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSpeechLang('sw-TZ')}
+                    className={`px-2 py-0.5 rounded-lg transition text-xs ${
+                      speechLang === 'sw-TZ'
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    🇹🇿 Kiswahili
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-time speech transcript bubble */}
+              <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs min-h-[50px] flex items-center">
+                <p className="text-sm sm:text-base font-medium text-stone-900 leading-snug">
+                  {input || interimTranscript ? (
+                    <span>
+                      {input}{' '}
+                      <span className="text-emerald-700 font-semibold italic">
+                        {interimTranscript}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-stone-400 italic">
+                      {speechLang === 'sw-TZ'
+                        ? 'Mfano: "Eleza kazi ya moyo" au "Nini maana ya gravity?"'
+                        : 'Example: "What causes tides?" or "Explain the carbon cycle"...'}
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Action Buttons for Young Learners */}
+              <div className="flex items-center justify-between gap-2 mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopListening();
+                    setInterimTranscript('');
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-200/60 transition cursor-pointer"
+                >
+                  <i className="fa-solid fa-xmark mr-1"></i>
+                  Cancel
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={stopListening}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-stone-700 border border-stone-200 hover:bg-stone-50 transition shadow-2xs cursor-pointer"
+                    title="Stop microphone and keep recognized text in prompt box"
+                  >
+                    <i className="fa-solid fa-pen-to-square mr-1 text-stone-500"></i>
+                    Keep Text
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleVoiceSend}
+                    disabled={!(input.trim() || interimTranscript.trim())}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition cursor-pointer ${
+                      input.trim() || interimTranscript.trim()
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                        : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <span>Send to Yun</span>
+                    <i className="fa-solid fa-paper-plane text-[10px]"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="relative flex items-end gap-2 bg-stone-50 hover:bg-white focus-within:bg-white border border-stone-300 focus-within:border-stone-400 focus-within:ring-2 focus-within:ring-stone-200 rounded-3xl p-2 transition-all shadow-xs">
-            {/* Microphone button */}
-            <button
-              type="button"
-              onClick={toggleVoiceInput}
-              className={`p-2.5 rounded-full transition flex items-center justify-center cursor-pointer shrink-0 ${
-                isListening
-                  ? 'bg-rose-500 text-white animate-pulse'
-                  : 'text-stone-500 hover:text-stone-800 hover:bg-stone-200/70'
-              }`}
-              title={isListening ? "Listening... click to stop" : "Voice input"}
-              aria-label="Voice input"
-            >
-              <i className="fa-solid fa-microphone text-sm"></i>
-            </button>
+            {/* Microphone button & Language indicator */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={toggleVoiceInput}
+                className={`p-2.5 rounded-full transition flex items-center justify-center cursor-pointer shrink-0 relative ${
+                  isListening
+                    ? 'bg-rose-500 text-white shadow-md'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/70'
+                }`}
+                title={isListening ? "Yun is listening... Tap to finish" : "Speak to Yun (Voice input for young learners)"}
+                aria-label={isListening ? "Stop listening" : "Start voice input"}
+              >
+                {isListening && (
+                  <span className="absolute inset-0 rounded-full bg-rose-400 animate-ping opacity-60"></span>
+                )}
+                <i className={`fa-solid fa-microphone text-sm relative z-10 ${isListening ? 'animate-pulse' : ''}`}></i>
+              </button>
+
+              {/* Quick Language Pill toggle */}
+              <button
+                type="button"
+                onClick={() => setSpeechLang(prev => prev === 'en-US' ? 'sw-TZ' : 'en-US')}
+                className="px-2 py-1 rounded-full bg-stone-200/80 hover:bg-stone-300/80 text-[10px] font-black text-stone-700 transition cursor-pointer"
+                title={`Speech recognition language: ${speechLang === 'en-US' ? 'English' : 'Kiswahili'}. Click to toggle.`}
+                aria-label={`Toggle speech language, currently ${speechLang === 'en-US' ? 'English' : 'Kiswahili'}`}
+              >
+                {speechLang === 'en-US' ? 'EN' : 'SW'}
+              </button>
+            </div>
 
             {/* Input textarea */}
             <textarea
@@ -656,7 +1002,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Yun anything about your syllabus, NECTA past papers, or concepts..."
+              placeholder={isListening ? "Listening to your voice..." : "Ask Yun anything, or tap the microphone to speak..."}
               className="flex-1 max-h-36 bg-transparent border-0 resize-none px-2 py-1.5 text-sm sm:text-base text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0 leading-relaxed font-sans"
             />
 
@@ -677,9 +1023,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </button>
           </div>
 
-          <p className="text-[11px] text-stone-400 text-center mt-2">
-            Yun AI provides curriculum explanations based on TIE & NECTA guidelines. Always verify with official syllabi.
-          </p>
+          <div className="flex items-center justify-between gap-2 text-[11px] text-stone-400 text-center mt-2 px-1">
+            <span>
+              Yun AI provides curriculum explanations based on TIE & NECTA guidelines.
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1 text-emerald-600 font-semibold">
+              <i className="fa-solid fa-microphone text-[10px]"></i>
+              Voice Question Enabled
+            </span>
+          </div>
         </div>
       </footer>
     </div>
