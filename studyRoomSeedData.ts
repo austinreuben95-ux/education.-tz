@@ -1,0 +1,273 @@
+import { StudyRoomMessage } from '../types';
+
+export const SEED_STUDY_TIPS: StudyRoomMessage[] = [
+  // Mathematics
+  {
+    id: 'seed-math-1',
+    subjectId: 'mathematics',
+    subjectName: 'Basic Mathematics',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Mwl. Makonda',
+    authorId: 'system_curator_1',
+    authorRole: 'Teacher',
+    type: 'trap',
+    title: 'Quadratic Formula Negative Sign Trap',
+    content: 'NECTA TRAP: In x = (-b ± √(b² - 4ac)) / (2a), if b is already negative (e.g. x² - 6x + 5 = 0), then -b becomes +6, NOT -6! Over 40% of candidates lose full marks on question 4 by writing -6.',
+    likes: 34,
+    likedBy: [],
+    createdAt: '2026-09-08T10:30:00Z',
+    isNectaTrap: true,
+    topicRef: 'Quadratic Equations'
+  },
+  {
+    id: 'seed-math-2',
+    subjectId: 'mathematics',
+    subjectName: 'Basic Mathematics',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Baraka John',
+    authorId: 'system_curator_2',
+    authorRole: 'Candidate',
+    type: 'tip',
+    title: 'Bearings Always Use 3 Digits',
+    content: 'Always express three-figure bearings with leading zeroes! If the angle is 45°, write 045°. Writing 45° or 45 degrees without the leading zero loses mark for standard NECTA mathematical conventions.',
+    likes: 21,
+    likedBy: [],
+    createdAt: '2026-09-09T14:15:00Z',
+    isNectaTrap: false,
+    topicRef: 'Bearings & Trigonometry'
+  },
+  {
+    id: 'seed-math-3',
+    subjectId: 'mathematics',
+    subjectName: 'Basic Mathematics',
+    gradeLevel: 'Form 2 (FTNA)',
+    authorName: 'Amina Selemani',
+    authorId: 'system_curator_3',
+    authorRole: 'Peer Tutor',
+    type: 'formula',
+    title: 'Sum of Interior Angles of Polygon',
+    content: 'Quick Formula: Sum = (2n - 4) × 90° or (n - 2) × 180°. When asked for "Each interior angle of a regular n-gon", divide the total by n! Do not forget to state regular polygon conditions.',
+    likes: 18,
+    likedBy: [],
+    createdAt: '2026-09-10T08:00:00Z',
+    isNectaTrap: false,
+    topicRef: 'Geometry & Polygons'
+  },
+
+  // Physics
+  {
+    id: 'seed-phys-1',
+    subjectId: 'physics',
+    subjectName: 'Physics',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Mwl. Kweka',
+    authorId: 'system_curator_4',
+    authorRole: 'Teacher',
+    type: 'trap',
+    title: 'Omitting SI Units in Final Answers',
+    content: 'NECTA CHIEF EXAMINER WARNING: A correct numerical answer without proper SI units (or with incorrect lowercase/uppercase e.g. "j" instead of "J" for Joules, or "n" instead of "N" for Newtons) automatically loses the final answer mark (A1). Always double-check units!',
+    likes: 47,
+    likedBy: [],
+    createdAt: '2026-09-08T11:45:00Z',
+    isNectaTrap: true,
+    topicRef: 'Work, Energy & Power'
+  },
+  {
+    id: 'seed-phys-2',
+    subjectId: 'physics',
+    subjectName: 'Physics',
+    gradeLevel: 'Form 3 & 4',
+    authorName: 'David Masanja',
+    authorId: 'system_curator_5',
+    authorRole: 'Candidate',
+    type: 'trap',
+    title: 'Archimedes Principle vs Law of Flotation',
+    content: 'NECTA TRAP: Do not confuse them! Archimedes Principle states upthrust equals weight of fluid displaced (for submerged/partially submerged). Law of Flotation applies strictly to FLOATING bodies where upthrust equals the ENTIRE weight of the floating body.',
+    likes: 29,
+    likedBy: [],
+    createdAt: '2026-09-09T16:20:00Z',
+    isNectaTrap: true,
+    topicRef: 'Pressure & Flotation'
+  },
+
+  // Chemistry
+  {
+    id: 'seed-chem-1',
+    subjectId: 'chemistry',
+    subjectName: 'Chemistry',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Fatma Ally',
+    authorId: 'system_curator_6',
+    authorRole: 'Candidate',
+    type: 'trap',
+    title: 'State Symbols in Chemical Equations',
+    content: 'NECTA CSEE Section B requires state symbols (s, l, g, aq) whenever an equation specifies a reaction condition. Leaving out (aq) or writing (l) for dissolved salts costs 1 mark per question.',
+    likes: 38,
+    likedBy: [],
+    createdAt: '2026-09-07T09:10:00Z',
+    isNectaTrap: true,
+    topicRef: 'Chemical Equations'
+  },
+  {
+    id: 'seed-chem-2',
+    subjectId: 'chemistry',
+    subjectName: 'Chemistry',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Mwl. Mwita',
+    authorId: 'system_curator_7',
+    authorRole: 'Teacher',
+    type: 'tip',
+    title: 'Copper and Chromium Electron Configurations',
+    content: 'High-frequency NECTA question: Remember half-filled and fully-filled 3d orbitals have extra stability! Cr (Z=24) is [Ar] 4s¹ 3d⁵ (NOT 4s² 3d⁴). Cu (Z=29) is [Ar] 4s¹ 3d¹⁰ (NOT 4s² 3d⁹).',
+    likes: 42,
+    likedBy: [],
+    createdAt: '2026-09-09T12:00:00Z',
+    isNectaTrap: false,
+    topicRef: 'Atomic Structure'
+  },
+
+  // Biology
+  {
+    id: 'seed-bio-1',
+    subjectId: 'biology',
+    subjectName: 'Biology',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Neema Joseph',
+    authorId: 'system_curator_8',
+    authorRole: 'Peer Tutor',
+    type: 'trap',
+    title: 'Biological Drawings Without Magnification or Underlined Labels',
+    content: 'NECTA RULE: All biological specimen diagrams must have: 1. Clear continuous lines (no shading or artistic smudges). 2. Straight horizontal label guidelines without crossing. 3. Magnification calculation at bottom (e.g. ×2 or ×400). 4. Title written in capital letters and underlined.',
+    likes: 51,
+    likedBy: [],
+    createdAt: '2026-09-08T15:30:00Z',
+    isNectaTrap: true,
+    topicRef: 'Biological Drawings & Practical'
+  },
+  {
+    id: 'seed-bio-2',
+    subjectId: 'biology',
+    subjectName: 'Biology',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Kelvin Peter',
+    authorId: 'system_curator_9',
+    authorRole: 'Candidate',
+    type: 'tip',
+    title: 'Photosynthesis Exact Definition',
+    content: 'NECTA marking scheme keyword check: Photosynthesis is the process by which green plants manufacture organic food (glucose) from carbon dioxide and water in the presence of sunlight and chlorophyll, releasing oxygen as a byproduct. You must mention ALL 4 factors: CO2, H2O, light, chlorophyll!',
+    likes: 33,
+    likedBy: [],
+    createdAt: '2026-09-10T11:20:00Z',
+    isNectaTrap: false,
+    topicRef: 'Nutrition & Photosynthesis'
+  },
+
+  // Geography
+  {
+    id: 'seed-geo-1',
+    subjectId: 'geography',
+    subjectName: 'Geography',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Mwl. Kipingu',
+    authorId: 'system_curator_10',
+    authorRole: 'Teacher',
+    type: 'trap',
+    title: 'Gradient vs Vertical Exaggeration',
+    content: 'NECTA MAP WORK TRAP: Gradient = Vertical Interval (VI) / Horizontal Equivalent (HE). Both VI and HE MUST be converted to the SAME unit (usually meters) before dividing! E.g. If HE = 4 km, convert to 4,000 m. Express final answer as ratio 1:X or fraction.',
+    likes: 39,
+    likedBy: [],
+    createdAt: '2026-09-08T17:00:00Z',
+    isNectaTrap: true,
+    topicRef: 'Topographic Map Reading'
+  },
+
+  // History
+  {
+    id: 'seed-hist-1',
+    subjectId: 'history',
+    subjectName: 'History',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Juma Hassan',
+    authorId: 'system_curator_11',
+    authorRole: 'Candidate',
+    type: 'tip',
+    title: 'Essay Structure for Scoring 16+ Marks',
+    content: 'In NECTA History essays (Section C), always follow: 1. Clear introduction with historical definition, time framework, and geographical scope (2 marks). 2. Six well-elaborated points with Tanzania/African examples (12 marks). 3. Conclusion summarizing historical significance (2 marks). Never list bullet points!',
+    likes: 45,
+    likedBy: [],
+    createdAt: '2026-09-09T18:40:00Z',
+    isNectaTrap: false,
+    topicRef: 'Colonial Economy & Resistance'
+  },
+
+  // Kiswahili
+  {
+    id: 'seed-kisw-1',
+    subjectId: 'kiswahili',
+    subjectName: 'Kiswahili',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Mwl. Asha Bakari',
+    authorId: 'system_curator_12',
+    authorRole: 'Teacher',
+    type: 'trap',
+    title: 'Ngeli za Nomino: Mpangilio wa Kisasa',
+    content: 'NECTA TRAP YA SARUFI: Katika mtihani wa CSEE, NECTA inatumia upatanisho wa kisarufi (A-WA, KI-VI, LI-YA, U-I, U-ZI, YA-YA, I-ZI, KU, PA-MU-KU). Usichanganye mifumo ya kigeni au kuandika ngeli bila kuonyesha vielelezo vya upatanisho katika sentensi!',
+    likes: 41,
+    likedBy: [],
+    createdAt: '2026-09-09T08:30:00Z',
+    isNectaTrap: true,
+    topicRef: 'Sarufi na Uainishaji wa Ngeli'
+  },
+
+  // English
+  {
+    id: 'seed-eng-1',
+    subjectId: 'english',
+    subjectName: 'English Language',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Grace Wilson',
+    authorId: 'system_curator_13',
+    authorRole: 'Peer Tutor',
+    type: 'tip',
+    title: 'Formal Letter Format in NECTA',
+    content: 'NECTA CSEE Official Rubric: Sender address on top right (no punctuation at end of lines), Date below it. Receiver designation & address on top left. Salutation (Dear Sir/Madam). REF/Heading underlined. Body. Sign-off: "Yours faithfully" (capital Y, small f) followed by signature and full name in brackets.',
+    likes: 36,
+    likedBy: [],
+    createdAt: '2026-09-10T14:50:00Z',
+    isNectaTrap: false,
+    topicRef: 'Writing Skills'
+  },
+
+  // Civics
+  {
+    id: 'seed-civ-1',
+    subjectId: 'civics',
+    subjectName: 'Civics',
+    gradeLevel: 'Form 4 (CSEE)',
+    authorName: 'Emmanuel Lyimo',
+    authorId: 'system_curator_14',
+    authorRole: 'Candidate',
+    type: 'trap',
+    title: 'Nation vs State Distinction',
+    content: 'NECTA TRAP: Do not use "Nation" and "State" interchangeably! A State is a political entity with sovereignty, defined territory, government, and population. A Nation is a cultural/social group of people sharing common language, history, and customs. Tanzania is a nation-state.',
+    likes: 27,
+    likedBy: [],
+    createdAt: '2026-09-07T13:10:00Z',
+    isNectaTrap: true,
+    topicRef: 'Our Nation & Governance'
+  }
+];
+
+export const STUDY_ROOM_SUBJECTS = [
+  { id: 'ALL', name: 'All Subjects', icon: 'fa-globe', color: 'indigo' },
+  { id: 'mathematics', name: 'Basic Mathematics', icon: 'fa-calculator', color: 'blue' },
+  { id: 'physics', name: 'Physics', icon: 'fa-atom', color: 'cyan' },
+  { id: 'chemistry', name: 'Chemistry', icon: 'fa-flask', color: 'emerald' },
+  { id: 'biology', name: 'Biology', icon: 'fa-dna', color: 'green' },
+  { id: 'geography', name: 'Geography', icon: 'fa-mountain-sun', color: 'teal' },
+  { id: 'history', name: 'History', icon: 'fa-landmark', color: 'amber' },
+  { id: 'kiswahili', name: 'Kiswahili', icon: 'fa-book-quran', color: 'red' },
+  { id: 'english', name: 'English Language', icon: 'fa-spell-check', color: 'purple' },
+  { id: 'civics', name: 'Civics', icon: 'fa-scale-balanced', color: 'orange' },
+  { id: 'commerce', name: 'Commerce & Bookkeeping', icon: 'fa-chart-line', color: 'rose' },
+];
