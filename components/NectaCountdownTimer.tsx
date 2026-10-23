@@ -376,6 +376,7 @@ export interface NectaCountdownTimerProps {
   onNavigateToExams?: () => void;
   onNavigateToPlanner?: () => void;
   onOpenYunAI?: (prompt: string) => void;
+  onOpenExamStrategy?: (subject?: string, grade?: string) => void;
   onStartQuickStudy?: () => void;
 }
 
@@ -393,40 +394,37 @@ export interface NectaExamSpec {
   badgeColor: string;
 }
 
+export interface NectaDailyPaper {
+  day: string;
+  dateStr: string;
+  morningPaper: string;
+  morningCode: string;
+  afternoonPaper?: string;
+  afternoonCode?: string;
+}
+
+export interface NectaExamSpec {
+  id: string;
+  gradeLabel: string;
+  examCode: string;
+  fullName: string;
+  swahiliTitle: string;
+  targetDate: string; // Active upcoming date
+  pastSessionDate?: string; // 2026 completed sitting date
+  academicYearStart: string;
+  levelCategory: 'Primary' | 'O-Level' | 'A-Level';
+  keySubjects: string[];
+  tips: string[];
+  badgeColor: string;
+  sessionHours: {
+    morning: string;
+    afternoon?: string;
+  };
+  scheduleCycleNote: string;
+  dailyPapers: NectaDailyPaper[];
+}
+
 export const NECTA_EXAM_SCHEDULE: NectaExamSpec[] = [
-  {
-    id: 'psle-std7',
-    gradeLabel: 'Standard 7',
-    examCode: 'PSLE',
-    fullName: 'Primary School Leaving Examination',
-    swahiliTitle: 'Mtihani wa Kumaliza Elimu ya Msingi (Darasa la 7)',
-    targetDate: '2026-09-09T08:00:00',
-    academicYearStart: '2026-01-12T00:00:00',
-    levelCategory: 'Primary',
-    keySubjects: ['Hisabati', 'Aghalabu/English', 'Kiswahili', 'Sayansi & Teknolojia', 'Maarifa ya Jamii'],
-    tips: [
-      'Master basic arithmetic, speed multiplication, and word problem conversions.',
-      'Review Swahili grammar (Mnyambuliko wa kitenzi) and English tenses.',
-      'Practice diagrams for Science & Technology experiments.'
-    ],
-    badgeColor: 'bg-emerald-500 text-white'
-  },
-  {
-    id: 'sfna-std4',
-    gradeLabel: 'Standard 4',
-    examCode: 'SFNA',
-    fullName: 'Standard Four National Assessment',
-    swahiliTitle: 'Pima la Kitaifa la Darasa la Nne',
-    targetDate: '2026-10-21T08:00:00',
-    academicYearStart: '2026-01-12T00:00:00',
-    levelCategory: 'Primary',
-    keySubjects: ['Hisabati', 'English', 'Kiswahili', 'Sayansi', 'Uraia na Maadili'],
-    tips: [
-      'Focus on foundational reading comprehension and basic math tables.',
-      'Practice drawing simple maps and civic responsibility principles.'
-    ],
-    badgeColor: 'bg-teal-500 text-white'
-  },
   {
     id: 'ftna-form2',
     gradeLabel: 'Form 2',
@@ -438,11 +436,24 @@ export const NECTA_EXAM_SCHEDULE: NectaExamSpec[] = [
     levelCategory: 'O-Level',
     keySubjects: ['Physics', 'Chemistry', 'Biology', 'Basic Mathematics', 'Geography', 'History', 'Civics', 'Kiswahili', 'English'],
     tips: [
-      'Master Form 1 & 2 formula derivations in Physics and Chemistry math problems.',
-      'Practice NECTA format diagrams for Biology organ structures.',
-      'Ensure clear essay structure for History and Civics.'
+      'Master Form 1 & 2 formula derivations in Physics and Chemistry numerical problems.',
+      'Practice NECTA format diagrams for Biology cell and organ structures.',
+      'Ensure structured paragraphing for History, Geography, and Civics essay sections.'
     ],
-    badgeColor: 'bg-indigo-600 text-white'
+    badgeColor: 'bg-indigo-600 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 10:30 AM (Morning Session)',
+      afternoon: '02:00 PM – 04:30 PM (Afternoon Session)',
+    },
+    scheduleCycleNote: 'NECTA 2026 National Assessment Window: Monday Nov 2 – Thursday Nov 12, 2026',
+    dailyPapers: [
+      { day: 'Day 1 (Mon, Nov 2)', dateStr: '02/11/2026', morningPaper: '011 Civics', morningCode: '011', afternoonPaper: '021 Kiswahili', afternoonCode: '021' },
+      { day: 'Day 2 (Tue, Nov 3)', dateStr: '03/11/2026', morningPaper: '013 Geography', morningCode: '013', afternoonPaper: '041 Basic Mathematics', afternoonCode: '041' },
+      { day: 'Day 3 (Wed, Nov 4)', dateStr: '04/11/2026', morningPaper: '031 Physics', morningCode: '031', afternoonPaper: '022 English Language', afternoonCode: '022' },
+      { day: 'Day 4 (Thu, Nov 5)', dateStr: '05/11/2026', morningPaper: '032 Chemistry', morningCode: '032', afternoonPaper: '012 History', afternoonCode: '012' },
+      { day: 'Day 5 (Fri, Nov 6)', dateStr: '06/11/2026', morningPaper: '033 Biology', morningCode: '033', afternoonPaper: '014 Commerce / Book Keeping', afternoonCode: '014' },
+      { day: 'Day 6 (Mon, Nov 9)', dateStr: '09/11/2026', morningPaper: '018 Physical Education / Technical', morningCode: '018', afternoonPaper: '015 Information & Computer Studies', afternoonCode: '015' }
+    ]
   },
   {
     id: 'csee-form4',
@@ -456,10 +467,53 @@ export const NECTA_EXAM_SCHEDULE: NectaExamSpec[] = [
     keySubjects: ['Physics', 'Chemistry', 'Biology', 'Basic Math', 'English', 'Kiswahili', 'Geography', 'History', 'Civics'],
     tips: [
       'Solve at least 5 previous NECTA CSEE past papers (2019–2025).',
-      'Pay extra attention to Practical exams (Physics, Chemistry, Biology Paper 3).',
-      'Review map reading and calculation formulas in Geography.'
+      'Pay extra attention to Practical examinations (Physics 3A/3B, Chemistry 3A/3B, Biology 3A/3B).',
+      'Review map reading grid coordinates and elevation calculations in Geography Paper 1.'
     ],
-    badgeColor: 'bg-purple-600 text-white'
+    badgeColor: 'bg-purple-600 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 11:00 AM (3 Hours)',
+      afternoon: '02:00 PM – 05:00 PM (3 Hours)',
+    },
+    scheduleCycleNote: 'NECTA Official CSEE 2026 Window: Monday Nov 9 – Friday Nov 27, 2026',
+    dailyPapers: [
+      { day: 'Day 1 (Mon, Nov 9)', dateStr: '09/11/2026', morningPaper: '011 Civics', morningCode: '011', afternoonPaper: '021 Kiswahili', afternoonCode: '021' },
+      { day: 'Day 2 (Tue, Nov 10)', dateStr: '10/11/2026', morningPaper: '013 Geography', morningCode: '013', afternoonPaper: '041 Basic Mathematics', afternoonCode: '041' },
+      { day: 'Day 3 (Wed, Nov 11)', dateStr: '11/11/2026', morningPaper: '031 Physics 1 (Theory)', morningCode: '031/1', afternoonPaper: '022 English Language', afternoonCode: '022' },
+      { day: 'Day 4 (Thu, Nov 12)', dateStr: '12/11/2026', morningPaper: '032 Chemistry 1 (Theory)', morningCode: '032/1', afternoonPaper: '012 History', afternoonCode: '012' },
+      { day: 'Day 5 (Fri, Nov 13)', dateStr: '13/11/2026', morningPaper: '033 Biology 1 (Theory)', morningCode: '033/1', afternoonPaper: '014 Commerce', afternoonCode: '014' },
+      { day: 'Day 6 (Mon, Nov 16)', dateStr: '16/11/2026', morningPaper: '031/2A Physics Practical', morningCode: '031/2A', afternoonPaper: '031/2B Physics Practical', afternoonCode: '031/2B' },
+      { day: 'Day 7 (Tue, Nov 17)', dateStr: '17/11/2026', morningPaper: '032/2A Chemistry Practical', morningCode: '032/2A', afternoonPaper: '032/2B Chemistry Practical', afternoonCode: '032/2B' },
+      { day: 'Day 8 (Wed, Nov 18)', dateStr: '18/11/2026', morningPaper: '033/2A Biology Practical', morningCode: '033/2A', afternoonPaper: '033/2B Biology Practical', afternoonCode: '033/2B' }
+    ]
+  },
+  {
+    id: 'terminal-annual',
+    gradeLabel: 'Form 1 / 3 / 5',
+    examCode: 'ANNUAL',
+    fullName: 'National Annual Progression Examinations',
+    swahiliTitle: 'Mitihani ya Mwaka na Muhula wa Pili',
+    targetDate: '2026-11-16T08:00:00',
+    academicYearStart: '2026-01-12T00:00:00',
+    levelCategory: 'O-Level',
+    keySubjects: ['All Form Syllabus Subjects'],
+    tips: [
+      'Ensure complete notes coverage for all topics taught across Terms 1 and 2.',
+      'Practice mock speed tests to prepare for next year\'s NECTA national exam.'
+    ],
+    badgeColor: 'bg-cyan-600 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 10:30 AM',
+      afternoon: '02:00 PM – 04:30 PM',
+    },
+    scheduleCycleNote: 'Secondary Annual Progression Window: Monday Nov 16 – Friday Nov 27, 2026',
+    dailyPapers: [
+      { day: 'Day 1 (Mon, Nov 16)', dateStr: '16/11/2026', morningPaper: 'Civics / General Studies', morningCode: '011', afternoonPaper: 'Kiswahili', afternoonCode: '021' },
+      { day: 'Day 2 (Tue, Nov 17)', dateStr: '17/11/2026', morningPaper: 'Geography', morningCode: '013', afternoonPaper: 'Basic / Pure Mathematics', afternoonCode: '041' },
+      { day: 'Day 3 (Wed, Nov 18)', dateStr: '18/11/2026', morningPaper: 'Physics / Physical Sciences', morningCode: '031', afternoonPaper: 'English Language', afternoonCode: '022' },
+      { day: 'Day 4 (Thu, Nov 19)', dateStr: '19/11/2026', morningPaper: 'Chemistry', morningCode: '032', afternoonPaper: 'History', afternoonCode: '012' },
+      { day: 'Day 5 (Fri, Nov 20)', dateStr: '20/11/2026', morningPaper: 'Biology', morningCode: '033', afternoonPaper: 'Commercial Subjects', afternoonCode: '014' }
+    ]
   },
   {
     id: 'acsee-form6',
@@ -472,27 +526,77 @@ export const NECTA_EXAM_SCHEDULE: NectaExamSpec[] = [
     levelCategory: 'A-Level',
     keySubjects: ['PCB', 'PCM', 'CBG', 'PGM', 'EGM', 'HGK', 'HGL', 'HKL', 'BAM', 'General Studies'],
     tips: [
-      'Deep dive into Bamb / Pure Math integration and organic reaction mechanisms.',
-      'Ensure comprehensive referencing for GS essay questions.',
-      'Time management: practice 3-hour mock exam simulations.'
+      'Deep dive into BAM / Pure Math integration, differential equations, and vectors.',
+      'Master organic synthesis pathways, reaction mechanisms, and qualitative inorganic analysis.',
+      'Practice 3-hour mock exam simulations under strict exam hall conditions.'
     ],
-    badgeColor: 'bg-rose-600 text-white'
+    badgeColor: 'bg-rose-600 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 11:00 AM (3 Hours)',
+      afternoon: '02:00 PM – 05:00 PM (3 Hours)',
+    },
+    scheduleCycleNote: 'NECTA ACSEE 2027 Official Calendar: Monday May 3 – Friday May 21, 2027',
+    dailyPapers: [
+      { day: 'Day 1 (Mon, May 3)', dateStr: '03/05/2027', morningPaper: '111 General Studies', morningCode: '111', afternoonPaper: '112 Basic Applied Mathematics (BAM)', afternoonCode: '112' },
+      { day: 'Day 2 (Tue, May 4)', dateStr: '04/05/2027', morningPaper: '141 Advanced Mathematics 1', morningCode: '141/1', afternoonPaper: '113 Kiswahili 1', afternoonCode: '113/1' },
+      { day: 'Day 3 (Wed, May 5)', dateStr: '05/05/2027', morningPaper: '131 Physics 1', morningCode: '131/1', afternoonPaper: '121 English Language 1', afternoonCode: '121/1' },
+      { day: 'Day 4 (Thu, May 6)', dateStr: '06/05/2027', morningPaper: '132 Chemistry 1', morningCode: '132/1', afternoonPaper: '114 History 1', afternoonCode: '114/1' },
+      { day: 'Day 5 (Fri, May 7)', dateStr: '07/05/2027', morningPaper: '133 Biology 1', morningCode: '133/1', afternoonPaper: '115 Geography 1', afternoonCode: '115/1' }
+    ]
   },
   {
-    id: 'terminal-annual',
-    gradeLabel: 'Form 1 / 3 / 5',
-    examCode: 'ANNUAL',
-    fullName: 'National Annual Progression Examinations',
-    swahiliTitle: 'Mithani ya Mwaka na Muhula wa Pili',
-    targetDate: '2026-11-16T08:00:00',
+    id: 'psle-std7',
+    gradeLabel: 'Standard 7',
+    examCode: 'PSLE',
+    fullName: 'Primary School Leaving Examination',
+    swahiliTitle: 'Mtihani wa Kumaliza Elimu ya Msingi (Darasa la 7)',
+    targetDate: '2027-09-08T08:00:00', // Upcoming 2027 National Exam
+    pastSessionDate: '2026-09-09T08:00:00', // 2026 Sitting completed
     academicYearStart: '2026-01-12T00:00:00',
-    levelCategory: 'O-Level',
-    keySubjects: ['All Form Syllabus Subjects'],
+    levelCategory: 'Primary',
+    keySubjects: ['Hisabati', 'Aghalabu/English', 'Kiswahili', 'Sayansi & Teknolojia', 'Maarifa ya Jamii'],
     tips: [
-      'Ensure complete notes coverage for all topics taught this academic year.',
-      'Practice speed tests to prepare for next year\'s NECTA national exam.'
+      'Master basic arithmetic, speed multiplication, and word problem conversions.',
+      'Review Swahili grammar (Mnyambuliko wa kitenzi) and English tenses.',
+      'Practice diagrams for Science & Technology experiments.'
     ],
-    badgeColor: 'bg-cyan-600 text-white'
+    badgeColor: 'bg-emerald-500 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 10:00 AM',
+      afternoon: '01:30 PM – 03:30 PM',
+    },
+    scheduleCycleNote: 'NECTA PSLE 2027 Sitting: Wednesday Sept 8 – Thursday Sept 9, 2027 (2026 Sitting Concluded Sept 9-10)',
+    dailyPapers: [
+      { day: 'Day 1 Morning', dateStr: '08/09/2027', morningPaper: '04 Hisabati (Mathematics)', morningCode: '04', afternoonPaper: '02 Kiingereza (English)', afternoonCode: '02' },
+      { day: 'Day 1 Afternoon', dateStr: '08/09/2027', morningPaper: '01 Kiswahili', morningCode: '01' },
+      { day: 'Day 2 Morning', dateStr: '09/09/2027', morningPaper: '05 Sayansi na Teknolojia', morningCode: '05', afternoonPaper: '03 Maarifa ya Jamii na Stadi za Kazi', afternoonCode: '03' }
+    ]
+  },
+  {
+    id: 'sfna-std4',
+    gradeLabel: 'Standard 4',
+    examCode: 'SFNA',
+    fullName: 'Standard Four National Assessment',
+    swahiliTitle: 'Pima la Kitaifa la Darasa la Nne',
+    targetDate: '2027-10-20T08:00:00', // Upcoming 2027 National Exam
+    pastSessionDate: '2026-10-21T08:00:00', // 2026 Sitting completed
+    academicYearStart: '2026-01-12T00:00:00',
+    levelCategory: 'Primary',
+    keySubjects: ['Hisabati', 'English', 'Kiswahili', 'Sayansi', 'Uraia na Maadili'],
+    tips: [
+      'Focus on foundational reading comprehension and basic math tables.',
+      'Practice drawing simple maps and civic responsibility principles.'
+    ],
+    badgeColor: 'bg-teal-500 text-white',
+    sessionHours: {
+      morning: '08:00 AM – 10:00 AM',
+      afternoon: '01:30 PM – 03:00 PM',
+    },
+    scheduleCycleNote: 'NECTA SFNA 2027 Window: Wednesday Oct 20 – Thursday Oct 21, 2027 (2026 Sitting Concluded Oct 21-22)',
+    dailyPapers: [
+      { day: 'Day 1 Morning', dateStr: '20/10/2027', morningPaper: '04 Hisabati', morningCode: '04', afternoonPaper: '02 English Language', afternoonCode: '02' },
+      { day: 'Day 2 Morning', dateStr: '21/10/2027', morningPaper: '01 Kiswahili', morningCode: '01', afternoonPaper: '05 Sayansi na Uraia', afternoonCode: '05' }
+    ]
   }
 ];
 
@@ -501,6 +605,7 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
   onNavigateToExams,
   onNavigateToPlanner,
   onOpenYunAI,
+  onOpenExamStrategy,
   onStartQuickStudy
 }) => {
   // Determine starting exam based on initialGrade
@@ -516,6 +621,7 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
   }, [initialGrade]);
 
   const [selectedExamId, setSelectedExamId] = useState<string>(initialExamId);
+  const [showTimetableModal, setShowTimetableModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialGrade) {
@@ -724,27 +830,27 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
 
         <div className="flex flex-col gap-4">
           {/* Top Bar: Badges + Language Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/20 pb-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm animate-pulse">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-amber-400/20 pb-3 w-full">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm animate-pulse shrink-0">
                 <i className="fa-solid fa-fire text-amber-900"></i> Motivational Boost
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/90 text-slate-300 border border-slate-700">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/90 text-slate-300 border border-slate-700 shrink-0">
                 <i className="fa-solid fa-arrows-rotate text-amber-400"></i> Refreshes in {secondsLeft}s
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-900/60 text-indigo-200 border border-indigo-700/50">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 shrink-0">
                 <i className="fa-solid fa-infinity text-amber-300"></i> Quote #{currentMotivationalQuote.id.toLocaleString()} of ∞
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0">
                 {currentMotivationalQuote.flag} {currentMotivationalQuote.langName}
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-800 text-amber-300">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-800 text-amber-300 shrink-0">
                 {currentMotivationalQuote.tag}
               </span>
             </div>
 
             {/* Language Selector Chips */}
-            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-none">
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-none w-full sm:w-auto shrink-0">
               {AVAILABLE_QUOTE_LANGUAGES.map((l) => (
                 <button
                   key={l.code}
@@ -962,6 +1068,26 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
 
         {/* Quick Action Navigation Buttons */}
         <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+          <button
+            onClick={() => setShowTimetableModal(true)}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-600/30 active:scale-95 cursor-pointer"
+            title="View official NECTA daily examination session timetable"
+          >
+            <i className="fa-solid fa-table-list text-amber-300"></i>
+            <span>Official Timetable 📋</span>
+          </button>
+
+          {onOpenExamStrategy && (
+            <button
+              onClick={() => onOpenExamStrategy(activeExam.keySubjects[0] || 'Physics', activeExam.gradeLabel)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-amber-500/30 active:scale-95 cursor-pointer"
+              title={`Analyze past paper trends and build a customized study plan for ${activeExam.examCode}`}
+            >
+              <i className="fa-solid fa-chess-knight text-slate-950"></i>
+              <span>AI Exam Strategy ♟️</span>
+            </button>
+          )}
+
           {onStartQuickStudy && (
             <button
               onClick={onStartQuickStudy}
@@ -1004,6 +1130,141 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
           )}
         </div>
       </div>
+
+      {/* OFFICIAL NECTA EXAMINATION TIMETABLE MODAL */}
+      {showTimetableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl text-white">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950">
+                    Ratiba Rasmi ya NECTA 🇹🇿
+                  </span>
+                  <span className="text-xs font-bold text-slate-400">
+                    National Examinations Council of Tanzania
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white">
+                  {activeExam.fullName} ({activeExam.examCode})
+                </h3>
+                <p className="text-xs text-indigo-300 font-medium mt-0.5">
+                  {activeExam.swahiliTitle} • {activeExam.scheduleCycleNote}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTimetableModal(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition"
+                title="Funga / Close"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            {/* Session Hours Card */}
+            <div className="my-5 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/70 p-4 rounded-2xl border border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0 text-base">
+                  <i className="fa-solid fa-sun"></i>
+                </div>
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Morning Session (Kipindi cha Asubuhi)</div>
+                  <div className="text-sm font-bold text-white">{activeExam.sessionHours.morning}</div>
+                </div>
+              </div>
+
+              {activeExam.sessionHours.afternoon && (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0 text-base">
+                    <i className="fa-solid fa-cloud-sun"></i>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Afternoon Session (Kipindi cha Mchana)</div>
+                    <div className="text-sm font-bold text-white">{activeExam.sessionHours.afternoon}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Daily Papers Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800 my-4">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-slate-950 text-slate-400 uppercase font-black tracking-wider text-[11px] border-b border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">Day & Date</th>
+                    <th className="py-3 px-4">Morning Paper (Asubuhi)</th>
+                    <th className="py-3 px-4">Afternoon Paper (Mchana)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-slate-900/60 font-medium">
+                  {activeExam.dailyPapers.map((paper, idx) => (
+                    <tr key={idx} className="hover:bg-slate-800/50 transition">
+                      <td className="py-3 px-4 font-bold text-indigo-300 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <i className="fa-solid fa-calendar-day text-xs text-amber-400"></i>
+                          <span>{paper.day}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-normal">{paper.dateStr}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-white">{paper.morningPaper}</div>
+                        <div className="text-[11px] text-slate-400">Paper Code: {paper.morningCode}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {paper.afternoonPaper ? (
+                          <>
+                            <div className="font-bold text-white">{paper.afternoonPaper}</div>
+                            <div className="text-[11px] text-slate-400">Paper Code: {paper.afternoonCode || '–'}</div>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 italic">No scheduled afternoon paper</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Candidate Instructions Accordion / Card */}
+            <div className="bg-amber-500/10 border border-amber-400/30 rounded-2xl p-4 my-4">
+              <div className="text-xs font-black uppercase text-amber-400 flex items-center gap-1.5 mb-2">
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                Maelekezo Muhimu ya NECTA kwa Watahiniwa:
+              </div>
+              <ul className="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                <li>Watahiniwa wanatakiwa kuwa ndani ya chumba cha mtihani nusu saa (dakika 30) kabla ya mtihani kuanza.</li>
+                <li>Hakikisha una andika namba yako sahihi ya mtihani (Candidate Index Number) kwenye kila karatasi.</li>
+                <li>Simu za mkononi, karatasi zisizoruhusiwa, au kifaa chochote cha kielektroniki havitaruhusiwa chumbani.</li>
+                <li>Zingatia kuonyesha hatua zote za hesabu ili kupata alama za njia (step marks) kama mwongozo wa usahihishaji unavyoelekeza.</li>
+              </ul>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <button
+                onClick={() => setShowTimetableModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+              >
+                Close (Funga)
+              </button>
+              {onOpenYunAI && (
+                <button
+                  onClick={() => {
+                    setShowTimetableModal(false);
+                    onOpenYunAI(`Please provide a comprehensive study and revision timetable for ${activeExam.examCode} based on the official NECTA daily schedule!`);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
+                >
+                  <i className="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+                  <span>Plan Revision with Yun AI</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

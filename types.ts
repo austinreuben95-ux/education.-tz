@@ -172,6 +172,10 @@ export interface UserProgress {
   level: number;
   userId?: string;
   email?: string;
+  displayName?: string;
+  schoolOrUniversity?: string;
+  educationStage?: 'Primary' | 'Secondary' | 'High School' | 'University / College' | 'Other';
+  region?: string;
   updatedAt?: string;
 }
 

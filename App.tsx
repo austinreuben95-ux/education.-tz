@@ -28,10 +28,12 @@ import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
 import StudyRoom from './components/StudyRoom';
 import { HeaderNavDropdowns } from './components/HeaderNavDropdowns';
 import { CurriculumSearchModal } from './components/CurriculumSearchModal';
+import { HomeCurriculumSearchBar } from './components/HomeCurriculumSearchBar';
 import { QuickFormulaVaultModal } from './components/QuickFormulaVaultModal';
 import { EssentialHubs } from './components/EssentialHubs';
 import { QuizFeedbackCard } from './components/QuizFeedbackCard';
 import { getDeepLessonNote } from './src/data/deepTopicNotes';
+import { TopicExamTrendsTab } from './components/TopicExamTrendsTab';
 import { getHomeworkForTopic } from './src/data/curriculumEnhancer';
 import { 
   getTopicDifficulty, 
@@ -45,11 +47,13 @@ import {
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
+import { AuthModal } from './components/AuthModal';
 import { playClickSound, playCheerSound } from './src/utils/soundEffects';
 import { generateQuizQuestion, getQuizMistakeFeedback } from './services/geminiService';
 import { 
   auth, 
   loginWithGoogle,
+  logout,
   getUserProgress, 
   saveUserProgress,
   checkIsAdmin,
@@ -283,6 +287,7 @@ const App: React.FC = () => {
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [yunContext, setYunContext] = useState<string>('');
   const [yunPrepopulatedPrompt, setYunPrepopulatedPrompt] = useState<string>('');
+  const [yunDefaultTab, setYunDefaultTab] = useState<'chat' | 'strategy' | 'solver' | 'examiner' | 'flashcards'>('chat');
   const [bilingualLang, setBilingualLang] = useState<'EN' | 'SW'>('EN');
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -292,6 +297,7 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const handleLogin = async () => {
     setLoginError(null);
@@ -300,6 +306,25 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error("Login Error:", error);
       setLoginError(error.message || "Failed to login. Please try again.");
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+      setCurrentUser(null);
+      setUser({
+        points: 0,
+        credits: 0,
+        streak: 0,
+        completedTopics: [],
+        level: 1,
+        schoolOrUniversity: ''
+      });
+      setIsAdmin(false);
+      localStorage.removeItem('tz_current_active_user');
+    } catch (error: any) {
+      console.error("Logout Error:", error);
     }
   };
 
@@ -601,7 +626,13 @@ const App: React.FC = () => {
           // Load progress from Firestore
           const progress = await getUserProgress(firebaseUser.uid);
           if (progress) {
-            const updatedProgress = { ...progress, email: firebaseUser.email || undefined };
+            const updatedProgress: UserProgress = { 
+              ...progress, 
+              userId: firebaseUser.uid,
+              email: firebaseUser.email || progress.email || undefined,
+              displayName: progress.displayName || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Tanzanian Scholar'),
+              schoolOrUniversity: progress.schoolOrUniversity || 'Tanzanian School / University'
+            };
             if (isMasterAdmin) {
               updatedProgress.credits = 999999;
             }
@@ -610,11 +641,14 @@ const App: React.FC = () => {
             // Initialize default progress for new user
             const initialProgress: UserProgress = {
               points: 100,
-              credits: isMasterAdmin ? 999999 : 0,
+              credits: isMasterAdmin ? 999999 : 50,
               streak: 1,
               completedTopics: [],
               level: 1,
-              email: firebaseUser.email || undefined
+              userId: firebaseUser.uid,
+              email: firebaseUser.email || undefined,
+              displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Tanzanian Scholar'),
+              schoolOrUniversity: 'Tanzanian School / University'
             };
             setUser(initialProgress);
             await saveUserProgress(firebaseUser.uid, initialProgress);
@@ -740,7 +774,7 @@ const App: React.FC = () => {
   };
 
   // Content Tab State
-  const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'homework' | 'exams' | 'language'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'video' | 'homework' | 'exams' | 'language' | 'trends'>('notes');
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
   // Flashcard Interactive State for Language Tab
@@ -1504,8 +1538,17 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   };
 
   const startChat = () => {
+    setYunDefaultTab('chat');
     setYunContext(''); 
     setYunPrepopulatedPrompt('');
+    setCurrentView(AppView.CHAT);
+  };
+
+  const handleOpenExamStrategy = (subject?: string, grade?: string) => {
+    setYunDefaultTab('strategy');
+    const sName = subject || selectedSubject?.name || 'Physics';
+    const gName = grade || selectedGrade?.grade || 'Form 4';
+    setYunContext(`NECTA Exam Strategy analysis for ${gName} ${sName}`);
     setCurrentView(AppView.CHAT);
   };
 
@@ -1675,6 +1718,10 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             onToggleDarkMode={toggleDarkMode}
             onOpenSearch={() => setIsCurriculumSearchOpen(true)}
             onOpenFormulaVault={() => setIsFormulaVaultOpen(true)}
+            currentUser={currentUser}
+            userProgress={user}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onSignOut={handleSignOut}
           />
         </div>
       </div>
@@ -1723,7 +1770,8 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                 { id: 'video', label: 'Video Class', icon: 'fa-play-circle' },
                 { id: 'homework', label: 'Homework & Target', icon: 'fa-list-check' },
                 { id: 'language', label: 'Language', icon: 'fa-language' },
-                { id: 'exams', label: 'Practice Quiz', icon: 'fa-pen-to-square' }
+                { id: 'exams', label: 'Practice Quiz', icon: 'fa-pen-to-square' },
+                { id: 'trends', label: 'Exam Trends', icon: 'fa-chart-pie' }
               ].map(tab => (
                  <button 
                   key={tab.id}
@@ -2686,6 +2734,19 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                   </button>
                 </div>
               )}
+
+              {activeTab === 'trends' && (
+                <TopicExamTrendsTab
+                  topic={selectedTopic}
+                  subject={selectedSubject}
+                  grade={selectedGrade}
+                  onOpenYunChat={(prompt) => {
+                    setYunDefaultTab('chat');
+                    setYunContext(prompt);
+                    setCurrentView(AppView.CHAT);
+                  }}
+                />
+              )}
             </div>
           </div>
 
@@ -2706,7 +2767,16 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     <span>Ask Yun for a Deeper Dive</span>
                   </button>
                   <button 
+                    onClick={() => handleOpenExamStrategy(selectedSubject.name, selectedGrade?.grade)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-400/20 to-amber-500/15 hover:bg-amber-500/30 text-amber-900 border border-amber-300/80 font-black text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+                    title="Open NECTA Exam Strategy & Past Paper Trends"
+                  >
+                    <i className="fa-solid fa-chess-knight text-amber-600"></i>
+                    <span>NECTA Exam Strategy ♟️</span>
+                  </button>
+                  <button 
                     onClick={() => {
+                      setYunDefaultTab('chat');
                       setYunContext(`I am studying ${selectedTopic.title} in ${selectedSubject.name}. Help me understand...`);
                       setCurrentView(AppView.CHAT);
                     }}
@@ -2901,7 +2971,9 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             onNavigateToExams={() => setCurrentView(AppView.EXAMS)}
             onNavigateToPlanner={() => setCurrentView(AppView.PLANNER)}
             onStartQuickStudy={handleQuickStudySession}
+            onOpenExamStrategy={handleOpenExamStrategy}
             onOpenYunAI={(prompt) => {
+              setYunDefaultTab('chat');
               setYunContext(prompt);
               setCurrentView(AppView.CHAT);
             }}
@@ -3350,6 +3422,25 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                  <i className="fa-solid fa-robot text-amber-500"></i> Yun AI Tutor
                </span>
              </div>
+          </div>
+
+          {/* Dedicated Home Curriculum Search Bar */}
+          <div className="max-w-4xl mx-auto px-4 -mt-2">
+            <HomeCurriculumSearchBar
+              onSelectSubject={(grade, subject) => {
+                setSelectedGrade(grade);
+                setSelectedSubject(subject);
+                setSelectedTopic(null);
+                setCurrentView(AppView.SYLLABUS);
+              }}
+              onSelectTopic={(grade, subject, topic) => {
+                setSelectedGrade(grade);
+                setSelectedSubject(subject);
+                setSelectedTopic(topic);
+                setCurrentView(AppView.TOPIC_CONTENT);
+              }}
+              onOpenFullSearchModal={() => setIsCurriculumSearchOpen(true)}
+            />
           </div>
 
           {/* Level Selection Cards */}
@@ -4268,6 +4359,9 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                 <ChatInterface 
                     initialContext={yunContext} 
                     initialPrompt={yunPrepopulatedPrompt}
+                    activeSubject={selectedSubject?.name}
+                    activeGrade={selectedGrade?.grade}
+                    defaultTab={yunDefaultTab}
                     onClose={() => {
                       if (selectedTopic && selectedSubject) {
                         setCurrentView(AppView.TOPIC_CONTENT);
@@ -4435,10 +4529,22 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
           user={user}
-          userName={currentUser?.email || 'Student'}
+          userName={user.displayName || currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : 'Tanzanian Scholar')}
           onOpenWallet={() => setCurrentView(AppView.WALLET)}
           onOpenPlanner={() => setCurrentView(AppView.PLANNER)}
           onOpenBadges={() => setCurrentView(AppView.BADGES)}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onSignOut={handleSignOut}
+          onUpdateUserProgress={setUser}
+        />
+
+        {/* AUTH MODAL (SIGN IN / REGISTER / GUEST LOGIN WITH SCHOOL & UNIVERSITY) */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          currentUser={currentUser}
+          userProgress={user}
+          onUpdateUserProgress={setUser}
         />
 
         {/* PARENT DASHBOARD SHARE PROGRESS MODAL */}
@@ -4484,7 +4590,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             setSelectedTopic(null);
             setCurrentView(AppView.SYLLABUS);
           }}
-          onSelectTopic={(topic, subject, grade) => {
+          onSelectTopic={(grade, subject, topic) => {
             setSelectedGrade(grade);
             setSelectedSubject(subject);
             setSelectedTopic(topic);

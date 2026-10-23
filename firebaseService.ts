@@ -30,18 +30,41 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
-import { UserProgress, StudyRoomMessage } from '../types';
+import firebaseConfig from './firebase-applet-config.json';
+import { UserProgress, StudyRoomMessage } from './types';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth();
 
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export async function loginWithGoogle() {
+export async function loginWithGoogle(schoolOrUniversity?: string) {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    if (result.user) {
+      // Check if user has an existing record; if not, initialize with school
+      const existing = await getUserProgress(result.user.uid);
+      if (!existing) {
+        const isMasterAdmin = result.user.email?.toLowerCase().trim() === 'austinreuben95@gmail.com';
+        const initialProgress: UserProgress = {
+          points: 100,
+          credits: isMasterAdmin ? 999999 : 50,
+          streak: 1,
+          completedTopics: [],
+          level: 1,
+          userId: result.user.uid,
+          email: result.user.email || undefined,
+          displayName: result.user.displayName || result.user.email?.split('@')[0] || 'Tanzanian Scholar',
+          schoolOrUniversity: schoolOrUniversity || 'Tanzanian School / University',
+          updatedAt: new Date().toISOString()
+        };
+        await saveUserProgress(result.user.uid, initialProgress);
+      } else if (schoolOrUniversity && !existing.schoolOrUniversity) {
+        await updateUserSchool(result.user.uid, schoolOrUniversity);
+      }
+    }
     return result.user;
   } catch (error) {
     console.error("Login failed:", error);
@@ -51,7 +74,7 @@ export async function loginWithGoogle() {
 
 export async function loginWithEmail(email: string, pass: string) {
   try {
-    const result = await signInWithEmailAndPassword(auth, email, pass);
+    const result = await signInWithEmailAndPassword(auth, email.trim(), pass);
     return result.user;
   } catch (error) {
     console.error("Email login failed:", error);
@@ -59,11 +82,28 @@ export async function loginWithEmail(email: string, pass: string) {
   }
 }
 
-export async function signUpWithEmail(email: string, pass: string, name?: string) {
+export async function signUpWithEmail(email: string, pass: string, name?: string, schoolOrUniversity?: string) {
   try {
-    const result = await createUserWithEmailAndPassword(auth, email, pass);
-    if (name && result.user) {
-      await updateProfile(result.user, { displayName: name });
+    const trimmedEmail = email.trim();
+    const result = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
+    if (result.user) {
+      if (name) {
+        await updateProfile(result.user, { displayName: name });
+      }
+      const isMasterAdmin = trimmedEmail.toLowerCase() === 'austinreuben95@gmail.com';
+      const initialProgress: UserProgress = {
+        points: 100,
+        credits: isMasterAdmin ? 999999 : 50,
+        streak: 1,
+        completedTopics: [],
+        level: 1,
+        userId: result.user.uid,
+        email: result.user.email || trimmedEmail,
+        displayName: name || trimmedEmail.split('@')[0],
+        schoolOrUniversity: schoolOrUniversity || 'Tanzanian School / University',
+        updatedAt: new Date().toISOString()
+      };
+      await saveUserProgress(result.user.uid, initialProgress);
     }
     return result.user;
   } catch (error) {
@@ -72,8 +112,62 @@ export async function signUpWithEmail(email: string, pass: string, name?: string
   }
 }
 
+export async function loginAsGuestScholar(displayName?: string, schoolOrUniversity?: string) {
+  try {
+    const userCredential = await signInAnonymously(auth);
+    if (userCredential.user) {
+      const name = displayName?.trim() || 'Tanzanian Scholar';
+      await updateProfile(userCredential.user, { displayName: name });
+      const initialProgress: UserProgress = {
+        points: 100,
+        credits: 50,
+        streak: 1,
+        completedTopics: [],
+        level: 1,
+        userId: userCredential.user.uid,
+        email: `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@scholar.tz`,
+        displayName: name,
+        schoolOrUniversity: schoolOrUniversity || 'Ilboru Secondary School',
+        updatedAt: new Date().toISOString()
+      };
+      await saveUserProgress(userCredential.user.uid, initialProgress);
+    }
+    return userCredential.user;
+  } catch (error) {
+    console.error("Guest login failed:", error);
+    throw error;
+  }
+}
+
+export async function updateUserSchool(userId: string, schoolOrUniversity: string, displayName?: string) {
+  const docRef = doc(db, 'users', userId);
+  try {
+    const updateData: Partial<UserProgress> = {
+      schoolOrUniversity: schoolOrUniversity.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    if (displayName) {
+      updateData.displayName = displayName.trim();
+    }
+    await setDoc(docRef, updateData, { merge: true });
+    if (auth.currentUser && displayName) {
+      await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+  }
+}
+
 export async function logout() {
-  await signOut(auth);
+  try {
+    await signOut(auth);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tz_current_active_user');
+    }
+  } catch (error) {
+    console.error("Logout failed:", error);
+    throw error;
+  }
 }
 
 // --- Firestore Error Handling ---

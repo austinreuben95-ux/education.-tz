@@ -1,12 +1,26 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
-import { streamMessageToYunDetailed, sendMessageToYunDetailed } from '../services/geminiService';
+import {
+  streamMessageToYunDetailed,
+  sendMessageToYunDetailed,
+  solveStepByStepWithAI,
+  gradeAnswerWithAI,
+  generateFlashcardsWithAI,
+  fetchNectaExamStrategy,
+  StepByStepSolution,
+  ExamAnswerGrade,
+  FlashcardDeckResult,
+  NectaExamStrategyResult
+} from '../services/geminiService';
 import { playMicStartSound, playMicStopSound } from '../src/utils/soundEffects';
 
 interface ChatInterfaceProps {
   initialContext?: string;
   initialPrompt?: string;
   onClose?: () => void;
+  activeSubject?: string;
+  activeGrade?: string;
+  defaultTab?: 'chat' | 'strategy' | 'solver' | 'examiner' | 'flashcards';
 }
 
 // Clean markdown text before speaking with speech synthesis
@@ -198,6 +212,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   initialContext,
   initialPrompt,
   onClose,
+  activeSubject,
+  activeGrade,
+  defaultTab = 'chat',
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     return [
@@ -206,7 +223,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         role: 'model',
         text: initialContext
           ? `Jambo! I'm Yun AI, your NECTA & secondary syllabus assistant powered by Gemini. I see you're studying:\n\n> ${initialContext}\n\nHow can I help you master this concept today?`
-          : "Jambo! I'm Yun AI, your Tanzanian curriculum study companion powered by Gemini. You can ask me to explain any topic from Form 1 to Form 6, solve NECTA exam questions step-by-step, generate practice quizzes, or translate academic terms in Kiswahili. What would you like to explore today?",
+          : "Jambo! I'm Yun AI, your Tanzanian curriculum study companion powered by Gemini. You can ask me to explain any topic from Form 1 to Form 6, solve NECTA exam questions step-by-step, generate practice quizzes, analyze past paper trends, or translate academic terms in Kiswahili. What would you like to explore today?",
         timestamp: new Date(),
       },
     ];
@@ -223,6 +240,47 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [autoSpeakReplies, setAutoSpeakReplies] = useState(false);
   const [lastInputWasVoice, setLastInputWasVoice] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'up' | 'down'>>({});
+
+  // Active AI Feature Tab
+  const [activeTab, setActiveTab] = useState<'chat' | 'strategy' | 'solver' | 'examiner' | 'flashcards'>(defaultTab);
+
+  // NECTA Exam Strategy State
+  const [stratSubject, setStratSubject] = useState<string>(activeSubject || 'Physics');
+  const [stratGrade, setStratGrade] = useState<string>(activeGrade || 'Form 4');
+  const [stratTargetGrade, setStratTargetGrade] = useState<'A' | 'B' | 'C'>('A');
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const [strategyResult, setStrategyResult] = useState<NectaExamStrategyResult | null>(null);
+  const [copiedStrategyToast, setCopiedStrategyToast] = useState(false);
+
+  // Sync when activeSubject or activeGrade changes
+  useEffect(() => {
+    if (activeSubject) setStratSubject(activeSubject);
+    if (activeGrade) setStratGrade(activeGrade);
+  }, [activeSubject, activeGrade]);
+
+  // AI Step-by-Step Solver State
+  const [solverProblem, setSolverProblem] = useState('');
+  const [solverSubject, setSolverSubject] = useState(activeSubject || 'Physics');
+  const [solverGrade, setSolverGrade] = useState(activeGrade || 'Form 4');
+  const [isSolving, setIsSolving] = useState(false);
+  const [solverResult, setSolverResult] = useState<StepByStepSolution | null>(null);
+
+  // AI Examiner Answer Grading State
+  const [gradeQuestion, setGradeQuestion] = useState('');
+  const [gradeAnswer, setGradeAnswer] = useState('');
+  const [gradeSubject, setGradeSubject] = useState(activeSubject || 'Biology');
+  const [gradeLevel, setGradeLevel] = useState(activeGrade || 'Form 4');
+  const [gradeMaxMarks, setGradeMaxMarks] = useState(10);
+  const [isGrading, setIsGrading] = useState(false);
+  const [gradeResult, setGradeResult] = useState<ExamAnswerGrade | null>(null);
+
+  // AI Flashcards Generator State
+  const [fcTopic, setFcTopic] = useState('');
+  const [fcSubject, setFcSubject] = useState(activeSubject || 'Chemistry');
+  const [fcGrade, setFcGrade] = useState(activeGrade || 'Form 4');
+  const [isGeneratingFc, setIsGeneratingFc] = useState(false);
+  const [fcDeck, setFcDeck] = useState<FlashcardDeckResult | null>(null);
+  const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -541,6 +599,92 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     ]);
   };
 
+  const handleRunStrategy = async (customSubject?: string, customGrade?: string) => {
+    const subj = customSubject || stratSubject;
+    const grd = customGrade || stratGrade;
+    setIsGeneratingStrategy(true);
+    try {
+      const lowerGrd = (grd || '').toLowerCase();
+      let examCode = 'CSEE';
+      let targetExamDate = '2026-11-09T08:00:00';
+      let daysRemaining = 18;
+
+      if (lowerGrd.includes('2') || lowerGrd.includes('ftna')) {
+        examCode = 'FTNA';
+        targetExamDate = '2026-11-02T08:00:00';
+        daysRemaining = 11;
+      } else if (lowerGrd.includes('6') || lowerGrd.includes('acsee')) {
+        examCode = 'ACSEE';
+        targetExamDate = '2027-05-03T08:00:00';
+        daysRemaining = 193;
+      } else if (lowerGrd.includes('7') || lowerGrd.includes('standard 7') || lowerGrd.includes('psle')) {
+        examCode = 'PSLE';
+        targetExamDate = '2027-09-08T08:00:00';
+        daysRemaining = 321;
+      }
+
+      const res = await fetchNectaExamStrategy({
+        subject: subj,
+        grade: grd,
+        examCode,
+        targetExamDate,
+        daysRemaining,
+        studentTargetGrade: stratTargetGrade,
+      });
+      setStrategyResult(res);
+    } catch (err) {
+      console.error('Error generating NECTA strategy:', err);
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
+  };
+
+  const handleRunSolver = async (customProblem?: string) => {
+    const textToSolve = customProblem || solverProblem;
+    if (!textToSolve.trim()) return;
+    setIsSolving(true);
+    try {
+      const res = await solveStepByStepWithAI(textToSolve, solverSubject, solverGrade);
+      setSolverResult(res);
+    } catch (err) {
+      console.error('Error running step solver:', err);
+    } finally {
+      setIsSolving(false);
+    }
+  };
+
+  const handleRunGrading = async () => {
+    if (!gradeQuestion.trim() || !gradeAnswer.trim()) return;
+    setIsGrading(true);
+    try {
+      const res = await gradeAnswerWithAI(gradeQuestion, gradeAnswer, gradeSubject, gradeLevel, gradeMaxMarks);
+      setGradeResult(res);
+    } catch (err) {
+      console.error('Error grading answer:', err);
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
+  const handleGenerateFlashcards = async (customTopic?: string) => {
+    const topicToGen = customTopic || fcTopic;
+    if (!topicToGen.trim()) return;
+    setIsGeneratingFc(true);
+    try {
+      const res = await generateFlashcardsWithAI(topicToGen, fcSubject, fcGrade);
+      setFcDeck(res);
+      setFlippedCards({});
+    } catch (err) {
+      console.error('Error generating flashcards:', err);
+    } finally {
+      setIsGeneratingFc(false);
+    }
+  };
+
+  const toggleCardFlip = (id: string) => {
+    setFlippedCards(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const promptSuggestions = [
     {
       title: 'Solve Math Step-by-Step',
@@ -641,7 +785,86 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       </header>
 
-      {/* Main Conversation Stream */}
+      {/* AI Modes & Capabilities Navigation Bar */}
+      <div className="bg-stone-50 border-b border-stone-200 px-4 sm:px-8 py-2.5 flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            activeTab === 'chat'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-regular fa-comment-dots text-amber-400"></i>
+          <span>Yun Chat</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('strategy');
+            if (!strategyResult) {
+              handleRunStrategy(stratSubject, stratGrade);
+            }
+          }}
+          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            activeTab === 'strategy'
+              ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-md'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-chess-knight text-amber-300"></i>
+          <span>NECTA Exam Strategy</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-400 text-slate-950">TRENDS</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('solver')}
+          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            activeTab === 'solver'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-square-root-variable text-indigo-300"></i>
+          <span>Step-by-Step Solver</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-indigo-500/40 text-indigo-100">AI</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('examiner')}
+          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            activeTab === 'examiner'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-file-pen text-emerald-300"></i>
+          <span>NECTA Examiner Grading</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-500/40 text-emerald-100">AI</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('flashcards')}
+          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            activeTab === 'flashcards'
+              ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-layer-group text-amber-700"></i>
+          <span>AI Flashcard Deck</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-400 text-slate-950">AI</span>
+        </button>
+      </div>
+
+      {activeTab === 'chat' && (
+        <>
+          {/* Main Conversation Stream */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 scrollbar-thin bg-[#faf9f5]/40">
         {messages.map((msg) => {
           const isUser = msg.role === 'user';
@@ -1034,6 +1257,1243 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </div>
       </footer>
+        </>
+      )}
+
+      {/* ========================================================= */}
+      {/* AI FEATURE 0: NECTA EXAM STRATEGY & PAST PAPER TRENDS ANALYZER */}
+      {/* ========================================================= */}
+      {activeTab === 'strategy' && (
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-[#faf9f5]/50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm space-y-6">
+            {/* Header & Mode Intro */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-200">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-purple-100 text-purple-800">
+                    NECTA Exam Strategy & Past Paper Trends ♟️
+                  </span>
+                  <span className="text-xs text-stone-500 font-medium">
+                    Official NECTA 2018–2025 Trend Synthesis
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-stone-900">
+                  {stratSubject} ({stratGrade}) Examination Strategy
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-2xl">
+                  Analyze recurring questions, section weights, and examiner CIRA pitfalls for <strong className="text-stone-900">{stratSubject}</strong>, then follow a customized study roadmap tailored to your upcoming exam date.
+                </p>
+              </div>
+
+              {/* Quick Re-Analyze Button */}
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isGeneratingStrategy}
+                  onClick={() => handleRunStrategy(stratSubject, stratGrade)}
+                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white font-black text-xs transition shadow-md shadow-indigo-600/30 flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isGeneratingStrategy ? (
+                    <>
+                      <GeminiSparkle className="w-4 h-4 animate-spin text-amber-300" />
+                      <span>Analyzing Trends...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-arrows-rotate text-amber-300"></i>
+                      <span>Refresh Strategy Plan</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Subject, Grade & Target Controls */}
+            <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-stone-700">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-sliders text-indigo-600"></i>
+                  Tailor Strategy by Active Subject & Cohort:
+                </span>
+                {activeSubject && (
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Active Syllabus: {activeSubject} ({activeGrade || 'Form 4'})
+                  </span>
+                )}
+              </div>
+
+              {/* Quick Subject Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Physics',
+                  'Basic Mathematics',
+                  'Chemistry',
+                  'Biology',
+                  'Geography',
+                  'History',
+                  'Civics',
+                  'Kiswahili',
+                  'English'
+                ].map((subj) => (
+                  <button
+                    key={subj}
+                    type="button"
+                    onClick={() => {
+                      setStratSubject(subj);
+                      handleRunStrategy(subj, stratGrade);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                      stratSubject.toLowerCase() === subj.toLowerCase()
+                        ? 'bg-purple-700 text-white shadow-xs'
+                        : 'bg-white text-stone-700 hover:bg-stone-200/80 border border-stone-200'
+                    }`}
+                  >
+                    <span>{subj}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Cohort & Target Grade Selectors */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    NECTA Level / Exam:
+                  </label>
+                  <select
+                    value={stratGrade}
+                    onChange={(e) => {
+                      setStratGrade(e.target.value);
+                      handleRunStrategy(stratSubject, e.target.value);
+                    }}
+                    className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                  >
+                    <option value="Form 4">Form 4 (CSEE National Exam)</option>
+                    <option value="Form 2">Form 2 (FTNA National Assessment)</option>
+                    <option value="Form 6">Form 6 (ACSEE National Exam)</option>
+                    <option value="Standard 7">Standard 7 (PSLE Primary Final)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    Student Target Result:
+                  </label>
+                  <select
+                    value={stratTargetGrade}
+                    onChange={(e) => {
+                      const val = e.target.value as 'A' | 'B' | 'C';
+                      setStratTargetGrade(val);
+                      handleRunStrategy(stratSubject, stratGrade);
+                    }}
+                    className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                  >
+                    <option value="A">Grade A (Distinction 75% – 100%)</option>
+                    <option value="B">Grade B (Merit 65% – 74%)</option>
+                    <option value="C">Grade C (Credit 45% – 64%)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    disabled={isGeneratingStrategy}
+                    onClick={() => handleRunStrategy(stratSubject, stratGrade)}
+                    className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+                    <span>Generate Tailored Plan</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Loading Indicator */}
+            {isGeneratingStrategy && (
+              <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 space-y-3">
+                <GeminiSparkle className="w-8 h-8 mx-auto animate-spin text-purple-600" />
+                <h4 className="font-extrabold text-stone-900 text-sm">
+                  Yun AI is synthesizing NECTA past paper trends for {stratSubject}...
+                </h4>
+                <p className="text-xs text-stone-500 max-w-md mx-auto">
+                  Cross-referencing question distributions, mark weightings, and examiner CIRA reports to build your high-yield study calendar.
+                </p>
+              </div>
+            )}
+
+            {/* Strategy Content Display */}
+            {!isGeneratingStrategy && strategyResult && (
+              <div className="space-y-6 animate-fadeIn">
+                {/* Hero Target Banner with Live Countdown */}
+                <div className="bg-gradient-to-r from-stone-950 via-indigo-950 to-purple-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border-2 border-purple-500/30 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm">
+                          {strategyResult.examCode} Examination Roadmap
+                        </span>
+                        <span className="px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-purple-500/40 text-purple-200 border border-purple-400/30">
+                          Target: Grade {stratTargetGrade}
+                        </span>
+                      </div>
+                      <h4 className="text-2xl sm:text-3xl font-black text-white">
+                        {strategyResult.subject} ({strategyResult.grade})
+                      </h4>
+                      <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-2xl leading-relaxed">
+                        {strategyResult.executiveSummary}
+                      </p>
+                    </div>
+
+                    {/* Countdown Metric Badge */}
+                    <div className="shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[160px]">
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-purple-300">
+                        Exam Date
+                      </div>
+                      <div className="text-xs font-extrabold text-white mt-0.5">
+                        {strategyResult.examDateFormatted}
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-white/20">
+                        <span className="text-3xl font-mono font-black text-amber-300">
+                          {strategyResult.daysRemaining}
+                        </span>
+                        <span className="text-[11px] font-bold text-stone-300 ml-1">Days Left</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1. NECTA Paper Structure & Time Allocation */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-stopwatch text-indigo-600"></i>
+                      1. Examination Paper Blueprint & Timing ({strategyResult.paperFormat.paperCode} • {strategyResult.paperFormat.duration})
+                    </h4>
+                    <span className="text-xs text-stone-500 font-bold">Total: {strategyResult.paperFormat.totalMarks} Marks</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    {strategyResult.paperFormat.sections.map((sec, idx) => (
+                      <div key={idx} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-xs text-stone-900">{sec.section}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700">
+                            {sec.totalMarks} Mks
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold">
+                          <i className="fa-regular fa-clock"></i>
+                          <span>Target: {sec.recommendedTimeMinutes} Minutes</span>
+                        </div>
+                        <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                          {sec.scoringTactic}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. High-Yield Question Topics Ranked by Weight */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-chart-pie text-purple-600"></i>
+                      2. Past Paper Weight Analysis (Top 75%+ Guaranteed Areas)
+                    </h4>
+                    <span className="text-xs text-stone-500 font-medium">Historical trends 2018–2025</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {strategyResult.highYieldTopics.map((topicItem, tIdx) => (
+                      <div key={tIdx} className="bg-stone-50/80 p-4 rounded-2xl border border-stone-200 space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                          <div>
+                            <span className="font-black text-sm text-stone-900">
+                              {tIdx + 1}. {topicItem.topic}
+                            </span>
+                            <span className="text-xs text-stone-500 ml-2">({topicItem.questionType})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {topicItem.frequencyScore}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">
+                              ~{topicItem.averageMarks} Marks
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Weight bar */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-stone-500">
+                            <span>Paper Contribution Weight:</span>
+                            <span className="text-indigo-600 font-extrabold">{topicItem.weightPercentage}%</span>
+                          </div>
+                          <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-purple-600 to-indigo-600 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, topicItem.weightPercentage * 3.5)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Must-Know Concepts Tags */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[10px] font-bold uppercase text-stone-400">Must-Master:</span>
+                          {topicItem.mustKnowConcepts.map((concept, cIdx) => (
+                            <span
+                              key={cIdx}
+                              className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-stone-700 border border-stone-200"
+                            >
+                              {concept}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Official Examiner Pitfalls & CIRA Trap Warnings */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                    <i className="fa-solid fa-triangle-exclamation text-rose-600"></i>
+                    3. Critical Examiner Pitfalls (Reported in NECTA CIRA Reviews)
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {strategyResult.examinerPitfalls.map((pit, pIdx) => (
+                      <div key={pIdx} className="bg-rose-50/60 p-4 rounded-2xl border border-rose-200 space-y-2 text-xs">
+                        <div className="font-extrabold text-rose-950 flex items-center gap-1.5">
+                          <i className="fa-solid fa-circle-xmark text-rose-600"></i>
+                          <span>{pit.topicOrArea}</span>
+                        </div>
+                        <p className="text-rose-900 leading-relaxed font-medium">
+                          <strong>Common Error:</strong> {pit.commonMistake}
+                        </p>
+                        <div className="p-2.5 rounded-xl bg-white border border-rose-200/80 text-emerald-900 font-semibold leading-relaxed">
+                          <i className="fa-solid fa-check text-emerald-600 mr-1"></i>
+                          <strong>How to Secure Full Marks:</strong> {pit.howToAvoid}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Personalized Phased Study Plan */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <h4 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-calendar-check text-emerald-600"></i>
+                      4. Personalized Study Schedule for {strategyResult.daysRemaining} Days
+                    </h4>
+
+                    {/* Copy Strategy Plan Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const planSummary = `NECTA EXAM STRATEGY - ${strategyResult.subject} (${strategyResult.grade})\nTarget Exam Date: ${strategyResult.examDateFormatted} (${strategyResult.daysRemaining} Days Left)\n\nEXECUTIVE ROADMAP:\n${strategyResult.executiveSummary}\n\nHIGH-YIELD TOPICS:\n${strategyResult.highYieldTopics.map(t => `- ${t.topic} (~${t.averageMarks} Marks, Weight: ${t.weightPercentage}%)`).join('\n')}\n\nSTUDY PHASES:\n${strategyResult.personalizedStudyPlan.phases.map(p => `[${p.phaseName}]\n${p.dailyFocus.map(d => `* ${d.dayRange} (${d.focusTopic}): ${d.taskDescription} (${d.recommendedHours} hrs/day)`).join('\n')}`).join('\n\n')}\n\nDAILY ROUTINE:\n- ${strategyResult.personalizedStudyPlan.dailyRoutineRecommended.morningSprint}\n- ${strategyResult.personalizedStudyPlan.dailyRoutineRecommended.afternoonDrill}\n- ${strategyResult.personalizedStudyPlan.dailyRoutineRecommended.eveningReview}`;
+                        navigator.clipboard?.writeText(planSummary);
+                        setCopiedStrategyToast(true);
+                        setTimeout(() => setCopiedStrategyToast(false), 2500);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                    >
+                      <i className={`fa-solid ${copiedStrategyToast ? 'fa-check text-emerald-600' : 'fa-copy'}`}></i>
+                      <span>{copiedStrategyToast ? 'Plan Copied!' : 'Copy Study Plan 📋'}</span>
+                    </button>
+                  </div>
+
+                  {/* Phased Roadmap Timeline */}
+                  <div className="space-y-3">
+                    {strategyResult.personalizedStudyPlan.phases.map((phase, phIdx) => (
+                      <div key={phIdx} className="bg-white p-5 rounded-3xl border-2 border-indigo-100 shadow-sm space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-stone-150">
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                              {phase.timeframe}
+                            </span>
+                            <h5 className="font-black text-base text-stone-900 mt-0.5">{phase.phaseName}</h5>
+                          </div>
+                          <span className="text-xs font-semibold text-stone-600 bg-stone-100 px-3 py-1 rounded-full self-start sm:self-auto">
+                            Goal: {phase.objective}
+                          </span>
+                        </div>
+
+                        {/* Daily Focus Items */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {phase.dailyFocus.map((focus, fIdx) => (
+                            <div key={fIdx} className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-xs space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                                  {focus.dayRange}
+                                </span>
+                                <span className="font-bold text-stone-500 flex items-center gap-1">
+                                  <i className="fa-regular fa-clock text-amber-500"></i>
+                                  {focus.recommendedHours} hrs/day
+                                </span>
+                              </div>
+                              <div className="font-bold text-stone-900 text-xs sm:text-sm">
+                                {focus.focusTopic}
+                              </div>
+                              <p className="text-stone-600 leading-relaxed font-medium">
+                                {focus.taskDescription}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recommended Daily Routine Bar */}
+                  <div className="bg-gradient-to-r from-amber-50 via-indigo-50 to-purple-50 p-4 rounded-2xl border border-amber-200/80 space-y-2">
+                    <div className="text-xs font-black uppercase text-amber-900 flex items-center gap-1.5">
+                      <i className="fa-solid fa-sun text-amber-500"></i>
+                      Target Daily Revision Rhythm:
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                      <div className="bg-white/80 p-3 rounded-xl border border-amber-200/60">
+                        <div className="font-bold text-amber-900">🌅 Morning Active Sprint:</div>
+                        <p className="text-stone-600 mt-0.5">{strategyResult.personalizedStudyPlan.dailyRoutineRecommended.morningSprint}</p>
+                      </div>
+                      <div className="bg-white/80 p-3 rounded-xl border border-indigo-200/60">
+                        <div className="font-bold text-indigo-900">☀️ Afternoon Timed Drill:</div>
+                        <p className="text-stone-600 mt-0.5">{strategyResult.personalizedStudyPlan.dailyRoutineRecommended.afternoonDrill}</p>
+                      </div>
+                      <div className="bg-white/80 p-3 rounded-xl border border-purple-200/60">
+                        <div className="font-bold text-purple-900">🌙 Evening Mistake Review:</div>
+                        <p className="text-stone-600 mt-0.5">{strategyResult.personalizedStudyPlan.dailyRoutineRecommended.eveningReview}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Bilingual Kiswahili Pro-Tip Banner */}
+                <div className="bg-amber-400/15 border-2 border-amber-400/40 rounded-2xl p-4 flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 text-lg shadow-sm">
+                    <i className="fa-solid fa-flag"></i>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black uppercase text-amber-900 dark:text-amber-300">
+                      Ushauri wa Kimkakati wa NECTA (Kiswahili):
+                    </div>
+                    <p className="text-xs sm:text-sm text-stone-800 dark:text-stone-200 leading-relaxed font-medium">
+                      {strategyResult.kiswahiliProTip}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Action Navigation in Strategy Mode */}
+                <div className="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const topTopic = strategyResult.highYieldTopics[0]?.topic || strategyResult.subject;
+                      setActiveTab('chat');
+                      handleSend(`Please provide 3 realistic NECTA Form 4 exam questions on ${topTopic} with marking scheme breakdown and step marks!`);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-comments text-amber-300"></i>
+                    <span>Quiz Me on Top Topic in Chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('solver');
+                      setSolverSubject(strategyResult.subject);
+                      setSolverGrade(strategyResult.grade);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-600/30 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-square-root-variable text-amber-300"></i>
+                    <span>Open Step Solver</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('flashcards');
+                      setFcTopic(strategyResult.highYieldTopics[0]?.topic || strategyResult.subject);
+                      setFcSubject(strategyResult.subject);
+                      setFcGrade(strategyResult.grade);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-md shadow-amber-500/30 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-layer-group text-slate-950"></i>
+                    <span>Generate Topic Flashcards</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {activeTab === 'solver' && (
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-[#faf9f5]/50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm space-y-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700">
+                  NECTA Step-by-Step Solver 📐
+                </span>
+                <span className="text-xs text-stone-500 font-medium">
+                  Physics, Chemistry, Basic Math & Geography Calculations
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-stone-900">
+                AI Scientific Formula & Numerical Solver
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-600 mt-1">
+                Enter any word problem, formula derivation, or equation. Yun AI extracts Givens, states the official formula, calculates intermediate steps, and displays the exact NECTA mark breakdown!
+              </p>
+            </div>
+
+            {/* Quick Sample Problem Pills */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-600 flex items-center gap-1.5">
+                <i className="fa-solid fa-bolt text-amber-500"></i> Try a common NECTA exam problem:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    label: 'Physics: Kinetic Energy',
+                    subject: 'Physics',
+                    grade: 'Form 4',
+                    text: 'A car of mass 1200 kg is moving at a uniform velocity of 20 m/s. Calculate its kinetic energy and express your answer in standard SI units.'
+                  },
+                  {
+                    label: 'Math: Quadratic Formula',
+                    subject: 'Basic Mathematics',
+                    grade: 'Form 4',
+                    text: 'Solve the equation 2x² - 8x + 6 = 0 using the quadratic formula, showing all steps.'
+                  },
+                  {
+                    label: 'Physics: Parallel Resistors',
+                    subject: 'Physics',
+                    grade: 'Form 2',
+                    text: 'Two resistors of resistance 3 ohms and 6 ohms are connected in parallel to a 12V battery. Calculate the equivalent resistance and the total circuit current.'
+                  },
+                  {
+                    label: 'Chemistry: Moles Calculation',
+                    subject: 'Chemistry',
+                    grade: 'Form 4',
+                    text: 'Calculate the number of moles in 20 grams of calcium carbonate (CaCO₃). [Relative atomic masses: Ca = 40, C = 12, O = 16].'
+                  }
+                ].map((sample, sIdx) => (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    onClick={() => {
+                      setSolverProblem(sample.text);
+                      setSolverSubject(sample.subject);
+                      setSolverGrade(sample.grade);
+                      handleRunSolver(sample.text);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-indigo-50 hover:text-indigo-700 text-stone-700 text-xs font-semibold border border-stone-200 transition text-left cursor-pointer"
+                  >
+                    {sample.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Solver Form */}
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Subject / Somo:
+                  </label>
+                  <select
+                    value={solverSubject}
+                    onChange={(e) => setSolverSubject(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="Physics">Physics (Fizikia)</option>
+                    <option value="Basic Mathematics">Basic Mathematics (Hisabati)</option>
+                    <option value="Chemistry">Chemistry (Kemia)</option>
+                    <option value="Biology">Biology (Biolojia)</option>
+                    <option value="Geography">Geography (Jiografia)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Level / Kidato:
+                  </label>
+                  <select
+                    value={solverGrade}
+                    onChange={(e) => setSolverGrade(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="Form 1">Form 1 (Kidato cha 1)</option>
+                    <option value="Form 2">Form 2 (FTNA)</option>
+                    <option value="Form 3">Form 3 (Kidato cha 3)</option>
+                    <option value="Form 4">Form 4 (CSEE)</option>
+                    <option value="Form 5">Form 5 (Kidato cha 5)</option>
+                    <option value="Form 6">Form 6 (ACSEE)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Problem Description / Question:
+                </label>
+                <textarea
+                  rows={3}
+                  value={solverProblem}
+                  onChange={(e) => setSolverProblem(e.target.value)}
+                  placeholder="Paste or type your math, physics, or chemistry question here..."
+                  className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-3.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={!solverProblem.trim() || isSolving}
+                onClick={() => handleRunSolver()}
+                className={`w-full py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition shadow-md cursor-pointer ${
+                  solverProblem.trim() && !isSolving
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/30 active:scale-98'
+                    : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                }`}
+              >
+                {isSolving ? (
+                  <>
+                    <GeminiSparkle className="w-5 h-5 animate-spin text-amber-300" />
+                    <span>Yun AI is deriving step-by-step solution...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-calculator text-amber-300"></i>
+                    <span>Solve Step-by-Step with NECTA Standards</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Solver Result Display */}
+            {solverResult && (
+              <div className="pt-6 border-t border-stone-200 space-y-5 animate-fadeIn">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-lg font-black text-stone-900">{solverResult.topic}</h4>
+                    <p className="text-xs text-indigo-600 font-semibold">{solverResult.concept}</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Target: {solverResult.targetVariable}
+                  </span>
+                </div>
+
+                {/* Given Data Parameters */}
+                <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
+                  <div className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i className="fa-solid fa-list-check text-indigo-600"></i>
+                    1. Given Data (Taarifa Zilizotolewa & SI Units):
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {solverResult.givens.map((g, gIdx) => (
+                      <div key={gIdx} className="bg-white p-2.5 rounded-xl border border-stone-200 text-xs">
+                        <span className="font-bold text-stone-900">{g.parameter}</span>
+                        <div className="text-indigo-600 font-mono font-bold mt-0.5">
+                          {g.symbol} = {g.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Governing Formula */}
+                <div className="bg-indigo-50/70 rounded-2xl p-4 border border-indigo-200">
+                  <div className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <i className="fa-solid fa-square-root-variable text-indigo-600"></i>
+                    2. Governing Law / Formula:
+                  </div>
+                  <div className="text-base sm:text-lg font-mono font-extrabold text-indigo-900 bg-white p-3 rounded-xl border border-indigo-200">
+                    {solverResult.formula}
+                  </div>
+                </div>
+
+                {/* Steps Working */}
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <i className="fa-solid fa-stairs text-indigo-600"></i>
+                    3. Detailed Step-by-Step Calculation:
+                  </div>
+                  <div className="space-y-2">
+                    {solverResult.steps.map((st) => (
+                      <div key={st.stepNumber} className="bg-white p-3.5 rounded-2xl border border-stone-200 flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                          {st.stepNumber}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold text-stone-900">{st.description}</p>
+                          <div className="text-xs sm:text-sm font-mono text-emerald-700 font-bold bg-stone-50 p-2 rounded-lg mt-1 border border-stone-200">
+                            {st.math}
+                          </div>
+                          {st.subResult && (
+                            <span className="text-[11px] text-stone-500 italic mt-0.5 block">
+                              Intermediate: {st.subResult}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Highlighted Final Answer */}
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-md">
+                  <div className="text-xs font-black uppercase tracking-wider opacity-90 mb-1 flex items-center gap-1.5">
+                    <i className="fa-solid fa-check-circle"></i> Final Evaluated Answer (Jibu la Mwisho):
+                  </div>
+                  <div className="text-lg sm:text-xl font-mono font-black text-white">
+                    {solverResult.finalAnswer}
+                  </div>
+                </div>
+
+                {/* NECTA Step Marks Breakdown */}
+                <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200 space-y-2">
+                  <div className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-award text-amber-500"></i>
+                    NECTA Examiner Step Mark Allocation:
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-stone-200 text-stone-500">
+                          <th className="py-1.5 px-2">Component</th>
+                          <th className="py-1.5 px-2">Marks</th>
+                          <th className="py-1.5 px-2">NECTA Criterion</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 text-stone-800">
+                        {solverResult.nectaMarkBreakdown.map((mb, idx) => (
+                          <tr key={idx}>
+                            <td className="py-2 px-2 font-bold">{mb.component}</td>
+                            <td className="py-2 px-2 text-indigo-600 font-extrabold">{mb.marks}</td>
+                            <td className="py-2 px-2">{mb.criterion}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Traps & Kiswahili note */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-rose-900">
+                    <div className="font-bold flex items-center gap-1 mb-1">
+                      <i className="fa-solid fa-triangle-exclamation text-rose-600"></i> Common Examination Traps:
+                    </div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {solverResult.commonPitfalls.map((p, idx) => (
+                        <li key={idx}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-amber-900">
+                    <div className="font-bold flex items-center gap-1 mb-1">
+                      <i className="fa-solid fa-comment-dots text-amber-600"></i> Kidokezo cha NECTA (Kiswahili):
+                    </div>
+                    <p className="leading-relaxed">{solverResult.bilingualKiswahiliNote}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* AI FEATURE 2: NECTA EXAMINER ANSWER EVALUATOR & GRADING */}
+      {/* ========================================================= */}
+      {activeTab === 'examiner' && (
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-[#faf9f5]/50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm space-y-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700">
+                  NECTA Examiner Grading 📝
+                </span>
+                <span className="text-xs text-stone-500 font-medium">
+                  National Exam Marking Scheme & Step Analysis
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-stone-900">
+                AI Answer Marker & Rubric Evaluation
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-600 mt-1">
+                Write or paste your exam answer. The Senior Examiner AI grades it from A to F, shows marks awarded vs deducted, identifies missing keywords, and gives the distinction model answer!
+              </p>
+            </div>
+
+            {/* Quick Sample Questions */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-600 flex items-center gap-1.5">
+                <i className="fa-solid fa-bolt text-amber-500"></i> Try a sample question & answer:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    title: 'Biology: Mitosis vs Meiosis',
+                    subject: 'Biology',
+                    grade: 'Form 4',
+                    maxMarks: 10,
+                    question: 'State four differences between mitosis and meiosis cell division.',
+                    answer: 'Mitosis occurs in somatic cells producing 2 daughter cells with identical chromosome number. Meiosis occurs in reproductive cells producing 4 daughter cells with half the chromosomes. Mitosis has one division, meiosis has two divisions.'
+                  },
+                  {
+                    title: 'History: Maji Maji Resistance',
+                    subject: 'History',
+                    grade: 'Form 4',
+                    maxMarks: 10,
+                    question: 'Explain three causes of the Maji Maji war of 1905–1907 in Tanganyika.',
+                    answer: 'The causes included forced cotton cultivation on dry communal plots, heavy taxation by German colonialists, and brutality of Akidas and Jumbes.'
+                  },
+                  {
+                    title: 'Physics: Archimedes Principle',
+                    subject: 'Physics',
+                    grade: 'Form 2',
+                    maxMarks: 10,
+                    question: 'State Archimedes’ Principle and explain why an iron needle sinks while a large steel ship floats.',
+                    answer: 'Archimedes principle states that when a body is partially or fully immersed in a fluid, it experiences an upthrust equal to the weight of fluid displaced. A needle sinks because it has small volume and upthrust is less than its weight. A ship is hollow and displaces large water weight.'
+                  }
+                ].map((sample, sIdx) => (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    onClick={() => {
+                      setGradeQuestion(sample.question);
+                      setGradeAnswer(sample.answer);
+                      setGradeSubject(sample.subject);
+                      setGradeLevel(sample.grade);
+                      setGradeMaxMarks(sample.maxMarks);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-emerald-50 hover:text-emerald-700 text-stone-700 text-xs font-semibold border border-stone-200 transition text-left cursor-pointer"
+                  >
+                    {sample.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Subject:
+                  </label>
+                  <select
+                    value={gradeSubject}
+                    onChange={(e) => setGradeSubject(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="Biology">Biology (Biolojia)</option>
+                    <option value="Physics">Physics (Fizikia)</option>
+                    <option value="Chemistry">Chemistry (Kemia)</option>
+                    <option value="History">History (Historia)</option>
+                    <option value="Geography">Geography (Jiografia)</option>
+                    <option value="Civics">Civics (Uraia)</option>
+                    <option value="Kiswahili">Kiswahili</option>
+                    <option value="English">English</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Grade Level:
+                  </label>
+                  <select
+                    value={gradeLevel}
+                    onChange={(e) => setGradeLevel(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="Form 2">Form 2 (FTNA)</option>
+                    <option value="Form 4">Form 4 (CSEE)</option>
+                    <option value="Form 6">Form 6 (ACSEE)</option>
+                    <option value="Standard 7">Standard 7 (PSLE)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Max Marks:
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={gradeMaxMarks}
+                    onChange={(e) => setGradeMaxMarks(Number(e.target.value) || 10)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Examination Question:
+                </label>
+                <input
+                  type="text"
+                  value={gradeQuestion}
+                  onChange={(e) => setGradeQuestion(e.target.value)}
+                  placeholder="Enter the exact exam question..."
+                  className="w-full bg-stone-50 border border-stone-300 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Your Answer (Andika jibu lako hapa):
+                </label>
+                <textarea
+                  rows={4}
+                  value={gradeAnswer}
+                  onChange={(e) => setGradeAnswer(e.target.value)}
+                  placeholder="Write your answer, essay points, or calculation working here..."
+                  className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-3.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={!gradeQuestion.trim() || !gradeAnswer.trim() || isGrading}
+                onClick={handleRunGrading}
+                className={`w-full py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition shadow-md cursor-pointer ${
+                  gradeQuestion.trim() && gradeAnswer.trim() && !isGrading
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-98'
+                    : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                }`}
+              >
+                {isGrading ? (
+                  <>
+                    <GeminiSparkle className="w-5 h-5 animate-spin text-amber-300" />
+                    <span>Senior Examiner is grading your answer against NECTA rubric...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-stamp text-amber-300"></i>
+                    <span>Grade Answer with NECTA Examiner AI</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Grading Results */}
+            {gradeResult && (
+              <div className="pt-6 border-t border-stone-200 space-y-5 animate-fadeIn">
+                {/* Score & Grade Header Card */}
+                <div className="bg-gradient-to-r from-stone-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                  <div>
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                      Official NECTA Result Assessment
+                    </span>
+                    <h4 className="text-2xl font-black mt-1">
+                      Score: {gradeResult.score} / {gradeResult.maxMarks} ({gradeResult.percentage}%)
+                    </h4>
+                    <p className="text-xs text-stone-300 mt-1 max-w-xl">
+                      {gradeResult.summary}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-center px-4 py-2 rounded-2xl bg-white/10 border border-white/20">
+                      <div className="text-[10px] uppercase font-bold text-stone-400">NECTA Grade</div>
+                      <div className={`text-3xl font-black ${
+                        gradeResult.nectaGrade === 'A' ? 'text-emerald-400' :
+                        gradeResult.nectaGrade === 'B' ? 'text-cyan-400' :
+                        gradeResult.nectaGrade === 'C' ? 'text-amber-400' :
+                        'text-rose-400'
+                      }`}>
+                        Grade {gradeResult.nectaGrade}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rubric Breakdown */}
+                <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200 space-y-2">
+                  <div className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-table-list text-emerald-600"></i>
+                    Marking Scheme Rubric Breakdown:
+                  </div>
+                  <div className="space-y-2">
+                    {gradeResult.rubricBreakdown.map((r, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded-xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="flex-1">
+                          <span className="font-bold text-stone-900">{r.criterion}</span>
+                          <p className="text-stone-500 text-[11px] mt-0.5">{r.comment}</p>
+                        </div>
+                        <div className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg shrink-0">
+                          {r.awardedMarks} / {r.allocatedMarks} Marks
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Strengths & Missing Points */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-emerald-950">
+                    <div className="font-bold flex items-center gap-1.5 mb-2 text-emerald-800">
+                      <i className="fa-solid fa-check-circle"></i> Strengths of Your Answer:
+                    </div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {gradeResult.strengths.map((s, idx) => (
+                        <li key={idx}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-950">
+                    <div className="font-bold flex items-center gap-1.5 mb-2 text-rose-800">
+                      <i className="fa-solid fa-circle-exclamation"></i> Missing Keywords or Points:
+                    </div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {gradeResult.missingKeywordsOrPoints.map((m, idx) => (
+                        <li key={idx}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Distinction Model Answer */}
+                <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 space-y-2">
+                  <div className="text-xs font-black uppercase text-indigo-900 flex items-center gap-1.5">
+                    <i className="fa-solid fa-star text-amber-500"></i>
+                    100% Distinction Model Answer (Kigezo Kamili cha NECTA):
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-indigo-200 text-xs sm:text-sm text-stone-800 whitespace-pre-wrap leading-relaxed font-sans">
+                    {gradeResult.modelAnswer}
+                  </div>
+                </div>
+
+                {/* Examiner Hall Pro Tip */}
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-amber-900 text-xs flex items-start gap-2.5">
+                  <i className="fa-solid fa-lightbulb text-amber-600 text-base mt-0.5"></i>
+                  <div>
+                    <span className="font-black uppercase tracking-wider block mb-0.5">Kidokezo cha Mtihani:</span>
+                    <span>{gradeResult.examinerProTip}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* AI FEATURE 3: AI FLASHCARD DECK GENERATOR */}
+      {/* ========================================================= */}
+      {activeTab === 'flashcards' && (
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-[#faf9f5]/50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm space-y-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-100 text-amber-800">
+                  AI Flashcard Engine 🗂️
+                </span>
+                <span className="text-xs text-stone-500 font-medium">
+                  High-Yield Spaced Repetition for National Exams
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-stone-900">
+                Generate Custom NECTA Revision Flashcards
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-600 mt-1">
+                Pick or type any topic across the Tanzanian curriculum. Yun AI instantly synthesizes high-yield question & answer cards with difficulty ratings, exam frequencies, and Swahili translations!
+              </p>
+            </div>
+
+            {/* Quick Topic Chips */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-600 flex items-center gap-1.5">
+                <i className="fa-solid fa-sparkles text-amber-500"></i> Tap a popular topic to generate:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { topic: "Newton's Laws of Motion", subject: 'Physics', grade: 'Form 2' },
+                  { topic: 'Photosynthesis & Light Reaction', subject: 'Biology', grade: 'Form 4' },
+                  { topic: 'Periodic Table & Reactivity', subject: 'Chemistry', grade: 'Form 3' },
+                  { topic: 'Pythagoras & Trigonometry', subject: 'Basic Mathematics', grade: 'Form 4' },
+                  { topic: 'Maji Maji War & Colonialism', subject: 'History', grade: 'Form 4' },
+                  { topic: 'Tamathali za Semi na Mnyambuliko', subject: 'Kiswahili', grade: 'Form 4' }
+                ].map((sample, sIdx) => (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    onClick={() => {
+                      setFcTopic(sample.topic);
+                      setFcSubject(sample.subject);
+                      setFcGrade(sample.grade);
+                      handleGenerateFlashcards(sample.topic);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-amber-50 hover:text-amber-800 text-stone-700 text-xs font-semibold border border-stone-200 transition text-left cursor-pointer"
+                  >
+                    {sample.topic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Topic Input Form */}
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Syllabus Topic Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={fcTopic}
+                    onChange={(e) => setFcTopic(e.target.value)}
+                    placeholder="e.g. Plate Tectonics, Osmosis, Organic Hydrocarbons..."
+                    className="w-full bg-stone-50 border border-stone-300 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Subject / Somo:
+                  </label>
+                  <select
+                    value={fcSubject}
+                    onChange={(e) => setFcSubject(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-300 rounded-2xl px-3 py-2.5 text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Biology">Biology</option>
+                    <option value="Basic Mathematics">Basic Math</option>
+                    <option value="Geography">Geography</option>
+                    <option value="History">History</option>
+                    <option value="Kiswahili">Kiswahili</option>
+                    <option value="Civics">Civics</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={!fcTopic.trim() || isGeneratingFc}
+                onClick={() => handleGenerateFlashcards()}
+                className={`w-full py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition shadow-md cursor-pointer ${
+                  fcTopic.trim() && !isGeneratingFc
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30 active:scale-98'
+                    : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                }`}
+              >
+                {isGeneratingFc ? (
+                  <>
+                    <GeminiSparkle className="w-5 h-5 animate-spin text-slate-950" />
+                    <span>Yun AI is generating syllabus revision flashcards...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-cards-blank text-slate-950"></i>
+                    <span>Generate Flashcard Deck 🗂️</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Generated Deck Grid */}
+            {fcDeck && (
+              <div className="pt-6 border-t border-stone-200 space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-black text-stone-900">{fcDeck.deckTitle}</h4>
+                    <p className="text-xs text-stone-500">
+                      {fcDeck.flashcards.length} revision cards • Tap card to flip and reveal answer
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allFlipped = Object.values(flippedCards).every(Boolean);
+                      const nextState: Record<string, boolean> = {};
+                      fcDeck.flashcards.forEach(c => { nextState[c.id] = !allFlipped; });
+                      setFlippedCards(nextState);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-repeat"></i>
+                    <span>Flip All</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {fcDeck.flashcards.map((card) => {
+                    const isFlipped = !!flippedCards[card.id];
+                    return (
+                      <div
+                        key={card.id}
+                        onClick={() => toggleCardFlip(card.id)}
+                        className={`min-h-[180px] p-5 rounded-3xl border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between select-none ${
+                          isFlipped
+                            ? 'bg-slate-900 text-white border-amber-400 shadow-lg scale-[1.01]'
+                            : 'bg-white text-stone-900 border-stone-200 hover:border-indigo-400 hover:shadow-md'
+                        }`}
+                      >
+                        {/* Card Top Meta */}
+                        <div className="flex items-center justify-between text-[11px] mb-3">
+                          <span className={`px-2 py-0.5 rounded-full font-bold ${
+                            isFlipped ? 'bg-amber-400 text-slate-950' : 'bg-stone-100 text-stone-600'
+                          }`}>
+                            {isFlipped ? 'Answer (Jibu)' : 'Question (Swali)'}
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              card.difficulty === 'Hard' ? 'bg-rose-100 text-rose-800' :
+                              card.difficulty === 'Medium' ? 'bg-amber-100 text-amber-800' :
+                              'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {card.difficulty}
+                            </span>
+                            <span className="text-[10px] opacity-75 font-semibold">
+                              NECTA: {card.nectaFrequency}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Center Content */}
+                        <div className="flex-1 flex items-center my-2">
+                          <p className={`text-sm sm:text-base leading-relaxed ${
+                            isFlipped ? 'text-amber-200 font-medium' : 'text-stone-900 font-bold'
+                          }`}>
+                            {isFlipped ? card.back : card.front}
+                          </p>
+                        </div>
+
+                        {/* Card Bottom: Swahili Translation & Tap prompt */}
+                        <div className="flex items-center justify-between text-[11px] pt-3 border-t border-stone-150/40">
+                          <span className="text-amber-600 dark:text-amber-300 font-semibold italic">
+                            🇹🇿 {card.keyTermSwahili}
+                          </span>
+                          <span className="text-[10px] opacity-60 flex items-center gap-1">
+                            <i className="fa-solid fa-arrows-rotate text-[9px]"></i>
+                            <span>Tap to flip</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

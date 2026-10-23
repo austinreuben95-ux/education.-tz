@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AppView } from '../types';
+import { AppView, UserProgress } from '../types';
+import { User } from 'firebase/auth';
 
 export interface NavItem {
   id: string;
@@ -62,6 +63,10 @@ export interface HeaderNavDropdownsProps {
   onOpenFormulaVault?: () => void;
   isZenMode?: boolean;
   onToggleZenMode?: () => void;
+  currentUser?: User | null;
+  userProgress?: UserProgress;
+  onOpenAuth?: () => void;
+  onSignOut?: () => void;
 }
 
 export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
@@ -89,6 +94,10 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
   onOpenFormulaVault,
   isZenMode = false,
   onToggleZenMode,
+  currentUser,
+  userProgress,
+  onOpenAuth,
+  onSignOut,
 }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1035,15 +1044,53 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
           </button>
         )}
 
-        {/* 5. Student Profile Button */}
-        {onOpenProfile && (
+        {/* 5. Student Profile / School / Auth Controls */}
+        {currentUser ? (
+          <div className="flex items-center gap-1.5">
+            <button
+              id="header-student-profile-chip-btn"
+              type="button"
+              onClick={onOpenProfile || onOpenAuth}
+              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs max-w-[210px]"
+              title={`${userProgress?.displayName || currentUser.displayName || currentUser.email || 'Student'} • ${userProgress?.schoolOrUniversity || 'Tanzanian School / University'} (Click to view profile & edit school)`}
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs">
+                {(userProgress?.displayName || currentUser.displayName || currentUser.email || 'S').charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col text-left truncate leading-tight">
+                <span className="truncate max-w-[85px] text-[11px] font-black text-slate-900 dark:text-white">
+                  {userProgress?.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Scholar')}
+                </span>
+                <span className="truncate max-w-[85px] text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5">
+                  <i className="fa-solid fa-graduation-cap text-[8px]"></i>
+                  {userProgress?.schoolOrUniversity || 'Tanzania'}
+                </span>
+              </div>
+            </button>
+
+            {onSignOut && (
+              <button
+                id="header-signout-btn"
+                type="button"
+                onClick={onSignOut}
+                className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
+                title="Toka / Sign Out of Account"
+                aria-label="Sign Out"
+              >
+                <i className="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+              </button>
+            )}
+          </div>
+        ) : (
           <button
+            id="header-signin-btn"
             type="button"
-            onClick={onOpenProfile}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-black text-xs transition active:scale-95 cursor-pointer shadow-2xs"
-            title="Student Profile & Progress"
+            onClick={onOpenAuth}
+            className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm shadow-indigo-500/25 cursor-pointer transition shrink-0"
+            title="Sign In with Google or Tanzanian School ID"
           >
-            <i className="fa-solid fa-user text-[11px] text-slate-600 dark:text-slate-300"></i>
+            <i className="fa-solid fa-right-to-bracket text-xs text-indigo-200"></i>
+            <span>Ingia / Sign In</span>
           </button>
         )}
 
@@ -1156,51 +1203,107 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
               </button>
             </div>
 
-            {/* Quick Metrics & User Strip */}
-            <div className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 font-sans">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setCurrentView(AppView.BADGES);
-                  }}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-extrabold text-xs cursor-pointer border border-amber-200 dark:border-amber-800/60 active:scale-95"
-                  title="Daily Streak - View Scholar Badges"
-                  aria-label={`${streak} days streak. View Badges.`}
-                >
-                  <i className="fa-solid fa-fire text-amber-500" aria-hidden="true"></i>
-                  <span>{streak}d Streak</span>
-                </button>
+            {/* Quick Metrics & Student Identity / School Strip */}
+            <div className="p-3 bg-white dark:bg-[#0f172a] border-b border-slate-200/80 dark:border-slate-800 space-y-2.5 shrink-0 font-sans">
+              {currentUser ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                        {(userProgress?.displayName || currentUser.displayName || currentUser.email || 'S').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                          {userProgress?.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Scholar')}
+                        </div>
+                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold truncate flex items-center gap-1">
+                          <i className="fa-solid fa-graduation-cap text-[9px]"></i>
+                          <span>{userProgress?.schoolOrUniversity || 'Tanzanian School / University'}</span>
+                        </div>
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setCurrentView(AppView.WALLET);
-                  }}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-extrabold text-xs cursor-pointer border border-sky-200 dark:border-sky-800/60 active:scale-95"
-                  title="Education Points - View Study Wallet"
-                  aria-label={`${points} Education Points. View Wallet.`}
-                >
-                  <i className="fa-solid fa-coins text-sky-500" aria-hidden="true"></i>
-                  <span>{points} EP</span>
-                </button>
-              </div>
+                    {onSignOut && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onSignOut();
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-[11px] font-bold border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1 cursor-pointer active:scale-95"
+                        title="Sign Out (Toka)"
+                      >
+                        <i className="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
+                        <span>Toka</span>
+                      </button>
+                    )}
+                  </div>
 
-              {onOpenProfile && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenProfile();
-                  }}
-                  className="px-3 py-1 rounded-full bg-purple-50 dark:bg-slate-800 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  aria-label="Open student profile"
-                >
-                  <i className="fa-solid fa-user text-[10px]" aria-hidden="true"></i>
-                  <span>Profile</span>
-                </button>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setCurrentView(AppView.BADGES);
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-extrabold text-[11px] cursor-pointer border border-amber-200 dark:border-amber-800/60 active:scale-95"
+                      >
+                        <i className="fa-solid fa-fire text-amber-500 text-[10px]"></i>
+                        <span>{streak}d</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setCurrentView(AppView.WALLET);
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-extrabold text-[11px] cursor-pointer border border-sky-200 dark:border-sky-800/60 active:scale-95"
+                      >
+                        <i className="fa-solid fa-coins text-sky-500 text-[10px]"></i>
+                        <span>{points} EP</span>
+                      </button>
+                    </div>
+
+                    {onOpenProfile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          onOpenProfile();
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] border border-indigo-200 dark:border-indigo-800 flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <i className="fa-solid fa-user-pen text-[10px]"></i>
+                        <span>Edit School / Profile</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-50 to-sky-50 dark:from-indigo-950/30 dark:to-slate-800/40 p-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-900/40">
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1">
+                      <i className="fa-solid fa-graduation-cap text-indigo-600 dark:text-indigo-400"></i>
+                      <span>Student Account</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                      Save school progress & exam history
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      if (onOpenAuth) onOpenAuth();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
+                    <span>Ingia / Sign In</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1237,14 +1340,14 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                       if (onGoHome) onGoHome();
                       else setCurrentView(AppView.HOME);
                     }}
-                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                    className={`w-full min-h-[38px] px-1 sm:px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[10.5px] sm:text-[11px] min-w-0 ${
                       currentView === AppView.HOME || currentView === AppView.LEVEL_SELECT
                         ? 'bg-sky-600 text-white border-sky-600 shadow-sm shadow-sky-500/30'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-sky-50'
                     }`}
                   >
-                    <i className="fa-solid fa-house text-xs" aria-hidden="true"></i>
-                    <span>Home</span>
+                    <i className="fa-solid fa-house text-xs shrink-0" aria-hidden="true"></i>
+                    <span className="truncate max-w-full text-center">Home</span>
                   </button>
                 </li>
 
@@ -1255,14 +1358,14 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                       setMobileMenuOpen(false);
                       onSelectAllSubjects();
                     }}
-                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                    className={`w-full min-h-[38px] px-1 sm:px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[10.5px] sm:text-[11px] min-w-0 ${
                       currentView === AppView.SYLLABUS
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/30'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
                     }`}
                   >
-                    <i className="fa-solid fa-book-open text-xs" aria-hidden="true"></i>
-                    <span>Syllabus</span>
+                    <i className="fa-solid fa-book-open text-xs shrink-0" aria-hidden="true"></i>
+                    <span className="truncate max-w-full text-center">Syllabus</span>
                   </button>
                 </li>
 
@@ -1273,14 +1376,14 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                       setMobileMenuOpen(false);
                       setCurrentView(AppView.EXAMS);
                     }}
-                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[11px] ${
+                    className={`w-full min-h-[38px] px-1 sm:px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-bold text-[10.5px] sm:text-[11px] min-w-0 ${
                       currentView === AppView.EXAMS
                         ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-amber-50'
                     }`}
                   >
-                    <i className="fa-solid fa-file-lines text-xs" aria-hidden="true"></i>
-                    <span>Past Papers</span>
+                    <i className="fa-solid fa-file-lines text-xs shrink-0" aria-hidden="true"></i>
+                    <span className="truncate max-w-full text-center">Past Papers</span>
                   </button>
                 </li>
 
@@ -1292,14 +1395,14 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                       if (onStartChat) onStartChat();
                       else setCurrentView(AppView.CHAT);
                     }}
-                    className={`w-full min-h-[38px] px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-extrabold text-[11px] ${
+                    className={`w-full min-h-[38px] px-1 sm:px-2 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer font-extrabold text-[10.5px] sm:text-[11px] min-w-0 ${
                       currentView === AppView.CHAT
                         ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                         : 'bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white border-transparent shadow-sm shadow-sky-500/25'
                     }`}
                   >
-                    <i className="fa-solid fa-wand-magic-sparkles text-xs text-amber-300 animate-pulse" aria-hidden="true"></i>
-                    <span>Yun AI</span>
+                    <i className="fa-solid fa-wand-magic-sparkles text-xs text-amber-300 animate-pulse shrink-0" aria-hidden="true"></i>
+                    <span className="truncate max-w-full text-center">Yun AI</span>
                   </button>
                 </li>
               </ul>
