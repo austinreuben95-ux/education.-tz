@@ -6,8 +6,26 @@ import { GoogleGenAI, Type, Schema, ThinkingLevel } from "@google/genai";
 import { ALL_NECTA_PAST_PAPERS } from "./src/data/nectaPastPapersData";
 
 const app = express();
-// AI Studio dev environment expects and checks port 3000 specifically
-const PORT = 3000;
+
+function getPort(): number {
+  const portArgIndex = process.argv.indexOf("--port");
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 3000;
+}
+
+function getHost(): string {
+  const hostArgIndex = process.argv.indexOf("--host");
+  if (hostArgIndex !== -1 && process.argv[hostArgIndex + 1]) {
+    return process.argv[hostArgIndex + 1];
+  }
+  return "0.0.0.0";
+}
+
+const PORT = getPort();
+const HOST = getHost();
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));

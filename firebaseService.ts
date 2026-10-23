@@ -30,8 +30,8 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
-import { UserProgress, StudyRoomMessage } from './types';
+import firebaseConfig from '../firebase-applet-config.json';
+import { UserProgress, StudyRoomMessage } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -152,6 +152,22 @@ export async function updateUserSchool(userId: string, schoolOrUniversity: strin
     await setDoc(docRef, updateData, { merge: true });
     if (auth.currentUser && displayName) {
       await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+  }
+}
+
+export async function updateUserAvatar(userId: string, avatarId: string) {
+  const docRef = doc(db, 'users', userId);
+  try {
+    const updateData: Partial<UserProgress> = {
+      avatarId: avatarId.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(docRef, updateData, { merge: true });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tz_selected_avatar', avatarId.trim());
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);

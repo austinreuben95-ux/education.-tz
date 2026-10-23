@@ -158,6 +158,22 @@ export async function updateUserSchool(userId: string, schoolOrUniversity: strin
   }
 }
 
+export async function updateUserAvatar(userId: string, avatarId: string) {
+  const docRef = doc(db, 'users', userId);
+  try {
+    const updateData: Partial<UserProgress> = {
+      avatarId: avatarId.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(docRef, updateData, { merge: true });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tz_selected_avatar', avatarId.trim());
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+  }
+}
+
 export async function logout() {
   try {
     await signOut(auth);
