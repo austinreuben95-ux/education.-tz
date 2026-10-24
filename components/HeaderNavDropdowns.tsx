@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AppView, UserProgress } from '../types';
 import { User } from 'firebase/auth';
+import { ScholarAvatar } from './ScholarAvatar';
 
 export interface NavItem {
   id: string;
@@ -50,6 +51,7 @@ export interface HeaderNavDropdownsProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   onOpenProfile?: () => void;
+  onOpenAvatarPicker?: () => void;
   streak?: number;
   points?: number;
   isAdmin?: boolean;
@@ -81,6 +83,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
   mobileMenuOpen,
   setMobileMenuOpen,
   onOpenProfile,
+  onOpenAvatarPicker,
   streak = 0,
   points = 0,
   isAdmin = false,
@@ -1006,11 +1009,11 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
         </div>
 
         {/* 3. Global Study Streak & EP Wallet Pill */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <div
             onClick={() => setCurrentView(AppView.BADGES)}
-            className="cursor-pointer flex items-center gap-1 text-amber-800 dark:text-amber-300 font-bold text-xs bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-800/60 transition shadow-2xs"
-            title="Study Streak - Click to view Badges"
+            className="liquid-glass-pill cursor-pointer flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs px-3 py-1.5 rounded-full border border-amber-200/90 dark:border-amber-800/60 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 transition active:scale-95 shadow-2xs"
+            title="Siku mfululizo za kujifunza (Study Streak)"
           >
             <i className="fa-solid fa-fire text-amber-500 text-xs"></i>
             <span>{streak}d</span>
@@ -1018,55 +1021,74 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
 
           <div
             onClick={() => setCurrentView(AppView.WALLET)}
-            className="cursor-pointer flex items-center gap-1 text-sky-800 dark:text-sky-300 font-bold text-xs bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 px-2.5 py-1 rounded-full border border-sky-200 dark:border-sky-800/60 transition shadow-2xs"
-            title="Educational Points - Click to view Wallet"
+            className="liquid-glass-pill cursor-pointer flex items-center gap-1.5 text-sky-800 dark:text-sky-300 font-bold text-xs px-3 py-1.5 rounded-full border border-sky-200/90 dark:border-sky-800/60 hover:bg-sky-100/70 dark:hover:bg-sky-900/40 transition active:scale-95 shadow-2xs"
+            title="Alama za Kielimu (Educational Points) - Bofya kuona Wallet"
           >
             <i className="fa-solid fa-coins text-sky-500 text-xs"></i>
             <span>{points} EP</span>
           </div>
         </div>
 
-        {/* 4. Night Study (Dark Mode) Toggle */}
+        {/* 4. High-Visibility Dark / Light Mode Liquid Glass Toggle */}
         {onToggleDarkMode && (
           <button
             id="nav-night-study-toggle-btn"
             type="button"
             onClick={onToggleDarkMode}
-            className={`w-8 h-8 rounded-full border transition-all duration-150 flex items-center justify-center cursor-pointer shadow-2xs active:scale-95 ${
+            className={`liquid-glass-pill px-3 py-1.5 rounded-full border transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
               isDarkMode
-                ? 'bg-slate-800 hover:bg-slate-750 text-amber-300 border-slate-700'
-                : 'bg-white hover:bg-slate-100 text-slate-600 hover:text-indigo-600 border-slate-200'
+                ? 'bg-slate-800/90 text-amber-300 border-amber-400/50 hover:bg-slate-750'
+                : 'bg-white/90 text-slate-700 border-slate-300/80 hover:bg-slate-100 hover:text-indigo-600'
             }`}
-            title={isDarkMode ? 'Switch to Day Mode' : 'Switch to High-Contrast Night Study Mode'}
+            title={isDarkMode ? 'Hali ya Giza Ipo (Bofya kuweka Mwanga)' : 'Hali ya Mwanga Ipo (Bofya kuweka Giza)'}
             aria-label="Toggle Night Study Mode"
           >
             <i className={`fa-solid ${isDarkMode ? 'fa-sun text-amber-400' : 'fa-moon text-indigo-600'} text-xs`}></i>
+            <span className="text-[11px] font-extrabold hidden xl:inline">
+              {isDarkMode ? 'Giza (Dark)' : 'Mwanga (Light)'}
+            </span>
           </button>
         )}
 
-        {/* 5. Student Profile / School / Auth Controls */}
+        {/* 5. Student Profile / School / Avatar Controls */}
         {currentUser ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               id="header-student-profile-chip-btn"
               type="button"
               onClick={onOpenProfile || onOpenAuth}
-              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs max-w-[210px]"
-              title={`${userProgress?.displayName || currentUser.displayName || currentUser.email || 'Student'} • ${userProgress?.schoolOrUniversity || 'Tanzanian School / University'} (Click to view profile & edit school)`}
+              className="liquid-glass-pill flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full border border-slate-200/90 dark:border-slate-700/80 hover:border-sky-400 dark:hover:border-sky-500 text-slate-700 dark:text-slate-200 text-xs font-bold transition active:scale-95 cursor-pointer shadow-xs max-w-[230px]"
+              title={`${userProgress?.displayName || currentUser.displayName || currentUser.email || 'Student'} • ${userProgress?.schoolOrUniversity || 'Tanzanian School / University'} (Bofya kuona wasifu na kubadili shule)`}
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs">
-                {(userProgress?.displayName || currentUser.displayName || currentUser.email || 'S').charAt(0).toUpperCase()}
-              </div>
+              <ScholarAvatar
+                avatarId={userProgress?.avatarId}
+                size="xs"
+                showBorder={false}
+                className="w-6 h-6 rounded-full text-xs shadow-2xs"
+              />
               <div className="flex flex-col text-left truncate leading-tight">
-                <span className="truncate max-w-[85px] text-[11px] font-black text-slate-900 dark:text-white">
+                <span className="truncate max-w-[100px] text-[11px] font-black text-slate-900 dark:text-white">
                   {userProgress?.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Scholar')}
                 </span>
-                <span className="truncate max-w-[85px] text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5">
+                <span className="truncate max-w-[100px] text-[9px] text-sky-600 dark:text-cyan-400 font-semibold flex items-center gap-0.5">
                   <i className="fa-solid fa-graduation-cap text-[8px]"></i>
                   {userProgress?.schoolOrUniversity || 'Tanzania'}
                 </span>
               </div>
             </button>
+
+            {/* Quick Avatar Change Button */}
+            {onOpenAvatarPicker && (
+              <button
+                type="button"
+                onClick={onOpenAvatarPicker}
+                className="w-8 h-8 rounded-full liquid-glass-pill bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 border border-sky-200 dark:border-sky-800 text-sky-600 dark:text-cyan-300 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
+                title="Chagua / Badili Avatar (Choose Avatar)"
+                aria-label="Badili Avatar"
+              >
+                <i className="fa-solid fa-masks-theater text-xs"></i>
+              </button>
+            )}
 
             {onSignOut && (
               <button
@@ -1074,7 +1096,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
                 type="button"
                 onClick={onSignOut}
                 className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
-                title="Toka / Sign Out of Account"
+                title="Toka / Sign Out"
                 aria-label="Sign Out"
               >
                 <i className="fa-solid fa-arrow-right-from-bracket text-xs"></i>
@@ -1086,8 +1108,8 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
             id="header-signin-btn"
             type="button"
             onClick={onOpenAuth}
-            className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm shadow-indigo-500/25 cursor-pointer transition shrink-0"
-            title="Sign In with Google or Tanzanian School ID"
+            className="liquid-glass-pill bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold text-xs px-4 py-1.5 rounded-full flex items-center gap-2 shadow-sm shadow-indigo-500/25 cursor-pointer transition shrink-0"
+            title="Sign In with Google or Tanzanian School Account"
           >
             <i className="fa-solid fa-right-to-bracket text-xs text-indigo-200"></i>
             <span>Ingia / Sign In</span>
@@ -1099,7 +1121,7 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
           <button
             type="button"
             onClick={onStartChat}
-            className="bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white px-3.5 py-1.5 rounded-full font-bold text-xs shadow-sm shadow-sky-500/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+            className="liquid-glass-pill bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white px-4 py-1.5 rounded-full font-extrabold text-xs shadow-sm shadow-sky-500/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
             title="Ask Yun AI Tutor"
           >
             <i className="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs animate-pulse"></i>
@@ -1109,17 +1131,48 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* MOBILE / TABLET HAMBURGER BUTTON (< lg)                                   */}
+      {/* MOBILE / TABLET CONTROLS (< lg)                                           */}
       {/* ========================================================================= */}
-      <div className="lg:hidden flex items-center gap-1.5">
+      <div className="lg:hidden flex items-center gap-2">
+        {/* Mobile Dark / Light Mode Switch */}
+        {onToggleDarkMode && (
+          <button
+            type="button"
+            onClick={onToggleDarkMode}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-300 flex items-center justify-center cursor-pointer border border-slate-200 dark:border-slate-700 active:scale-95 shadow-2xs"
+            title={isDarkMode ? 'Weka Hali ya Mwanga (Switch to Light Mode)' : 'Weka Hali ya Giza (Switch to Dark Mode)'}
+            aria-label="Badili Hali ya Mwanga na Giza"
+          >
+            <i className={`fa-solid ${isDarkMode ? 'fa-sun text-amber-400' : 'fa-moon text-indigo-600'} text-xs`}></i>
+          </button>
+        )}
+
+        {/* Mobile Quick Avatar Picker Trigger */}
+        {onOpenAvatarPicker && (
+          <button
+            type="button"
+            onClick={onOpenAvatarPicker}
+            className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-cyan-300 flex items-center justify-center cursor-pointer border border-sky-200 dark:border-sky-800 active:scale-95 shadow-2xs"
+            title="Chagua Avatar (Choose Avatar)"
+            aria-label="Chagua Avatar"
+          >
+            <ScholarAvatar
+              avatarId={userProgress?.avatarId}
+              size="xs"
+              showBorder={false}
+              className="w-5 h-5 text-[11px]"
+            />
+          </button>
+        )}
+
         {/* Search quick button for mobile */}
         {onOpenSearch && (
           <button
             type="button"
             onClick={onOpenSearch}
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center cursor-pointer border border-slate-200 dark:border-slate-700 active:scale-95"
-            title="Search Curriculum"
-            aria-label="Search"
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center cursor-pointer border border-slate-200 dark:border-slate-700 active:scale-95 shadow-2xs"
+            title="Tafuta Mada na Maswali (Search)"
+            aria-label="Tafuta"
           >
             <i className="fa-solid fa-magnifying-glass text-xs"></i>
           </button>
@@ -1135,8 +1188,8 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
               ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/25'
               : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-white dark:border-slate-700 shadow-2xs'
           }`}
-          title={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-          aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          title={mobileMenuOpen ? 'Funga menyu' : 'Fungua menyu'}
+          aria-label={mobileMenuOpen ? 'Funga menyu' : 'Fungua menyu'}
           aria-expanded={mobileMenuOpen}
         >
           <i className={`fa-solid ${mobileMenuOpen ? 'fa-xmark' : 'fa-bars-staggered'} text-sm`}></i>
@@ -1208,15 +1261,28 @@ export const HeaderNavDropdowns: React.FC<HeaderNavDropdownsProps> = ({
               {currentUser ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
-                        {(userProgress?.displayName || currentUser.displayName || currentUser.email || 'S').charAt(0).toUpperCase()}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          if (onOpenAvatarPicker) onOpenAvatarPicker();
+                          else if (onOpenProfile) onOpenProfile();
+                        }}
+                        className="cursor-pointer shrink-0"
+                        title="Bofya kubadili Avatar"
+                      >
+                        <ScholarAvatar
+                          avatarId={userProgress?.avatarId}
+                          size="sm"
+                          showBorder
+                          className="w-9 h-9"
+                        />
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-black text-slate-900 dark:text-white truncate">
                           {userProgress?.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Scholar')}
                         </div>
-                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold truncate flex items-center gap-1">
+                        <div className="text-[10px] text-sky-600 dark:text-cyan-400 font-semibold truncate flex items-center gap-1">
                           <i className="fa-solid fa-graduation-cap text-[9px]"></i>
                           <span>{userProgress?.schoolOrUniversity || 'Tanzanian School / University'}</span>
                         </div>

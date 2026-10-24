@@ -197,12 +197,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in text-left font-sans">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-gray-100 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-fade-in text-left font-sans">
+      <div className="liquid-glass-card rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-white/60 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-slate-100 relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
-          title="Close"
+          className="absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center transition cursor-pointer"
+          title="Funga (Close)"
         >
           <i className="fa-solid fa-xmark text-lg"></i>
         </button>
@@ -213,7 +213,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           /* ========================================================================= */
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-tz-blue via-indigo-600 to-tz-purple text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-sky-500/20 border-4 border-white">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-tz-blue via-indigo-600 to-tz-purple text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-sky-500/20 border-4 border-white dark:border-slate-800">
                 {currentUser.photoURL ? (
                   <img src={currentUser.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
                 ) : (
@@ -222,14 +222,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1.5 mb-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Signed In Active Account
                 </span>
-                <h2 className="text-2xl font-black text-gray-900 capitalize">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white capitalize">
                   {currentUser.displayName || userProgress?.displayName || 'Tanzanian Scholar'}
                 </h2>
-                <p className="text-xs text-gray-500 font-medium">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {currentUser.email || 'student@educationtz.app'}
                 </p>
               </div>

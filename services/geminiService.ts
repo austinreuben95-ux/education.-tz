@@ -12,7 +12,8 @@ export const sendMessageToYunDetailed = async (
   model: string = 'gemini-3.1-flash-lite',
   role: string = 'default',
   useSearchGrounding: boolean = false,
-  deepThinking: boolean = true
+  deepThinking: boolean = true,
+  language: string = 'sw'
 ): Promise<ChatResponse> => {
   try {
     const res = await fetch('/api/chat', {
@@ -23,6 +24,7 @@ export const sendMessageToYunDetailed = async (
         history,
         model,
         role,
+        language,
         useSearchGrounding,
         deepThinking,
       }),
@@ -54,6 +56,7 @@ export const streamMessageToYunDetailed = async (
   options: {
     model?: string;
     role?: string;
+    language?: string;
     useSearchGrounding?: boolean;
     deepThinking?: boolean;
     onChunk?: (delta: string, accumulatedText: string) => void;
@@ -62,6 +65,7 @@ export const streamMessageToYunDetailed = async (
   const {
     model = 'gemini-3.1-flash-lite',
     role = 'default',
+    language = 'sw',
     useSearchGrounding = false,
     deepThinking = true,
     onChunk,
@@ -76,6 +80,7 @@ export const streamMessageToYunDetailed = async (
         history,
         model,
         role,
+        language,
         useSearchGrounding,
         deepThinking,
       }),
@@ -83,7 +88,7 @@ export const streamMessageToYunDetailed = async (
 
     if (!res.ok || !res.body) {
       // Gracefully fall back to standard non-stream endpoint
-      return await sendMessageToYunDetailed(prompt, history, model, role, useSearchGrounding, deepThinking);
+      return await sendMessageToYunDetailed(prompt, history, model, role, useSearchGrounding, deepThinking, language);
     }
 
     const reader = res.body.getReader();
@@ -788,5 +793,179 @@ export const fetchTopicExamTrends = async (params: {
   }
 };
 
+// Global audio playback tracking for Gemini voice
+let activeAudioElement: HTMLAudioElement | null = null;
 
+export const stopGeminiVoiceAudio = () => {
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement.currentTime = 0;
+    } catch (_) {}
+    activeAudioElement = null;
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+};
 
+export const generateGeminiSpeech = async (
+  text: string,
+  voiceName: string = 'Kore',
+  language: string = 'sw'
+): Promise<{ audioBase64?: string; voiceName?: string; error?: string }> => {
+  try {
+    const res = await fetch('/api/gemini/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        voiceName,
+        language,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `TTS server error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return {
+      audioBase64: data.audio,
+      voiceName: data.voiceName || voiceName,
+    };
+  } catch (err: any) {
+    console.warn('Gemini neural TTS request warning:', err?.message || err);
+    return {
+      error: err?.message || 'Failed to generate Gemini neural audio',
+    };
+  }
+};
+
+export const playGeminiVoiceAudio = async ({
+  text,
+  voiceName = 'Kore',
+  language = 'sw',
+  onStart,
+  onEnd,
+  onError,
+}: {
+  text: string;
+  voiceName?: string;
+  language?: string;
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (error: any) => void;
+}) => {
+  // Stop any active playback first
+  stopGeminiVoiceAudio();
+
+  // Strip complex markdown before speaking
+  const cleanText = text
+    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~#>]/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanText) return;
+
+  onStart?.();
+
+  // 1. Attempt genuine Gemini neural TTS audio first
+  try {
+    const result = await generateGeminiSpeech(cleanText, voiceName, language);
+    if (result.audioBase64) {
+      const audioUrl = `data:audio/wav;base64,${result.audioBase64}`;
+      const audio = new Audio(audioUrl);
+      activeAudioElement = audio;
+
+      audio.onended = () => {
+        activeAudioElement = null;
+        onEnd?.();
+      };
+
+      audio.onerror = (e) => {
+        console.warn('Audio element playback error, falling back to Web Speech API:', e);
+        activeAudioElement = null;
+        fallbackWebSpeech(cleanText, voiceName, language, onEnd, onError);
+      };
+
+      await audio.play();
+      return;
+    }
+  } catch (err) {
+    console.warn('Gemini TTS service unavailable, using seamless browser fallback:', err);
+  }
+
+  // 2. Resilient Browser Web Speech API fallback
+  fallbackWebSpeech(cleanText, voiceName, language, onEnd, onError);
+};
+
+const fallbackWebSpeech = (
+  text: string,
+  voiceName: string,
+  language: string,
+  onEnd?: () => void,
+  onError?: (err: any) => void
+) => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    onEnd?.();
+    return;
+  }
+
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Voice personality tuning to match Gemini personas
+    if (voiceName === 'Puck') {
+      utterance.pitch = 1.15;
+      utterance.rate = 1.05;
+    } else if (voiceName === 'Charon') {
+      utterance.pitch = 0.85;
+      utterance.rate = 0.92;
+    } else if (voiceName === 'Fenrir') {
+      utterance.pitch = 0.95;
+      utterance.rate = 1.0;
+    } else if (voiceName === 'Zephyr') {
+      utterance.pitch = 1.05;
+      utterance.rate = 0.88;
+    } else {
+      // Kore (signature)
+      utterance.pitch = 1.0;
+      utterance.rate = 0.96;
+    }
+
+    // Match language locale
+    const localeMap: Record<string, string> = {
+      sw: 'sw-TZ',
+      en: 'en-US',
+      fr: 'fr-FR',
+      ar: 'ar-SA',
+      zh: 'zh-CN',
+      de: 'de-DE',
+      es: 'es-ES',
+    };
+    utterance.lang = localeMap[language] || 'sw-TZ';
+
+    // Find best matching voice on device if available
+    const voices = window.speechSynthesis.getVoices();
+    const desiredPrefix = utterance.lang.split('-')[0].toLowerCase();
+    const match = voices.find(v => v.lang.toLowerCase().startsWith(desiredPrefix));
+    if (match) utterance.voice = match;
+
+    utterance.onend = () => onEnd?.();
+    utterance.onerror = (e) => {
+      onError?.(e);
+      onEnd?.();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    onError?.(e);
+    onEnd?.();
+  }
+};

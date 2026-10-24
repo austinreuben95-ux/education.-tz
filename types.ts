@@ -176,6 +176,8 @@ export interface UserProgress {
   schoolOrUniversity?: string;
   educationStage?: 'Primary' | 'Secondary' | 'High School' | 'University / College' | 'Other';
   region?: string;
+  schoolRegion?: string;
+  headTeacherName?: string;
   avatarId?: string;
   updatedAt?: string;
 }

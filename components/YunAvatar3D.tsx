@@ -89,10 +89,9 @@ export const YunAvatar3D: React.FC<YunAvatar3DProps> = ({
         )}
       </div>
 
-      {/* Optional Siri-style status badge */}
       {showLabel && (
         <div className="absolute -bottom-2 bg-slate-900/90 text-[10px] font-black text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-500/40 shadow-lg tracking-wider uppercase backdrop-blur-md">
-          {state === 'thinking' ? 'Yun Thinking...' : state === 'speaking' ? 'Yun Speaking' : 'Yun AI'}
+          {state === 'thinking' ? 'Yun Thinking...' : state === 'speaking' ? 'Gemini Voice Speaking' : 'Yun AI (Gemini)'}
         </div>
       )}
     </div>

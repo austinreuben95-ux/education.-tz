@@ -7,12 +7,21 @@ import {
   gradeAnswerWithAI,
   generateFlashcardsWithAI,
   fetchNectaExamStrategy,
+  playGeminiVoiceAudio,
+  stopGeminiVoiceAudio,
   StepByStepSolution,
   ExamAnswerGrade,
   FlashcardDeckResult,
   NectaExamStrategyResult
 } from '../services/geminiService';
 import { playMicStartSound, playMicStopSound } from '../src/utils/soundEffects';
+import {
+  GEMINI_PREBUILT_VOICES,
+  SUPPORTED_LANGUAGES,
+  GeminiVoice,
+  SupportedLanguage
+} from '../src/data/geminiVoicesAndLanguages';
+import { GeminiVoiceLanguageModal } from './GeminiVoiceLanguageModal';
 
 interface ChatInterfaceProps {
   initialContext?: string;
@@ -234,12 +243,50 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [speechLang, setSpeechLang] = useState<'en-US' | 'sw-TZ'>('en-US');
+  const [speechLang, setSpeechLang] = useState<'en-US' | 'sw-TZ' | 'fr-FR' | 'ar-SA' | 'zh-CN' | 'de-DE' | 'es-ES'>('sw-TZ');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [autoSpeakReplies, setAutoSpeakReplies] = useState(false);
   const [lastInputWasVoice, setLastInputWasVoice] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'up' | 'down'>>({});
+
+  // Gemini Prebuilt Voice & Multilingual State
+  const [selectedVoiceId, setSelectedVoiceId] = useState<'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr'>(() => {
+    try {
+      return (localStorage.getItem('tz_gemini_voice') as any) || 'Kore';
+    } catch {
+      return 'Kore';
+    }
+  });
+
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState<'sw' | 'en' | 'fr' | 'ar' | 'zh' | 'de' | 'es'>(() => {
+    try {
+      return (localStorage.getItem('tz_gemini_language') as any) || 'sw';
+    } catch {
+      return 'sw';
+    }
+  });
+
+  const [isVoiceLanguageModalOpen, setIsVoiceLanguageModalOpen] = useState(false);
+  const [currentlyPlayingMsgId, setCurrentlyPlayingMsgId] = useState<string | null>(null);
+
+  const handleSelectVoice = (voiceId: 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr') => {
+    setSelectedVoiceId(voiceId);
+    try {
+      localStorage.setItem('tz_gemini_voice', voiceId);
+    } catch (_) {}
+  };
+
+  const handleSelectLanguage = (langCode: 'sw' | 'en' | 'fr' | 'ar' | 'zh' | 'de' | 'es') => {
+    setSelectedLanguageCode(langCode);
+    try {
+      localStorage.setItem('tz_gemini_language', langCode);
+    } catch (_) {}
+    const matching = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+    if (matching) {
+      setSpeechLang(matching.bcp47 as any);
+    }
+  };
 
   // Active AI Feature Tab
   const [activeTab, setActiveTab] = useState<'chat' | 'strategy' | 'solver' | 'examiner' | 'flashcards'>(defaultTab);
@@ -302,9 +349,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           recognitionRef.current.abort();
         } catch (_) {}
       }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      stopGeminiVoiceAudio();
     };
   }, []);
 
@@ -358,7 +403,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const recognition = new SpeechRecognitionClass();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = speechLang;
+      const activeLangConfig = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguageCode);
+      recognition.lang = activeLangConfig ? activeLangConfig.bcp47 : speechLang;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
@@ -437,30 +483,36 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Text-to-Speech (Read aloud like Gemini)
-  const speakMessage = (text: string) => {
-    if (!window.speechSynthesis) return;
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
+  // Text-to-Speech (Official Google Gemini Voice Synthesis)
+  const speakMessage = (text: string, msgId?: string) => {
+    if (isSpeaking && currentlyPlayingMsgId === (msgId || 'general')) {
+      stopGeminiVoiceAudio();
       setIsSpeaking(false);
+      setCurrentlyPlayingMsgId(null);
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const cleanText = sanitizeTextForSpeech(text);
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 0.95; // Slightly slower, crystal clear for younger learners
-    utterance.pitch = 1.0;
-    if (speechLang === 'sw-TZ') {
-      utterance.lang = 'sw-TZ';
-    }
-
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
+    stopGeminiVoiceAudio();
     setIsSpeaking(true);
-    window.speechSynthesis.speak(utterance);
+    setCurrentlyPlayingMsgId(msgId || 'general');
+
+    playGeminiVoiceAudio({
+      text,
+      voiceName: selectedVoiceId,
+      language: selectedLanguageCode,
+      onStart: () => {
+        setIsSpeaking(true);
+        setCurrentlyPlayingMsgId(msgId || 'general');
+      },
+      onEnd: () => {
+        setIsSpeaking(false);
+        setCurrentlyPlayingMsgId(null);
+      },
+      onError: () => {
+        setIsSpeaking(false);
+        setCurrentlyPlayingMsgId(null);
+      },
+    });
   };
 
   const handleSend = async (customPrompt?: string) => {
@@ -502,6 +554,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {
           model: 'gemini-3.1-flash-lite',
           role: 'default',
+          language: selectedLanguageCode,
           useSearchGrounding: false,
           deepThinking: false,
           onChunk: (_delta, accumulatedText) => {
@@ -685,37 +738,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setFlippedCards(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const promptSuggestions = [
-    {
-      title: 'Solve Math Step-by-Step',
-      desc: 'Form 4 Quadratic Equations & Quadratic Formula',
-      icon: 'fa-square-root-variable',
-      prompt: 'Show me step-by-step working for solving quadratic equations using the quadratic formula with 2 examples common in NECTA CSEE exams.',
-    },
-    {
-      title: 'Form 4 Biology Summary',
-      desc: 'Leaf Internal Structure & Photosynthesis',
-      icon: 'fa-leaf',
-      prompt: 'Explain the internal structure of a dicotyledonous leaf and how each cell layer is adapted for photosynthesis.',
-    },
-    {
-      title: 'NECTA Chemistry Quiz',
-      desc: '3 Practice Questions on Acids, Bases & Salts',
-      icon: 'fa-flask-vial',
-      prompt: 'Generate 3 realistic NECTA Form 4 exam questions on Acids, Bases, and Salts with complete marking schemes and model answers.',
-    },
-    {
-      title: 'Fasihi ya Kiswahili',
-      desc: 'Tamathali za Semi na Mifano Yake',
-      icon: 'fa-book-open',
-      prompt: 'Eleza kwa kina maana ya tamathali za semi (tashbiha, sitiari, tashhisi) na mifano mitatu kwa kila moja kama inavyotahiniwa na NECTA.',
-    },
-  ];
+  const activeVoice = GEMINI_PREBUILT_VOICES.find(v => v.id === selectedVoiceId) || GEMINI_PREBUILT_VOICES[0];
+  const activeLang = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguageCode) || SUPPORTED_LANGUAGES[0];
+
+  const promptSuggestions = activeLang.promptSuggestions.map((promptText, idx) => {
+    const icons = ['fa-square-root-variable', 'fa-atom', 'fa-award', 'fa-book-open'];
+    return {
+      title: activeLang.code === 'sw' ? 'Mada ya Mfano' : `${activeLang.name} Practice`,
+      desc: promptText,
+      icon: icons[idx % icons.length],
+      prompt: promptText,
+    };
+  });
 
   return (
     <div className="flex flex-col h-[85vh] md:h-[760px] w-full max-w-5xl mx-auto bg-white rounded-3xl shadow-xl border border-stone-200 overflow-hidden font-sans">
       {/* Top Gemini-Style Header */}
-      <header className="px-5 py-3.5 bg-white/95 backdrop-blur-md border-b border-stone-200 flex items-center justify-between shrink-0">
+      <header className="px-4 sm:px-6 py-3 bg-white/95 backdrop-blur-md border-b border-stone-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-50 via-indigo-50 to-purple-50 border border-stone-200 flex items-center justify-center shadow-xs">
             <GeminiSparkle className="w-5 h-5" />
@@ -736,13 +775,45 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+          {/* Gemini Voice Persona Selector Pill */}
+          <button
+            type="button"
+            onClick={() => setIsVoiceLanguageModalOpen(true)}
+            className="px-2.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 hover:from-blue-100 hover:to-indigo-100 text-blue-900 border border-blue-200/80 shadow-2xs"
+            title="Change Gemini Voice persona (Kore, Puck, Charon, Fenrir, Zephyr)"
+          >
+            <i className={`fa-solid ${isSpeaking ? 'fa-waveform-lines text-blue-600 animate-pulse' : 'fa-microphone-lines text-blue-500'}`}></i>
+            <span className="text-[11px] text-slate-500 hidden sm:inline">Voice:</span>
+            <span className="font-extrabold text-blue-700">{activeVoice.name}</span>
+            {isSpeaking && (
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+            )}
+          </button>
+
+          {/* Multilingual Selector Dropdown */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={selectedLanguageCode}
+              onChange={(e) => handleSelectLanguage(e.target.value as any)}
+              aria-label="Select study language"
+              className="appearance-none bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold rounded-full pl-2.5 pr-6 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.flag} {l.name}
+                </option>
+              ))}
+            </select>
+            <i className="fa-solid fa-chevron-down text-[9px] text-emerald-700 pointer-events-none absolute right-2"></i>
+          </div>
+
           {/* Read Aloud Toggle for Younger Learners */}
           <button
             type="button"
             onClick={() => {
               if (isSpeaking) {
-                window.speechSynthesis?.cancel();
+                stopGeminiVoiceAudio();
                 setIsSpeaking(false);
               }
               setAutoSpeakReplies(prev => !prev);
@@ -918,12 +989,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => speakMessage(msg.text)}
-                      className="p-1.5 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition flex items-center gap-1 cursor-pointer"
-                      title={isSpeaking ? "Stop speaking" : "Listen to answer"}
+                      onClick={() => speakMessage(msg.text, msg.id)}
+                      className={`p-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${
+                        isSpeaking && currentlyPlayingMsgId === msg.id
+                          ? 'text-blue-600 bg-blue-50 font-bold'
+                          : 'hover:text-stone-700 hover:bg-stone-100'
+                      }`}
+                      title={isSpeaking && currentlyPlayingMsgId === msg.id ? "Stop Gemini Voice" : `Listen with Gemini Voice (${activeVoice.name})`}
                     >
-                      <i className={`fa-solid ${isSpeaking ? 'fa-stop text-red-500' : 'fa-volume-high'}`}></i>
-                      <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
+                      <i className={`fa-solid ${isSpeaking && currentlyPlayingMsgId === msg.id ? 'fa-stop text-rose-500' : 'fa-volume-high text-blue-600'}`}></i>
+                      <span>{isSpeaking && currentlyPlayingMsgId === msg.id ? 'Stop' : `Gemini Voice (${activeVoice.name})`}</span>
                     </button>
 
                     <button
@@ -1095,31 +1170,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   </div>
                 </div>
 
-                {/* Speech Language Switcher */}
-                <div className="flex items-center gap-1 bg-white/90 p-1 rounded-xl border border-emerald-200 text-xs font-bold shadow-2xs">
-                  <span className="text-[10px] text-stone-400 uppercase px-1">Lang:</span>
-                  <button
-                    type="button"
-                    onClick={() => setSpeechLang('en-US')}
-                    className={`px-2 py-0.5 rounded-lg transition text-xs ${
-                      speechLang === 'en-US'
-                        ? 'bg-emerald-700 text-white shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
+                {/* Multilingual Voice Input Switcher */}
+                <div className="flex items-center gap-1.5 bg-white/95 p-1 rounded-xl border border-emerald-200 text-xs font-bold shadow-2xs">
+                  <span className="text-[10px] text-stone-400 uppercase px-1">Language:</span>
+                  <select
+                    value={selectedLanguageCode}
+                    onChange={(e) => handleSelectLanguage(e.target.value as any)}
+                    className="bg-emerald-50 text-emerald-950 font-bold text-xs py-0.5 px-2 rounded-lg border-0 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                   >
-                    🇬🇧 English
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSpeechLang('sw-TZ')}
-                    className={`px-2 py-0.5 rounded-lg transition text-xs ${
-                      speechLang === 'sw-TZ'
-                        ? 'bg-emerald-700 text-white shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
-                  >
-                    🇹🇿 Kiswahili
-                  </button>
+                    {SUPPORTED_LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.flag} {l.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -2494,6 +2558,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* Gemini Voice & Curriculum Language Studio Modal */}
+      <GeminiVoiceLanguageModal
+        isOpen={isVoiceLanguageModalOpen}
+        onClose={() => setIsVoiceLanguageModalOpen(false)}
+        selectedVoiceId={selectedVoiceId}
+        selectedLanguageCode={selectedLanguageCode}
+        onSelectVoice={handleSelectVoice}
+        onSelectLanguage={handleSelectLanguage}
+      />
     </div>
   );
 };

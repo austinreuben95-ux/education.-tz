@@ -12,6 +12,7 @@ import {
   ensureAuthUser
 } from '../services/firebaseService';
 import { SEED_STUDY_TIPS, STUDY_ROOM_SUBJECTS } from '../data/studyRoomSeedData';
+import { ScholarAvatar } from './ScholarAvatar';
 
 interface StudyRoomProps {
   initialSubjectId?: string;
@@ -596,9 +597,17 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
                   {/* Footer: Author info and upvote button */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {tip.authorName.charAt(0).toUpperCase()}
-                      </div>
+                      {isMyTip ? (
+                        <ScholarAvatar
+                          avatarId={typeof window !== 'undefined' ? (localStorage.getItem('tz_selected_avatar') || 'scholar-stem') : 'scholar-stem'}
+                          size="xs"
+                          showLevelBadge={false}
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-black flex items-center justify-center text-[10px] shrink-0 border border-indigo-200">
+                          {tip.authorName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="font-semibold text-slate-800 truncate flex items-center gap-1.5">
                           <span className="truncate">{tip.authorName}</span>

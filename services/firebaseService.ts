@@ -140,18 +140,39 @@ export async function loginAsGuestScholar(displayName?: string, schoolOrUniversi
 }
 
 export async function updateUserSchool(userId: string, schoolOrUniversity: string, displayName?: string) {
+  return updateUserSchoolDetails(userId, { schoolOrUniversity, displayName });
+}
+
+export async function updateUserSchoolDetails(
+  userId: string,
+  details: {
+    schoolOrUniversity: string;
+    schoolRegion?: string;
+    headTeacherName?: string;
+    educationStage?: UserProgress['educationStage'];
+    displayName?: string;
+  }
+) {
   const docRef = doc(db, 'users', userId);
   try {
     const updateData: Partial<UserProgress> = {
-      schoolOrUniversity: schoolOrUniversity.trim(),
+      schoolOrUniversity: details.schoolOrUniversity.trim(),
       updatedAt: new Date().toISOString()
     };
-    if (displayName) {
-      updateData.displayName = displayName.trim();
+    if (details.schoolRegion !== undefined) updateData.schoolRegion = details.schoolRegion.trim();
+    if (details.headTeacherName !== undefined) updateData.headTeacherName = details.headTeacherName.trim();
+    if (details.educationStage !== undefined) updateData.educationStage = details.educationStage;
+    if (details.displayName) {
+      updateData.displayName = details.displayName.trim();
     }
     await setDoc(docRef, updateData, { merge: true });
-    if (auth.currentUser && displayName) {
-      await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+    if (auth.currentUser && details.displayName) {
+      await updateProfile(auth.currentUser, { displayName: details.displayName.trim() });
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tz_school_name', details.schoolOrUniversity.trim());
+      if (details.schoolRegion) localStorage.setItem('tz_school_region', details.schoolRegion.trim());
+      if (details.headTeacherName) localStorage.setItem('tz_head_teacher', details.headTeacherName.trim());
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);

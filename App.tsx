@@ -45,11 +45,13 @@ import {
   SubjectDifficulty
 } from './src/data/difficultyHelpers';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { AvatarPickerModal } from './components/AvatarPickerModal';
+import { ScholarAvatar } from './components/ScholarAvatar';
 import { ShareProgressModal } from './components/ShareProgressModal';
 import { YunAvatar3D } from './components/YunAvatar3D';
 import { AuthModal } from './components/AuthModal';
 import { playClickSound, playCheerSound } from './src/utils/soundEffects';
-import { generateQuizQuestion, getQuizMistakeFeedback } from './services/geminiService';
+import { generateQuizQuestion, getQuizMistakeFeedback, playGeminiVoiceAudio, stopGeminiVoiceAudio } from './services/geminiService';
 import { 
   auth, 
   loginWithGoogle,
@@ -60,7 +62,9 @@ import {
   updateUserCredits,
   searchUserByEmail,
   getAllUsers,
-  subscribeToStudyTips
+  subscribeToStudyTips,
+  updateUserAvatar,
+  updateUserSchoolDetails
 } from './services/firebaseService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -145,20 +149,20 @@ const ProgressBar = React.memo(({ progress, color = "bg-tz-green" }: { progress:
   </div>
 ));
 
-const LeaderboardRow = React.memo(({ rank, name, points, isUser }: { rank: number, name: string, points: number, isUser?: boolean }) => (
-  <div className={`flex items-center justify-between p-4 rounded-xl mb-2 ${isUser ? 'bg-blue-50 border-2 border-tz-blue' : 'bg-white border border-gray-100'}`}>
-    <div className="flex items-center gap-4">
-      <span className={`font-bold w-6 text-center ${rank <= 3 ? 'text-tz-yellow text-xl' : 'text-gray-500'}`}>
-        {rank === 1 ? <i className="fa-solid fa-crown"></i> : rank}
+const LeaderboardRow = React.memo(({ rank, name, points, isUser, avatarId }: { rank: number, name: string, points: number, isUser?: boolean, avatarId?: string }) => (
+  <div className={`flex items-center justify-between p-3 rounded-2xl mb-2 transition ${isUser ? 'bg-blue-50/90 dark:bg-blue-950/40 border-2 border-tz-blue shadow-sm' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700'}`}>
+    <div className="flex items-center gap-3">
+      <span className={`font-black w-6 text-center text-sm ${rank <= 3 ? 'text-tz-yellow text-lg' : 'text-gray-400'}`}>
+        {rank === 1 ? <i className="fa-solid fa-crown text-amber-400"></i> : rank}
       </span>
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isUser ? 'bg-tz-blue text-white' : 'bg-gray-200 text-gray-600'}`}>
-          {name.charAt(0).toUpperCase()}
-        </div>
-        <span className={`font-medium ${isUser ? 'text-tz-blue font-bold' : 'text-gray-700'}`}>{name}</span>
+      <div className="flex items-center gap-2.5">
+        <ScholarAvatar avatarId={avatarId || 'scholar-stem'} size="xs" showLevelBadge={false} />
+        <span className={`font-bold text-xs sm:text-sm truncate max-w-[110px] ${isUser ? 'text-tz-blue font-extrabold' : 'text-gray-800 dark:text-gray-200'}`}>
+          {name}
+        </span>
       </div>
     </div>
-    <span className="font-bold text-gray-600">{points} XP</span>
+    <span className="font-extrabold text-xs text-indigo-600 dark:text-cyan-400">{points} XP</span>
   </div>
 ));
 
@@ -328,13 +332,35 @@ const App: React.FC = () => {
     }
   };
 
-  // User State 
-  const [user, setUser] = useState<UserProgress>({
-    points: 0,
-    credits: 0,
-    streak: 0,
-    completedTopics: [],
-    level: 1
+  // User State with local storage fallback for avatar and school
+  const [user, setUser] = useState<UserProgress>(() => {
+    let savedAvatar = 'scholar-stem';
+    let savedSchool = 'Tanzanian School / University';
+    let savedRegion = 'Dar es Salaam';
+    let savedHeadTeacher = '';
+    let savedName = 'Tanzanian Scholar';
+    try {
+      if (typeof window !== 'undefined') {
+        savedAvatar = localStorage.getItem('tz_selected_avatar') || 'scholar-stem';
+        savedSchool = localStorage.getItem('tz_school_name') || 'Tanzanian School / University';
+        savedRegion = localStorage.getItem('tz_school_region') || 'Dar es Salaam';
+        savedHeadTeacher = localStorage.getItem('tz_head_teacher') || '';
+        savedName = localStorage.getItem('tz_student_name') || 'Tanzanian Scholar';
+      }
+    } catch (e) {}
+
+    return {
+      points: 0,
+      credits: 0,
+      streak: 0,
+      completedTopics: [],
+      level: 1,
+      displayName: savedName,
+      avatarId: savedAvatar,
+      schoolOrUniversity: savedSchool,
+      schoolRegion: savedRegion,
+      headTeacherName: savedHeadTeacher
+    };
   });
 
   // Track if user data is initialized
@@ -345,6 +371,7 @@ const App: React.FC = () => {
   const [showClearHistoryConfirmToast, setShowClearHistoryConfirmToast] = useState(false);
   const [clearedHistoryNotice, setClearedHistoryNotice] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   // Global High-Contrast Late-Night Study Dark Mode
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -370,6 +397,24 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+
+  const handleAvatarSelect = async (avatarId: string) => {
+    setUser(prev => ({ ...prev, avatarId }));
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tz_selected_avatar', avatarId);
+      }
+      if (currentUser?.uid) {
+        await updateUserAvatar(currentUser.uid, avatarId);
+      }
+    } catch (e) {
+      console.error('Failed to sync avatar:', e);
+    }
+  };
+
+  const handleUpdateUserProgress = (updated: Partial<UserProgress>) => {
+    setUser(prev => ({ ...prev, ...updated }));
+  };
 
   // Study Room live activity for portal preview & hover expansion
   const [activeStudyRoomSubject, setActiveStudyRoomSubject] = useState<string>('ALL');
@@ -625,13 +670,30 @@ const App: React.FC = () => {
   
           // Load progress from Firestore
           const progress = await getUserProgress(firebaseUser.uid);
+          let localAvatar = 'scholar-stem';
+          let localSchool = 'Tanzanian School / University';
+          let localRegion = 'Dar es Salaam';
+          let localHeadTeacher = '';
+          try {
+            if (typeof window !== 'undefined') {
+              localAvatar = localStorage.getItem('tz_selected_avatar') || 'scholar-stem';
+              localSchool = localStorage.getItem('tz_school_name') || 'Tanzanian School / University';
+              localRegion = localStorage.getItem('tz_school_region') || 'Dar es Salaam';
+              localHeadTeacher = localStorage.getItem('tz_head_teacher') || '';
+            }
+          } catch (e) {}
+
           if (progress) {
             const updatedProgress: UserProgress = { 
               ...progress, 
               userId: firebaseUser.uid,
               email: firebaseUser.email || progress.email || undefined,
               displayName: progress.displayName || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Tanzanian Scholar'),
-              schoolOrUniversity: progress.schoolOrUniversity || 'Tanzanian School / University'
+              schoolOrUniversity: progress.schoolOrUniversity || localSchool,
+              schoolRegion: progress.schoolRegion || localRegion,
+              headTeacherName: progress.headTeacherName || localHeadTeacher,
+              educationStage: progress.educationStage || 'Secondary',
+              avatarId: progress.avatarId || localAvatar
             };
             if (isMasterAdmin) {
               updatedProgress.credits = 999999;
@@ -648,7 +710,11 @@ const App: React.FC = () => {
               userId: firebaseUser.uid,
               email: firebaseUser.email || undefined,
               displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Tanzanian Scholar'),
-              schoolOrUniversity: 'Tanzanian School / University'
+              schoolOrUniversity: localSchool,
+              schoolRegion: localRegion,
+              headTeacherName: localHeadTeacher,
+              educationStage: 'Secondary',
+              avatarId: localAvatar
             };
             setUser(initialProgress);
             await saveUserProgress(firebaseUser.uid, initialProgress);
@@ -657,12 +723,29 @@ const App: React.FC = () => {
         } else {
           setIsAdmin(false);
           setIsInitialized(false);
+          let savedAvatar = 'scholar-stem';
+          let savedSchool = 'Tanzanian School / University';
+          let savedRegion = 'Dar es Salaam';
+          let savedHeadTeacher = '';
+          try {
+            if (typeof window !== 'undefined') {
+              savedAvatar = localStorage.getItem('tz_selected_avatar') || 'scholar-stem';
+              savedSchool = localStorage.getItem('tz_school_name') || 'Tanzanian School / University';
+              savedRegion = localStorage.getItem('tz_school_region') || 'Dar es Salaam';
+              savedHeadTeacher = localStorage.getItem('tz_head_teacher') || '';
+            }
+          } catch (e) {}
           setUser({
             points: 0,
             credits: 0,
             streak: 0,
             completedTopics: [],
-            level: 1
+            level: 1,
+            displayName: 'Tanzanian Scholar',
+            avatarId: savedAvatar,
+            schoolOrUniversity: savedSchool,
+            schoolRegion: savedRegion,
+            headTeacherName: savedHeadTeacher
           });
         }
       } catch (error) {
@@ -1020,27 +1103,12 @@ const App: React.FC = () => {
   }, [selectedTopic, selectedSubject, activeTab, currentView, bilingualLang]);
 
   const handleToggleLessonSpeech = (deepNote: any) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported in your browser.');
+    if (isSpeakingLesson) {
+      stopGeminiVoiceAudio();
+      setIsSpeakingLesson(false);
+      setIsSpeechPaused(false);
       return;
     }
-
-    const synth = window.speechSynthesis;
-
-    if (synth.speaking) {
-      if (synth.paused) {
-        synth.resume();
-        setIsSpeechPaused(false);
-        setIsSpeakingLesson(true);
-        return;
-      } else {
-        synth.pause();
-        setIsSpeechPaused(true);
-        return;
-      }
-    }
-
-    synth.cancel();
 
     const titleStr = bilingualLang === 'SW' ? (deepNote.swahiliTitle || selectedTopic?.title) : selectedTopic?.title;
     const hookStr = bilingualLang === 'SW' ? deepNote.swahiliCuriosityHook : deepNote.curiosityHook;
@@ -1058,44 +1126,31 @@ const App: React.FC = () => {
       textToRead += `${bilingualLang === 'SW' ? 'Mbinu za Mtihani wa NECTA:' : 'NECTA Exam Secrets:'} ${tipsStr.join('. ')}.`;
     }
 
-    const cleanText = textToRead.replace(/[#*`_~]/g, '');
+    const cleanText = textToRead.replace(/[#*`_~]/g, '').trim();
+    const savedVoice = (typeof window !== 'undefined' ? localStorage.getItem('tz_gemini_voice') : null) || 'Kore';
+    const langCode = bilingualLang === 'SW' ? 'sw' : 'en';
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-
-    const langCode = bilingualLang === 'SW' ? 'sw-TZ' : 'en-US';
-    utterance.lang = langCode;
-
-    const voices = synth.getVoices();
-    const desiredPrefix = bilingualLang === 'SW' ? 'sw' : 'en';
-    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(desiredPrefix));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsSpeakingLesson(true);
-      setIsSpeechPaused(false);
-    };
-
-    utterance.onend = () => {
-      setIsSpeakingLesson(false);
-      setIsSpeechPaused(false);
-    };
-
-    utterance.onerror = () => {
-      setIsSpeakingLesson(false);
-      setIsSpeechPaused(false);
-    };
-
-    synth.speak(utterance);
+    playGeminiVoiceAudio({
+      text: cleanText,
+      voiceName: savedVoice,
+      language: langCode,
+      onStart: () => {
+        setIsSpeakingLesson(true);
+        setIsSpeechPaused(false);
+      },
+      onEnd: () => {
+        setIsSpeakingLesson(false);
+        setIsSpeechPaused(false);
+      },
+      onError: () => {
+        setIsSpeakingLesson(false);
+        setIsSpeechPaused(false);
+      }
+    });
   };
 
   const handleStopLessonSpeech = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopGeminiVoiceAudio();
     setIsSpeakingLesson(false);
     setIsSpeechPaused(false);
   };
@@ -1651,21 +1706,21 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     }
 
     return (
-      <header className="sticky top-0 z-50 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-all duration-200 font-sans">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0" onClick={goHome}>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-tr from-tz-blue via-tz-purple to-tz-yellow rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-sky-500/25 group-hover:scale-105 transition-transform shrink-0">
+      <header className="sticky top-0 z-50 liquid-glass-header transition-all duration-300 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4 lg:gap-6 min-h-[68px] sm:min-h-[74px]">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer group min-w-0 shrink-0" onClick={goHome}>
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-tz-blue via-tz-purple to-tz-yellow rounded-2xl flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-sky-500/25 group-hover:scale-105 transition-transform shrink-0">
             E
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-extrabold text-lg sm:text-xl leading-none text-slate-900 dark:text-white tracking-tight truncate">Education<span className="gradient-text font-black">TZ</span></span>
             <span className="text-[10px] text-tz-blue dark:text-cyan-400 font-bold tracking-wider uppercase items-center gap-1 hidden sm:flex">
-              Tanzanian Secondary Portal
+              Tanzanian Education Portal
             </span>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <HeaderNavDropdowns
             currentView={currentView}
             setCurrentView={setCurrentView}
@@ -1686,6 +1741,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
             mobileMenuOpen={mobileNavOpen}
             setMobileMenuOpen={setMobileNavOpen}
             onOpenProfile={() => setIsProfileModalOpen(true)}
+            onOpenAvatarPicker={() => setIsAvatarPickerOpen(true)}
             streak={user.streak}
             points={user.points}
             isAdmin={isAdmin}
@@ -3649,10 +3705,10 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070b14] flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {renderHeader()}
 
-      <main className="flex-grow p-3 sm:p-4 md:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto w-full relative">
+      <main className="flex-grow px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8 md:pt-10 pb-28 lg:pb-12 max-w-7xl mx-auto w-full relative">
         
         {/* QUIZ MODAL */}
         {isQuizModalOpen && (
@@ -4535,7 +4591,19 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onOpenBadges={() => setCurrentView(AppView.BADGES)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onSignOut={handleSignOut}
-          onUpdateUserProgress={setUser}
+          onUpdateUserProgress={handleUpdateUserProgress}
+          onOpenAvatarPicker={() => setIsAvatarPickerOpen(true)}
+        />
+
+        {/* AVATAR PICKER MODAL */}
+        <AvatarPickerModal
+          isOpen={isAvatarPickerOpen}
+          onClose={() => setIsAvatarPickerOpen(false)}
+          currentAvatarId={user.avatarId}
+          onSelectAvatar={handleAvatarSelect}
+          userName={user.displayName || currentUser?.displayName || 'Tanzanian Scholar'}
+          schoolName={user.schoolOrUniversity || 'Tanzanian School / University'}
+          level={user.level || 1}
         />
 
         {/* AUTH MODAL (SIGN IN / REGISTER / GUEST LOGIN WITH SCHOOL & UNIVERSITY) */}
@@ -4544,7 +4612,7 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
           onClose={() => setIsAuthModalOpen(false)}
           currentUser={currentUser}
           userProgress={user}
-          onUpdateUserProgress={setUser}
+          onUpdateUserProgress={handleUpdateUserProgress}
         />
 
         {/* PARENT DASHBOARD SHARE PROGRESS MODAL */}

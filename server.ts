@@ -199,6 +199,7 @@ const getYunChatSetup = ({
   history = [],
   model = "gemini-3.8-flash",
   role = "default",
+  language = "sw",
   useSearchGrounding = false,
   deepThinking = true,
 }: {
@@ -206,35 +207,63 @@ const getYunChatSetup = ({
   history?: { role: string; text: string }[];
   model?: string;
   role?: string;
+  language?: string;
   useSearchGrounding?: boolean;
   deepThinking?: boolean;
 }) => {
   // Base warm, encouraging, polite system instructions
-  let systemInstruction = `You are Yun, a warm, polite, respectful, and highly intelligent AI Tutor & Study Buddy for Tanzanian students (Primary Grade 1–7, O-Level Form 1–4, and A-Level Form 5–6).
+  let systemInstruction = `You are Yun (powered by Gemini), a warm, polite, respectful, and highly intelligent AI Tutor & Study Buddy for Tanzanian students (Primary Grade 1–7, O-Level Form 1–4, and A-Level Form 5–6).
 
 Core Demeanor:
 - Always respond politely, respectfully, and with genuine warmth and enthusiasm.
-- Greet the student kindly in English and Kiswahili (e.g., "Habari!", "Karibu sana!", "Hello friend! It's wonderful to learn with you today.").
+- Greet the student kindly (e.g., "Habari!", "Karibu sana!", "Hello friend! It's wonderful to learn with you today.").
 - Celebrate curiosity: "Swali zuri sana!", "That is an excellent question!", "Let's explore this together!".
 - Maintain a supportive, patient tone. Never sound cold or dismissive. If a student is struggling, reassure them: "Don't worry at all, let's break this down step-by-step together!"
 
 Adaptive Conversational Intelligence:
 1. GREETINGS & CASUAL MESSAGES (e.g. "hi", "hello", "habari", "mambo", "how are you?", "who are you?", "asante", "thank you"):
    - Respond warmly, conversationally, and politely in 2-3 friendly paragraphs.
-   - Introduce yourself warmly as Yun, their friendly Tanzanian AI study companion.
+   - Introduce yourself warmly as Yun (powered by Gemini), their friendly Tanzanian AI study companion.
    - Inquire politely how they are doing and invite them to share what subject, topic, or homework problem they want to work on.
    - DO NOT output an unprompted, rigid 6-part academic lecture on a simple greeting!
 
 2. ACADEMIC & HOMEWORK QUESTIONS (Math, Physics, Chemistry, Biology, Geography, History, Kiswahili, Civics, etc.):
    - Structure your explanation clearly, nicely, and patiently.
    - Give step-by-step worked examples with formulas and intermediate steps clearly visible.
-   - Bilingual clarity: translate key technical or complex English terms into clear Kiswahili so students grasp the underlying concepts deeply.
    - Provide relatable real-world Tanzanian examples where applicable (e.g., Tanzanite formation in Mererani, atmospheric pressure on Mount Kilimanjaro, Lake Victoria ecosystem, Julius Nyerere Hydropower at Rufiji, Serengeti migration).
    - Provide a practical NECTA Exam Pro-Tip where relevant (common pitfalls, how examiners award step marks).
-   - Close with a polite, encouraging check-in (e.g., "Je, hatua hizi ziko wazi? / Does this make sense, or would you like another example?").
+   - Close with a polite, encouraging check-in (e.g., "Je, hatua hizi ziko wazi? / Does this make sense, or would you like another example?").`;
 
-Language:
+  // Language Directives
+  if (language === "sw") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Kiswahili Sanifu):
+- Respond in fluent, polite, and elegant Kiswahili Sanifu according to Tanzanian educational standards (BAKITA & NECTA).
+- If introducing English technical terms, provide their clear Kiswahili definitions so concepts are easily understood.`;
+  } else if (language === "en") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Academic English):
+- Respond in clear, accessible Academic English appropriate for secondary school and college students.
+- Include helpful Kiswahili glossaries for complex key terms.`;
+  } else if (language === "fr") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Français / French):
+- Respond primarily in French (le français), assisting Tanzanian students studying French for CSEE/ACSEE or general communication.
+- Break down grammar, verb conjugations, and provide vocabulary translations in Kiswahili/English.`;
+  } else if (language === "ar") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (العربية / Arabic):
+- Respond in Modern Standard Arabic (العربية الفصحى), assisting Tanzanian students studying Arabic language and literature.
+- Include Tashkeel (diacritics) where helpful for clarity and provide Kiswahili/English translations.`;
+  } else if (language === "zh") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (中文 / Chinese - Mandarin):
+- Respond in simplified Chinese with Pinyin and English/Kiswahili translations to help students studying Mandarin Chinese.`;
+  } else if (language === "de") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Deutsch / German):
+- Respond in German (Deutsch), supporting Tanzanian secondary students taking German language subjects. Provide grammar rules and translations.`;
+  } else if (language === "es") {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Español / Spanish):
+- Respond in Spanish (Español), supporting students learning Spanish with clear explanations and vocabulary.`;
+  } else {
+    systemInstruction += `\n\nLANGUAGE INSTRUCTION (Bilingual):
 - Naturally bilingual in English and Kiswahili. If the student writes in Kiswahili, respond primarily in fluent, polite Kiswahili. If the student writes in English, respond in English with helpful Kiswahili glossaries.`;
+  }
 
   if (role === "necta_examiner") {
     systemInstruction = `You are a supportive, encouraging Senior NECTA Examiner and Secondary Curriculum Specialist for Tanzania Form 1-6 & Primary examinations. Always respond politely, constructively, and warmly. Demystify national examination marking schemes, explain how step-by-step marks are awarded in Paper 1 and Paper 2, highlight common student mistakes with kindness, and provide high-yield revision strategies.`;
@@ -436,6 +465,7 @@ app.post("/api/chat/stream", async (req, res) => {
       history = [],
       model = "gemini-3.8-flash",
       role = "default",
+      language = "sw",
       useSearchGrounding = false,
       deepThinking = true,
     } = req.body;
@@ -461,6 +491,7 @@ app.post("/api/chat/stream", async (req, res) => {
       history,
       model,
       role,
+      language,
       useSearchGrounding,
       deepThinking,
     });
@@ -605,6 +636,7 @@ app.post("/api/chat", async (req, res) => {
       history = [],
       model = "gemini-3.8-flash",
       role = "default",
+      language = "sw",
       useSearchGrounding = false,
       deepThinking = true,
     } = req.body;
@@ -628,6 +660,7 @@ app.post("/api/chat", async (req, res) => {
       history,
       model,
       role,
+      language,
       useSearchGrounding,
       deepThinking,
     });
@@ -716,6 +749,88 @@ app.post("/api/chat", async (req, res) => {
       text: generateIntelligentTutorFallback(req.body?.prompt || "", req.body?.role || "default"),
       groundingSources: [],
       modelUsed: "yun-polite-recovery",
+    });
+  }
+});
+
+// 1c. Gemini Text-To-Speech (TTS) Endpoint
+// Generates natural Gemini voice audio using gemini-3.8-flash-lite-tts
+app.post("/api/gemini/tts", async (req, res) => {
+  try {
+    const {
+      text,
+      voiceName = "Kore",
+      language = "sw",
+      style = "Warm, encouraging, articulate tutor for Tanzanian students",
+    } = req.body;
+
+    if (!text || typeof text !== "string" || !text.trim()) {
+      res.status(400).json({ error: "Text is required for TTS." });
+      return;
+    }
+
+    if (!ai) {
+      res.status(503).json({ error: "Gemini AI client not initialized on server." });
+      return;
+    }
+
+    // Sanitize text for speech: strip code blocks, markdown symbols, and keep concise for natural delivery
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, "Code block omitted.")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/[#*_~>]/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 1200);
+
+    const validVoices = ["Kore", "Puck", "Charon", "Fenrir", "Zephyr"];
+    const chosenVoice = validVoices.includes(voiceName) ? voiceName : "Kore";
+
+    // Call Gemini 3.8 Flash Lite TTS model
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash-lite-tts",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: cleanText,
+              speechMetadata: {
+                style: style || "Clear, encouraging tutor",
+              },
+            },
+          ],
+        },
+      ],
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: chosenVoice },
+          },
+        },
+      },
+    });
+
+    const base64Audio =
+      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (!base64Audio) {
+      res.status(500).json({ error: "No audio data received from Gemini TTS model." });
+      return;
+    }
+
+    res.json({
+      audio: base64Audio,
+      mimeType: "audio/wav",
+      voiceName: chosenVoice,
+      language,
+    });
+  } catch (error: any) {
+    console.error("Gemini TTS API Error:", error?.message || error);
+    res.status(500).json({
+      error: error?.message || "Failed to generate Gemini voice audio.",
     });
   }
 });
