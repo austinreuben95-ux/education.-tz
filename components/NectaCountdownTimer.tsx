@@ -819,128 +819,163 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
       <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* 15-SECOND AUTO-REFRESHING MOTIVATIONAL WORD BANNER ON TOP OF NECTA COUNTDOWN */}
-      <div className="relative z-10 mb-8 bg-gradient-to-r from-amber-500/15 via-indigo-950/80 to-purple-900/30 rounded-3xl p-5 sm:p-6 border-2 border-amber-400/40 shadow-xl backdrop-blur-md overflow-hidden">
+      <div 
+        id="motivational-boost-banner"
+        className="relative z-10 mb-8 bg-gradient-to-br from-slate-900/95 via-indigo-950/95 to-slate-900/95 rounded-3xl p-5 sm:p-7 border-2 border-amber-400/50 shadow-2xl backdrop-blur-xl"
+      >
         {/* Animated Progress Bar at the top of the banner */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-900/80 overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-950 rounded-t-3xl overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 transition-all duration-1000 ease-linear shadow-lg shadow-amber-400/50"
             style={{ width: `${(secondsLeft / 15) * 100}%` }}
           />
         </div>
 
-        <div className="flex flex-col gap-4">
-          {/* Top Bar: Badges + Language Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-amber-400/20 pb-3 w-full">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm animate-pulse shrink-0">
-                <i className="fa-solid fa-fire text-amber-900"></i> Motivational Boost
+        <div className="flex flex-col gap-4 pt-1">
+          {/* Top Bar: All Badges & Status Information Fully Visible */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-amber-400/20 pb-3.5 w-full">
+            {/* Badges Row - Always wrapping cleanly, never clipped */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md shadow-amber-400/20 animate-pulse shrink-0">
+                <i className="fa-solid fa-fire text-amber-900"></i>
+                <span>Motivational Boost</span>
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/90 text-slate-300 border border-slate-700 shrink-0">
-                <i className="fa-solid fa-arrows-rotate text-amber-400"></i> Refreshes in {secondsLeft}s
+
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-amber-200 border border-slate-700/80 shrink-0">
+                <i className={`fa-solid ${isQuotePaused ? 'fa-circle-pause text-amber-400' : 'fa-arrows-rotate text-emerald-400'} text-[10px]`}></i>
+                <span>{isQuotePaused ? 'Auto-Cycle Paused' : `Next in ${secondsLeft}s`}</span>
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 shrink-0">
-                <i className="fa-solid fa-infinity text-amber-300"></i> Quote #{currentMotivationalQuote.id.toLocaleString()} of ∞
+
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-950/80 text-indigo-200 border border-indigo-700/50 shrink-0">
+                <i className="fa-solid fa-infinity text-amber-300 text-[10px]"></i>
+                <span>Quote #{currentMotivationalQuote.id.toLocaleString()}</span>
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0">
-                {currentMotivationalQuote.flag} {currentMotivationalQuote.langName}
+
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40 shrink-0">
+                <span>{currentMotivationalQuote.flag}</span>
+                <span>{currentMotivationalQuote.langName}</span>
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-800 text-amber-300 shrink-0">
-                {currentMotivationalQuote.tag}
+
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-slate-800 text-cyan-300 border border-cyan-500/30 shrink-0">
+                <i className="fa-solid fa-tag text-[9px] text-cyan-400"></i>
+                <span>{currentMotivationalQuote.tag}</span>
               </span>
             </div>
 
-            {/* Language Selector Chips */}
-            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 scrollbar-none w-full sm:w-auto shrink-0">
-              {AVAILABLE_QUOTE_LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => {
-                    setSelectedQuoteLang(l.code);
-                    setQuoteIndex(0);
-                    setSecondsLeft(15);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition cursor-pointer shrink-0 ${
-                    selectedQuoteLang === l.code
-                      ? 'bg-amber-400 text-slate-950 shadow-sm'
-                      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
-                  }`}
-                >
-                  {l.label}
-                </button>
-              ))}
+            {/* Language Selector Filter Chips - Multi-row wrap to make every language visible */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 lg:pt-0">
+              <span className="text-[10px] font-black text-amber-300/80 uppercase tracking-wider mr-1 hidden sm:inline">
+                Language:
+              </span>
+              {AVAILABLE_QUOTE_LANGUAGES.map((l) => {
+                const isActive = selectedQuoteLang === l.code;
+                return (
+                  <button
+                    key={l.code}
+                    id={`btn-quote-lang-${l.code.toLowerCase()}`}
+                    onClick={() => {
+                      setSelectedQuoteLang(l.code);
+                      setQuoteIndex(0);
+                      setSecondsLeft(15);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1 ${
+                      isActive
+                        ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30 ring-2 ring-amber-300'
+                        : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700'
+                    }`}
+                  >
+                    <span>{l.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Main Quote Content & Actions */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex-1 space-y-2">
-              <div className="relative pl-4 border-l-4 border-amber-400 py-1">
-                <p className="text-sm sm:text-base md:text-lg font-black text-amber-100 leading-snug tracking-tight">
-                  <i className="fa-solid fa-quote-left text-amber-400/50 mr-2 text-xs sm:text-sm"></i>
+          {/* Main Quote Content & Controls - Fully Visible Layout */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 w-full">
+            {/* Quote Body with high-contrast, beautiful typography */}
+            <div className="flex-1 w-full space-y-2">
+              <div className="relative pl-4 sm:pl-5 border-l-4 border-amber-400 py-1.5 bg-white/[0.02] rounded-r-2xl pr-3">
+                <p className="text-base sm:text-lg md:text-xl font-black text-amber-50 leading-relaxed tracking-normal break-words drop-shadow-sm">
+                  <i className="fa-solid fa-quote-left text-amber-400/60 mr-2.5 text-sm sm:text-base align-top"></i>
                   {currentMotivationalQuote.quote}
-                  <i className="fa-solid fa-quote-right text-amber-400/50 ml-2 text-xs sm:text-sm"></i>
+                  <i className="fa-solid fa-quote-right text-amber-400/60 ml-2.5 text-sm sm:text-base align-top"></i>
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs font-bold text-amber-400/90">— {currentMotivationalQuote.author}</span>
+                <div className="flex flex-wrap items-center gap-2 mt-2 pt-1 border-t border-white/5">
+                  <span className="text-sm font-extrabold text-amber-300 flex items-center gap-1.5">
+                    <i className="fa-solid fa-pen-nib text-xs text-amber-400"></i>
+                    <span>— {currentMotivationalQuote.author}</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                    • Tanzanian & Global Scholar Inspiration
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Controls Bar */}
-            <div className="flex items-center gap-2 shrink-0 self-end md:self-center bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-md">
+            {/* Controls Bar - Responsive, fully labeled, touch-friendly */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto justify-between lg:justify-end bg-slate-950/90 p-2 rounded-2xl border border-amber-400/30 shadow-xl shrink-0">
               <button
+                id="btn-quote-prev"
                 onClick={handlePrevQuote}
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                className="px-3 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                 title="Previous Quote"
               >
                 <i className="fa-solid fa-chevron-left text-xs"></i>
+                <span className="hidden sm:inline">Prev</span>
               </button>
 
               <button
+                id="btn-quote-toggle-pause"
                 onClick={() => setIsQuotePaused(!isQuotePaused)}
-                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs flex items-center gap-1 transition cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition cursor-pointer ${
                   isQuotePaused
-                    ? 'bg-amber-400 text-slate-950 shadow-sm'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30 ring-1 ring-amber-300'
+                    : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
                 }`}
                 title={isQuotePaused ? 'Resume 15s Timer' : 'Pause Timer to Reflect'}
               >
                 <i className={`fa-solid ${isQuotePaused ? 'fa-play' : 'fa-pause'} text-[10px]`}></i>
-                <span>{isQuotePaused ? 'Paused' : '15s Auto'}</span>
+                <span>{isQuotePaused ? 'Resume' : 'Pause 15s'}</span>
               </button>
 
               <button
+                id="btn-quote-next"
                 onClick={handleNextQuote}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-indigo-900/40 active:scale-95"
                 title="Next Motivational Quote"
               >
                 <i className="fa-solid fa-arrows-rotate text-xs"></i>
-                <span>Next</span>
+                <span>Next Quote</span>
               </button>
 
               <button
+                id="btn-quote-copy"
                 onClick={handleCopyQuote}
-                className="p-2 rounded-xl text-slate-300 hover:text-amber-300 hover:bg-slate-800 transition cursor-pointer relative"
+                className="px-3 py-2 rounded-xl text-slate-200 hover:text-amber-300 hover:bg-slate-800 transition cursor-pointer relative flex items-center gap-1.5 text-xs font-bold"
                 title="Copy Motivational Quote"
               >
                 <i className={`fa-solid ${copiedToast ? 'fa-check text-emerald-400' : 'fa-copy'} text-xs`}></i>
+                <span className="hidden sm:inline">{copiedToast ? 'Copied' : 'Copy'}</span>
                 {copiedToast && (
-                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow">
+                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-30">
                     Copied!
                   </span>
                 )}
               </button>
 
               <button
+                id="btn-quote-speak"
                 onClick={handleSpeakQuote}
-                className={`p-2 rounded-xl transition cursor-pointer ${
+                className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
                   isSpeakingQuote
-                    ? 'text-amber-400 bg-amber-400/20 animate-pulse'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'text-amber-300 bg-amber-400/20 border border-amber-400/50 animate-pulse'
+                    : 'text-slate-200 hover:text-white hover:bg-slate-800'
                 }`}
                 title={`Read Quote Aloud (${currentMotivationalQuote.langName})`}
               >
-                <i className="fa-solid fa-volume-high text-xs"></i>
+                <i className={`fa-solid ${isSpeakingQuote ? 'fa-volume-high' : 'fa-volume-low'} text-xs text-amber-400`}></i>
+                <span>{isSpeakingQuote ? 'Speaking...' : 'Listen'}</span>
               </button>
             </div>
           </div>

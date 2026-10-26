@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { 
   StudyRoomMessage, 
-  StudyTipType 
+  StudyTipType,
+  UserProgress
 } from '../types';
 import { 
   subscribeToStudyTips, 
@@ -13,16 +14,22 @@ import {
 } from '../services/firebaseService';
 import { SEED_STUDY_TIPS, STUDY_ROOM_SUBJECTS } from '../data/studyRoomSeedData';
 import { ScholarAvatar } from './ScholarAvatar';
+import { StudyBuddyTab } from './StudyBuddyTab';
 
 interface StudyRoomProps {
   initialSubjectId?: string;
   onNavigateHome?: () => void;
+  userProgress?: UserProgress;
+  onOpenYunAI?: (prompt: string) => void;
 }
 
 export const StudyRoom: React.FC<StudyRoomProps> = ({ 
   initialSubjectId = 'ALL',
-  onNavigateHome 
+  onNavigateHome,
+  userProgress,
+  onOpenYunAI
 }) => {
+  const [activeRoomMode, setActiveRoomMode] = useState<'buddies' | 'tips'>('buddies');
   const [selectedSubject, setSelectedSubject] = useState<string>(initialSubjectId);
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -348,22 +355,69 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
             })}
           </div>
         </div>
+
+        {/* Mode Switcher Bar: Study Buddy vs Exam Tips */}
+        <div className="bg-slate-900 border-t border-slate-800 px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+            <button
+              id="btn-room-mode-buddies"
+              onClick={() => setActiveRoomMode('buddies')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                activeRoomMode === 'buddies'
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md shadow-amber-400/20 ring-2 ring-amber-300'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <i className="fa-solid fa-handshake-angle text-sm"></i>
+              <span>Study Buddy Matcher & Live Solver</span>
+              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-950/20 text-slate-950 border border-slate-950/20">
+                Peer Match
+              </span>
+            </button>
+
+            <button
+              id="btn-room-mode-tips"
+              onClick={() => setActiveRoomMode('tips')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                activeRoomMode === 'tips'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <i className="fa-solid fa-lightbulb text-sm"></i>
+              <span>Exam Tips & Traps Feed</span>
+              <span className="text-[10px] opacity-75">({tips.length})</span>
+            </button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>NECTA Topic Collaboration Network</span>
+          </div>
+        </div>
       </header>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        
-        {/* Live Room Metric & Spotlight Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0 border border-amber-200">
-              <i className="fa-solid fa-triangle-exclamation"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-900">{trapCount}</div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">NECTA Exam Traps Logged</div>
-            </div>
-          </div>
+        {activeRoomMode === 'buddies' ? (
+          <StudyBuddyTab
+            currentSubjectId={selectedSubject}
+            userProgress={userProgress}
+            onOpenYunChat={onOpenYunAI}
+          />
+        ) : (
+          <>
+            {/* Live Room Metric & Spotlight Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0 border border-amber-200">
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-slate-900">{trapCount}</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">NECTA Exam Traps Logged</div>
+                </div>
+              </div>
 
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0 border border-indigo-200">
@@ -636,7 +690,9 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
             })}
           </div>
         )}
-      </main>
+      </>
+    )}
+  </main>
 
       {/* Share Tip Modal */}
       {showPostModal && (

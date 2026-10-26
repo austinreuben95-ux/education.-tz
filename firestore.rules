@@ -94,5 +94,29 @@ service cloud.firestore {
       );
       allow delete: if isSignedIn() && (existing().authorId == request.auth.uid || isAdmin());
     }
+
+    // Collection: study_buddies (Live presence and topic learners seeking peers)
+    match /study_buddies/{buddyId} {
+      allow read: if true;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // Collection: study_buddy_sessions (Collaborative problem-solving workspaces)
+    match /study_buddy_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // Collection: study_buddy_messages (Real-time collaborative chat & math step proposals)
+    match /study_buddy_messages/{msgId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
+    }
   }
 }

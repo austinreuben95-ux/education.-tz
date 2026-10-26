@@ -44,6 +44,62 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "subjectId", "authorName", "authorId", "type", "content", "likes", "createdAt"]
+    },
+    "StudyBuddy": {
+      "title": "Study Buddy Presence",
+      "description": "Active students open for topic-based study buddy matching in NECTA subjects.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "region": { "type": "string" },
+        "gradeLevel": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "topicTitle": { "type": "string" },
+        "studyGoal": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "in_session", "seeking_help", "ready_to_tutor"] },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "displayName", "gradeLevel", "subjectId", "subjectName", "topicTitle", "status"]
+    },
+    "StudyBuddySession": {
+      "title": "Collaborative Problem-Solving Session",
+      "description": "Collaborative revision workspace where matched study buddies solve NECTA questions together.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "topicTitle": { "type": "string" },
+        "questionOrProblem": { "type": "string" },
+        "participants": { "type": "array" },
+        "steps": { "type": "array" },
+        "finalAnswer": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "solved", "waiting_for_buddy"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "subjectName", "topicTitle", "participants", "status"]
+    },
+    "StudyBuddyMessage": {
+      "title": "Study Buddy Chat Message",
+      "description": "Real-time communication message inside a topic collaboration session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "step_proposal", "formula", "hint", "yun_ai_referee"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sessionId", "senderId", "senderName", "content", "type", "createdAt"]
     }
   },
   "firestore": {
@@ -58,6 +114,18 @@
     "study_tips/{tipId}": {
       "schema": "StudyTip",
       "description": "Shared real-time study tips and NECTA traps."
+    },
+    "study_buddies/{buddyId}": {
+      "schema": "StudyBuddy",
+      "description": "Active students open for topic-based study buddy matching."
+    },
+    "study_buddy_sessions/{sessionId}": {
+      "schema": "StudyBuddySession",
+      "description": "Collaborative problem-solving workspaces between study buddies."
+    },
+    "study_buddy_messages/{messageId}": {
+      "schema": "StudyBuddyMessage",
+      "description": "Real-time chat messages inside study buddy problem-solving sessions."
     }
   }
 }

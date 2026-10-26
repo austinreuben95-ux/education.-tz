@@ -263,6 +263,40 @@ export const EssentialHubs: React.FC<EssentialHubsProps> = ({
       hoverClass: 'hover:bg-emerald-100/80 hover:shadow-md',
       onClick: () => setCurrentView(AppView.PREDICTOR)
     },
+    // Interactive Games Arcade
+    {
+      id: 'hub-interactive-games',
+      category: 'STUDY',
+      title: 'Interactive Games & Quiz Arcade',
+      badge: '20 Mini-Games & Puzzles',
+      badgeColor: 'bg-amber-400 text-slate-950 font-black',
+      icon: 'fa-gamepad',
+      iconBg: 'bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 shadow-amber-400/30',
+      description: 'Master subjects with Speed Math Rush, Term Matching, Memory Card Flip, Fill in the Blanks, Interactive Anatomy Diagrams & Hangman!',
+      actionText: 'Play Interactive Games 🎮',
+      actionTextColor: 'text-indigo-600',
+      bgClass: 'bg-white text-slate-900',
+      borderClass: 'border-2 border-amber-300 hover:border-amber-400',
+      hoverClass: 'hover:shadow-xl hover:scale-[1.01]',
+      onClick: () => setCurrentView(AppView.INTERACTIVE_GAMES)
+    },
+    // Student Progress & Analytics Hub
+    {
+      id: 'hub-student-analytics',
+      category: 'EXAMS',
+      title: 'Student Progress & Analytics',
+      badge: 'Certificates & Diagnostics',
+      badgeColor: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+      icon: 'fa-chart-pie',
+      iconBg: 'bg-emerald-600 text-white shadow-emerald-200',
+      description: 'Monitor your study streak, score accuracy charts, mastery badges, weak topic diagnostics, and print verified completion certificates!',
+      actionText: 'View Progress & Certificates 📊',
+      actionTextColor: 'text-emerald-700',
+      bgClass: 'bg-white text-slate-900',
+      borderClass: 'border-2 border-emerald-200 hover:border-emerald-400',
+      hoverClass: 'hover:shadow-xl hover:scale-[1.01]',
+      onClick: () => setCurrentView(AppView.ANALYTICS)
+    },
     // 11. 150 Ideas Strategic Blueprint
     {
       id: 'hub-roadmap',

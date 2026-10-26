@@ -141,7 +141,9 @@ export enum AppView {
   NEWS_SCHOLARSHIPS = 'NEWS_SCHOLARSHIPS',
   VIDEOS = 'VIDEOS',
   SCHOOLS = 'SCHOOLS',
-  STUDY_ROOM = 'STUDY_ROOM'
+  STUDY_ROOM = 'STUDY_ROOM',
+  INTERACTIVE_GAMES = 'INTERACTIVE_GAMES',
+  ANALYTICS = 'ANALYTICS'
 }
 
 export type StudyTipType = 'tip' | 'trap' | 'formula' | 'question';
@@ -162,6 +164,67 @@ export interface StudyRoomMessage {
   createdAt: string;
   isNectaTrap?: boolean;
   topicRef?: string;
+}
+
+export interface StudyBuddy {
+  id: string;
+  userId: string;
+  displayName: string;
+  avatarId?: string;
+  schoolName?: string;
+  region?: string;
+  gradeLevel: string;
+  subjectId: string;
+  subjectName: string;
+  topicId?: string;
+  topicTitle: string;
+  studyGoal: string;
+  isOnline: boolean;
+  status: 'available' | 'in_session' | 'seeking_help' | 'ready_to_tutor';
+  lastActive: string;
+  matchScore?: number;
+}
+
+export interface CollaborativeStep {
+  id: string;
+  authorId: string;
+  authorName: string;
+  stepNumber: number;
+  explanation: string;
+  formulaOrCode?: string;
+  isVerified?: boolean;
+  timestamp: string;
+}
+
+export interface StudyBuddySession {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  topicTitle: string;
+  questionOrProblem: string;
+  participants: {
+    userId: string;
+    displayName: string;
+    avatarId?: string;
+    schoolName?: string;
+    role: 'creator' | 'buddy';
+  }[];
+  steps: CollaborativeStep[];
+  finalAnswer?: string;
+  status: 'active' | 'solved' | 'waiting_for_buddy';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BuddyChatMessage {
+  id: string;
+  sessionId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  content: string;
+  type: 'text' | 'step_proposal' | 'formula' | 'hint' | 'yun_ai_referee';
+  createdAt: string;
 }
 
 export interface UserProgress {

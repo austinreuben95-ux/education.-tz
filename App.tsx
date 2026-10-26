@@ -26,6 +26,8 @@ import { RoadmapModal } from './components/RoadmapModal';
 import { VideoLessonsSearch } from './components/VideoLessonsSearch';
 import TanzaniaSchoolsDatabase from './components/TanzaniaSchoolsDatabase';
 import StudyRoom from './components/StudyRoom';
+import { InteractiveGamesSuite } from './components/InteractiveGamesSuite';
+import { StudentAnalyticsHub } from './components/StudentAnalyticsHub';
 import { HeaderNavDropdowns } from './components/HeaderNavDropdowns';
 import { CurriculumSearchModal } from './components/CurriculumSearchModal';
 import { HomeCurriculumSearchBar } from './components/HomeCurriculumSearchBar';
@@ -3039,310 +3041,187 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
 
       {/* Start Quick Study Session Action Bar Below Timer */}
       <div className="max-w-7xl mx-auto px-4">
-        <div className={`bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border-2 border-indigo-500/30 shadow-xl flex flex-col gap-4 ${isZenMode ? 'ring-2 ring-purple-500/50 shadow-2xl shadow-purple-950/50' : ''}`}>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3.5 text-left">
+        <div className={`bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border-2 border-indigo-500/30 shadow-xl flex flex-col gap-5 ${isZenMode ? 'ring-2 ring-purple-500/50 shadow-2xl shadow-purple-950/50' : ''}`}>
+          
+          {/* Top Bar: Title, Badges, and Zen Mode Toggle */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
+            <div className="flex items-start sm:items-center gap-3.5 text-left">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center text-xl font-black shrink-0 shadow-lg shadow-amber-400/20">
                 <i className={`fa-solid ${isZenMode ? 'fa-spa text-purple-950 animate-pulse' : 'fa-bolt text-slate-950'}`}></i>
               </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-black uppercase text-amber-300 tracking-wider">Instant Review</span>
-                  <span className="px-2 py-0.5 rounded-md bg-indigo-500/30 text-indigo-200 text-[10px] font-extrabold uppercase border border-indigo-400/30">NECTA Curriculum</span>
-                  {isZenMode && (
-                    <span className="px-2 py-0.5 rounded-md bg-purple-500/40 text-purple-200 text-[10px] font-black uppercase border border-purple-400/40 animate-pulse flex items-center gap-1">
-                      <span>🧘</span> Zen Focus Mode
-                    </span>
-                  )}
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-400 text-slate-950 tracking-wider shadow-sm flex items-center gap-1.5">
+                    <i className="fa-solid fa-bolt text-slate-950 text-[11px]"></i> Instant Review
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px] font-extrabold uppercase border border-indigo-400/30">
+                    NECTA Curriculum 2024
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border flex items-center gap-1 ${
+                    isZenMode
+                      ? 'bg-purple-500/40 text-purple-200 border-purple-400/40 animate-pulse'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}>
+                    <span>🧘</span> {isZenMode ? 'Zen Mode: Active' : 'Zen Focus Ready'}
+                  </span>
                 </div>
-                <h4 className="font-black text-sm sm:text-base text-white">
+                <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">
                   Start Quick Study Session
-                </h4>
-                <p className="text-xs text-slate-300 font-medium">
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-2xl">
                   Jump directly into a random syllabus topic for rapid lesson notes, video tutorials & practice quizzes!
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
-              <div className="relative group/btn w-full sm:w-auto flex justify-center items-center">
-                {/* Smooth glowing pulsating border backdrop aura on hover */}
-                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 opacity-0 group-hover/btn:opacity-100 group-hover/btn:animate-pulse blur-md transition-opacity duration-500 pointer-events-none"></div>
-
-                <button
-                  id="start-quick-study-session-btn"
-                  onClick={handleQuickStudySession}
-                  className={`relative w-full sm:w-auto px-4 max-[480px]:px-3.5 sm:px-6 py-2.5 max-[480px]:py-2.5 sm:py-3.5 rounded-2xl font-black text-xs max-[480px]:text-[12px] sm:text-sm uppercase tracking-wider text-slate-950 flex flex-col items-center justify-center text-center mx-auto gap-1 shrink-0 cursor-pointer transition-all duration-300 border-2 border-transparent hover:border-amber-200/90 hover:ring-4 hover:ring-amber-300/80 ${
-                    isQuickStudyClicked
-                      ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 scale-105 sm:scale-110 ring-4 ring-emerald-300/80 shadow-xl shadow-emerald-500/50'
-                      : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 shadow-lg shadow-amber-400/30 animate-subtle-pulse hover:scale-105 active:scale-95'
-                  }`}
-                  title="Triggers a random, AI-selected syllabus topic review with lesson notes, videos & quizzes"
-                >
-                  <div className="flex items-center justify-center gap-2 sm:gap-2.5">
-                    <i className={`fa-solid ${isQuickStudyClicked ? 'fa-bolt-lightning text-slate-950 animate-bounce' : 'fa-dice'} text-sm sm:text-base text-slate-950 shrink-0`}></i>
-                    <span className="text-center">
-                      {isQuickStudyClicked ? 'Launching Study Session... ⚡' : 'Start Quick Study Session ⚡'}
-                    </span>
-                  </div>
-
-                  {/* Sparkline chart element and small summary text label on the button */}
-                  <div
-                    id="start-quick-study-btn-sparkline-bar"
-                    className="flex items-center justify-center gap-1.5 pt-0.5 normal-case tracking-normal"
-                  >
-                    <svg className="w-10 h-2.5 overflow-visible pointer-events-none opacity-80" viewBox="0 0 100 28" preserveAspectRatio="none">
-                      <polyline
-                        points={last7DaysQuickSessionsData.polylineStr}
-                        fill="none"
-                        stroke="#0f172a"
-                        strokeWidth="3.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span
-                      id="start-quick-study-btn-summary-label"
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] sm:text-[10px] font-black text-slate-950 bg-slate-950/10 border border-slate-950/15 whitespace-nowrap"
-                    >
-                      <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'} text-[8px]`}></i>
-                      <span>{last7DaysQuickSessionsData.summaryLabel}</span>
-                    </span>
-                  </div>
-
-                  {/* Daily Goal 5 Sessions Hover Progress Indicator */}
-                  <div className="w-full max-w-[210px] overflow-hidden transition-all duration-300 max-h-0 opacity-0 group-hover/btn:max-h-14 group-hover/btn:opacity-100 group-hover/btn:mt-1 pointer-events-none">
-                    <div className="flex items-center justify-between text-[10px] font-black tracking-normal normal-case text-slate-950 px-0.5 mb-0.5">
-                      <span className="flex items-center gap-1">
-                        <i className="fa-solid fa-bullseye text-amber-900"></i> Daily Goal: 5 sessions
-                      </span>
-                      <span className="font-extrabold">{todayQuickSessionsCount}/5 ({Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%)</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-950/20 rounded-full overflow-hidden p-0.5 border border-slate-950/10">
-                      <div
-                        className="h-full bg-slate-950 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* Small circular counter badge showing total sessions completed today */}
-                  <span
-                    key={`counter-badge-${todayQuickSessionsCount}`}
-                    id="quick-study-sessions-counter-badge"
-                    className={`absolute -top-2.5 -right-2.5 max-[480px]:-top-2 max-[480px]:-right-2 flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded-full font-black text-[11px] leading-none shadow-md transition-all duration-300 group-hover/btn:scale-110 ${
-                      todayQuickSessionsCount >= 5
-                        ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 border-2 border-amber-200 ring-2 ring-amber-400/50 shadow-amber-400/40 animate-badge-pop-mastery'
-                        : 'bg-slate-950 text-amber-300 border-2 border-amber-400'
-                    }`}
-                    title={todayQuickSessionsCount >= 5 ? `Daily Mastery Goal Achieved! (${todayQuickSessionsCount}/5 sessions completed today)` : `${todayQuickSessionsCount} quick study session${todayQuickSessionsCount === 1 ? '' : 's'} completed today`}
-                  >
-                    {todayQuickSessionsCount >= 5 ? `👑 ${todayQuickSessionsCount}` : todayQuickSessionsCount}
-                  </span>
-                </button>
-
-                {/* Hover Tooltip Indicator with Time to Master estimate */}
-                {(() => {
-                  const est = getTopicTimeEstimate(null, undefined, selectedGrade?.grade);
-                  return (
-                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/btn:opacity-100 transition-all duration-200 pointer-events-none z-30 whitespace-nowrap bg-slate-900 text-amber-300 font-bold text-[11px] px-3.5 py-2 rounded-2xl border border-amber-400/60 shadow-2xl flex flex-col items-center gap-1 scale-95 group-hover/btn:scale-100">
-                      <div className="flex items-center gap-2">
-                        <i className="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
-                        <span>Random AI Topic Review</span>
-                        <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 text-[10px] font-black uppercase border border-amber-400/40">
-                          ⏱️ Time to Master: {est.time}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5">
-                        <span>Est. based on {selectedGrade?.grade || 'Form 4'} topic difficulty ({est.level})</span>
-                      </div>
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 border-r border-b border-amber-400/60 rotate-45"></div>
-                    </div>
-                  );
-                })()}
-              </div>
-
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               {/* Zen Mode Toggle Button */}
               <button
                 id="toggle-zen-mode-btn"
                 onClick={() => setIsZenMode(!isZenMode)}
-                className={`w-full sm:w-auto px-4 py-2.5 max-[480px]:py-2.5 sm:py-3.5 rounded-2xl font-black text-xs max-[480px]:text-[12px] uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 border shadow-md cursor-pointer shrink-0 ${
+                className={`px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 border shadow-md cursor-pointer shrink-0 ${
                   isZenMode
                     ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-400 ring-4 ring-purple-400/40 shadow-purple-500/30'
-                    : 'bg-slate-800/90 hover:bg-slate-700 text-purple-300 border-purple-500/30 hover:border-purple-400 hover:scale-105 active:scale-95'
+                    : 'bg-slate-800/90 hover:bg-slate-700 text-purple-300 border-purple-500/30 hover:border-purple-400 active:scale-95'
                 }`}
-                title={isZenMode ? "Disable Zen Focus Mode" : "Enable Zen Focus Mode (removes headers, leaderboards & sidebars for distraction-free study)"}
+                title={isZenMode ? "Disable Zen Focus Mode" : "Enable Zen Focus Mode (removes distractions for focused study)"}
               >
                 <i className={`fa-solid ${isZenMode ? 'fa-spa text-white text-base animate-pulse' : 'fa-yin-yang text-purple-400 text-base'}`}></i>
                 <span>{isZenMode ? 'Zen Active 🧘' : 'Zen Mode 🧘'}</span>
               </button>
 
-              {/* 7-Day Quick Study Sparkline Progress Widget */}
-              <div
-                id="quick-study-7day-sparkline-chart"
-                className="bg-slate-950/85 hover:bg-slate-950/95 transition-all duration-300 border border-indigo-500/30 hover:border-amber-400/50 rounded-2xl px-3.5 py-2 sm:py-2.5 flex items-center gap-3 shadow-lg shadow-black/20 shrink-0 w-full sm:w-auto justify-between sm:justify-start group/sparkline cursor-default"
-                title={`7-Day Quick-Study Activity: ${last7DaysQuickSessionsData.totalCount} session${last7DaysQuickSessionsData.totalCount === 1 ? '' : 's'} completed over the last 7 days`}
+              {/* Main Quick Study Launch Button */}
+              <button
+                id="start-quick-study-session-btn"
+                onClick={handleQuickStudySession}
+                className={`relative px-6 py-3 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider text-slate-950 flex items-center justify-center gap-2 shrink-0 cursor-pointer transition-all duration-300 border-2 border-transparent hover:border-amber-200/90 hover:ring-4 hover:ring-amber-300/80 shadow-lg ${
+                  isQuickStudyClicked
+                    ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 scale-105 ring-4 ring-emerald-300/80 shadow-emerald-500/50'
+                    : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 shadow-amber-400/30 hover:scale-105 active:scale-95'
+                }`}
+                title="Triggers a random syllabus topic review with lesson notes, videos & quizzes"
               >
-                {/* Metrics label & count */}
-                <div className="flex flex-col text-left shrink-0">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-300 uppercase tracking-wider">
-                    <i className="fa-solid fa-chart-line text-[10px] text-amber-400"></i>
-                    <span>7-Day Trend</span>
-                  </div>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="text-sm sm:text-base font-black text-white leading-none">
-                      {last7DaysQuickSessionsData.totalCount}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      sessions
-                    </span>
-                  </div>
-                  {/* Small summary text label next to the sparkline chart */}
-                  <div className="mt-1">
-                    <span
-                      id="quick-study-sparkline-summary-label"
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] sm:text-[10px] font-black tracking-normal bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap"
-                    >
-                      <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down text-rose-400' : 'fa-arrow-trend-up text-emerald-400'} text-[8px]`}></i>
-                      <span>{last7DaysQuickSessionsData.summaryLabel}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* SVG Sparkline + Daily Bars */}
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className="relative w-28 sm:w-32 h-7 flex items-end justify-between gap-1 pt-1">
-                    {/* SVG Sparkline Curve & Area Gradient */}
-                    <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none" viewBox="0 0 100 28" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="sparklineGradYellow" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
-                          <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      <polygon points={last7DaysQuickSessionsData.polygonStr} fill="url(#sparklineGradYellow)" />
-                      <polyline
-                        points={last7DaysQuickSessionsData.polylineStr}
-                        fill="none"
-                        stroke="#fbbf24"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {/* Active points dots */}
-                      {last7DaysQuickSessionsData.points.map((p, idx) => (
-                        <circle
-                          key={`spark-dot-${idx}`}
-                          cx={p.x}
-                          cy={p.y}
-                          r={p.isToday ? 2.5 : p.count > 0 ? 2 : 1.2}
-                          className={p.isToday ? 'fill-amber-300 stroke-slate-950 stroke-[1.5]' : p.count > 0 ? 'fill-amber-400' : 'fill-slate-600'}
-                        />
-                      ))}
-                    </svg>
-
-                    {/* Interactive 7-Day Hover Bars */}
-                    {last7DaysQuickSessionsData.items.map((item, idx) => {
-                      const barHeight = Math.max(14, Math.min(100, Math.round((item.count / last7DaysQuickSessionsData.maxVal) * 100)));
-                      // Contextual recommendation message based on session count
-                      const recommendation = item.count >= 2
-                        ? { text: 'Great consistency!', color: 'text-emerald-300', icon: 'fa-fire' }
-                        : item.count === 1
-                        ? { text: item.isToday ? 'Try to add 1 more session today' : 'Good start, keep building!', color: 'text-amber-300', icon: 'fa-arrow-up' }
-                        : { text: item.isToday ? 'Try to add 1 more session today' : 'Low activity — jump in!', color: 'text-amber-200', icon: 'fa-bolt' };
-
-                      return (
-                        <div
-                          key={`spark-col-${item.dateKey}`}
-                          tabIndex={0}
-                          role="img"
-                          aria-label={`${item.dayLabel}: ${item.count} sessions. ${recommendation.text}`}
-                          className="group/day relative flex flex-col items-center justify-end h-full z-10 cursor-pointer flex-1 outline-none focus-visible:ring-1 focus-visible:ring-amber-400/80 rounded-sm"
-                        >
-                          {/* Enhanced Hover Tooltip */}
-                          <div
-                            className={`absolute bottom-full mb-2 ${
-                              idx === 0
-                                ? 'left-0 translate-x-0'
-                                : idx === last7DaysQuickSessionsData.items.length - 1
-                                ? 'right-0 translate-x-0'
-                                : 'left-1/2 -translate-x-1/2'
-                            } opacity-0 group-hover/day:opacity-100 group-focus-within/day:opacity-100 pointer-events-none group-hover/day:pointer-events-auto group-focus-within/day:pointer-events-auto transition-all duration-200 -translate-y-0.5 group-hover/day:translate-y-0 group-focus-within/day:translate-y-0 bg-slate-900/95 border border-amber-400/80 text-amber-200 px-2.5 py-1 rounded-lg shadow-2xl whitespace-nowrap z-40 flex flex-col items-center text-center backdrop-blur-sm`}
-                          >
-                            <div className="flex items-center gap-1 text-[9.5px] font-black text-slate-100 leading-tight">
-                              <span className="text-amber-300">{item.dayLabel}{item.isToday ? ' (Today)' : ''}:</span>
-                              <span className="text-white font-extrabold">{item.count} session{item.count === 1 ? '' : 's'}</span>
-                            </div>
-                            <div className={`text-[8.5px] font-bold ${recommendation.color} flex items-center gap-1 mt-0.5 leading-tight`}>
-                              <i className={`fa-solid ${recommendation.icon} text-[7.5px]`}></i>
-                              <span>{recommendation.text}</span>
-                            </div>
-                            {/* Downward pointing arrow */}
-                            <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-amber-400/80 rotate-45 -mb-1 mt-0.5"></div>
-                          </div>
-
-                          {/* Mini Bar with interactive visual scaling, color transformation & staggered entrance animation */}
-                          <div
-                            id={`spark-bar-${item.dateKey}`}
-                            className={`w-1.5 sm:w-2 rounded-t-sm origin-bottom animate-sparkline-bar sparkline-delay-${idx} transition-all duration-200 transform-gpu group-hover/day:scale-y-125 group-hover/day:scale-x-150 group-focus-within/day:scale-y-125 group-focus-within/day:scale-x-150 ${
-                              item.isToday
-                                ? 'bg-amber-400 shadow-sm shadow-amber-400/60 group-hover/day:bg-amber-200 group-hover/day:shadow-lg group-hover/day:shadow-amber-300/80 group-focus-within/day:bg-amber-200 group-focus-within/day:shadow-lg group-focus-within/day:shadow-amber-300/80 group-hover/day:ring-1 group-hover/day:ring-amber-100'
-                                : item.count > 0
-                                ? 'bg-indigo-400/80 group-hover/day:bg-amber-400 group-hover/day:shadow-md group-hover/day:shadow-amber-400/70 group-focus-within/day:bg-amber-400 group-focus-within/day:shadow-md group-focus-within/day:shadow-amber-400/70 group-hover/day:ring-1 group-hover/day:ring-amber-300'
-                                : 'bg-slate-700/50 group-hover/day:bg-slate-500 group-focus-within/day:bg-slate-500 group-hover/day:ring-1 group-hover/day:ring-slate-400/40'
-                            }`}
-                            style={{
-                              height: `${barHeight}%`,
-                              animationDelay: `${idx * 80}ms`
-                            }}
-                          ></div>
-
-                          {/* Day Label letter with hover/focus color shift and staggered entrance */}
-                          <span
-                            className={`text-[8px] font-extrabold leading-none mt-0.5 animate-sparkline-day sparkline-delay-${idx} transition-colors duration-200 group-hover/day:text-amber-300 group-focus-within/day:text-amber-300 ${item.isToday ? 'text-amber-400 font-black' : 'text-slate-400'}`}
-                            style={{ animationDelay: `${idx * 80 + 60}ms` }}
-                          >
-                            {item.shortDay}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Summary consistency text badge next to the sparkline chart */}
-                <div className="hidden sm:flex flex-col items-center justify-center pl-2.5 border-l border-slate-800 shrink-0">
-                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider">Consistency</span>
-                  <span
-                    id="quick-study-sparkline-badge-summary"
-                    className="mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 whitespace-nowrap shadow-sm"
-                  >
-                    <i className={`fa-solid ${last7DaysQuickSessionsData.trendDirection === 'down' ? 'fa-arrow-trend-down text-rose-400' : 'fa-arrow-trend-up text-emerald-400'} text-[8px]`}></i>
-                    <span>{last7DaysQuickSessionsData.summaryLabel}</span>
-                  </span>
-                </div>
-              </div>
+                <i className={`fa-solid ${isQuickStudyClicked ? 'fa-bolt-lightning text-slate-950 animate-bounce' : 'fa-dice'} text-base text-slate-950`}></i>
+                <span>{isQuickStudyClicked ? 'Launching Study Session... ⚡' : 'Start Quick Study Session ⚡'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Recent Quick Study Sessions Quick-Access List */}
-          {recentQuickSessions.length > 0 && (
-            <div className="pt-4 border-t border-indigo-500/20 text-left w-full space-y-2.5 animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-clock-rotate-left text-amber-400 text-xs"></i>
-                  <span className="text-xs font-black text-amber-300 uppercase tracking-wider">
-                    Recent Sessions ({recentQuickSessions.length}/5)
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">• Click any card to resume review</span>
-                </div>
+          {/* Fully Visible High-Yield Stats & Progress Bar Strip (Always Visible!) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+            {/* 1. Daily Goal Progress */}
+            <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-black">
+                <span className="text-amber-400 flex items-center gap-1.5 uppercase text-[10px] tracking-wider">
+                  <i className="fa-solid fa-bullseye"></i> Daily Goal (5 Sessions)
+                </span>
+                <span className="text-white text-xs font-black">
+                  {todayQuickSessionsCount} / 5 ({Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%)
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((todayQuickSessionsCount / 5) * 100))}%` }}
+                ></div>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">
+                {todayQuickSessionsCount >= 5 ? '🎉 Daily goal achieved! Outstanding discipline.' : `${5 - todayQuickSessionsCount} more session${5 - todayQuickSessionsCount === 1 ? '' : 's'} to hit today’s target.`}
+              </p>
+            </div>
 
-                <div className="flex items-center gap-2.5">
-                  {/* Sort by dropdown */}
+            {/* 2. Estimated Time to Master */}
+            {(() => {
+              const est = getTopicTimeEstimate(null, undefined, selectedGrade?.grade);
+              return (
+                <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3.5 space-y-1">
+                  <span className="text-cyan-400 flex items-center gap-1.5 uppercase text-[10px] font-black tracking-wider">
+                    <i className="fa-solid fa-hourglass-half"></i> Est. Time to Master
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-black text-white">{est.time}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                      {est.level} Difficulty
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Calibrated for {selectedGrade?.grade || 'Form 4'} NECTA exam readiness
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* 3. 7-Day Consistency & Sparkline */}
+            <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-amber-400 flex items-center gap-1.5 uppercase text-[10px] font-black tracking-wider">
+                  <i className="fa-solid fa-chart-line"></i> 7-Day Trend
+                </span>
+                <span className="text-[10px] font-black text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                  {last7DaysQuickSessionsData.summaryLabel}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <div className="text-base font-black text-white">
+                  {last7DaysQuickSessionsData.totalCount} <span className="text-[11px] font-bold text-slate-400">sessions total</span>
+                </div>
+                {/* Visible 7-Day Mini Bars */}
+                <div className="flex items-end gap-1 h-6">
+                  {last7DaysQuickSessionsData.items.map((it, idx) => {
+                    const h = Math.max(16, Math.min(100, Math.round((it.count / last7DaysQuickSessionsData.maxVal) * 100)));
+                    return (
+                      <div key={idx} className="flex flex-col items-center gap-0.5" title={`${it.dayLabel}: ${it.count} sessions`}>
+                        <div
+                          className={`w-2 rounded-t-xs transition-all ${
+                            it.isToday ? 'bg-amber-400 ring-1 ring-amber-300' : it.count > 0 ? 'bg-indigo-400' : 'bg-slate-700'
+                          }`}
+                          style={{ height: `${h}%` }}
+                        ></div>
+                        <span className={`text-[8px] font-extrabold ${it.isToday ? 'text-amber-300' : 'text-slate-400'}`}>
+                          {it.shortDay}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Complete Curriculum Scope */}
+            <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-3.5 space-y-1">
+              <span className="text-purple-400 flex items-center gap-1.5 uppercase text-[10px] font-black tracking-wider">
+                <i className="fa-solid fa-graduation-cap"></i> Curriculum Scope
+              </span>
+              <div className="text-xs font-black text-white">
+                Standard 1–7 • Form 1–6
+              </div>
+              <p className="text-[10px] text-slate-300 font-medium">
+                Includes full notes, video walkthroughs, formula vault & instant quizzes
+              </p>
+            </div>
+          </div>
+
+          {/* Recent Sessions Shelf / Curated Starter Topics (Always Visible!) */}
+          <div className="pt-3 border-t border-indigo-500/20 text-left w-full space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-clock-rotate-left text-amber-400 text-xs"></i>
+                <span className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                  {recentQuickSessions.length > 0 ? `Recent Study Sessions (${recentQuickSessions.length}/5)` : 'Quick Review Topic Launchpad'}
+                </span>
+                <span className="text-[10px] text-slate-300 font-medium">
+                  • Click any card to launch lesson notes, video walkthroughs & practice quiz
+                </span>
+              </div>
+
+              {recentQuickSessions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Sort dropdown */}
                   <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-indigo-400/30 text-[11px] font-bold text-slate-300">
                     <label htmlFor="recent-sessions-sort-select" className="text-amber-400/90 flex items-center gap-1 cursor-pointer">
                       <i className="fa-solid fa-arrow-down-short-wide text-[10px]"></i>
-                      <span>Sort by:</span>
+                      <span>Sort:</span>
                     </label>
                     <select
                       id="recent-sessions-sort-select"
@@ -3352,11 +3231,11 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     >
                       <option value="newest" className="bg-slate-900 text-slate-200 font-medium">Newest</option>
                       <option value="shortest" className="bg-slate-900 text-slate-200 font-medium">Shortest Time</option>
-                      <option value="difficulty" className="bg-slate-900 text-slate-200 font-medium">Difficulty Level</option>
+                      <option value="difficulty" className="bg-slate-900 text-slate-200 font-medium">Difficulty</option>
                     </select>
                   </div>
 
-                  {/* Download Session Log Button */}
+                  {/* Download Log Button */}
                   <button
                     onClick={downloadRecentSessionsLog}
                     className="text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-2.5 py-1 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
@@ -3366,17 +3245,17 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     <span>Log (.txt)</span>
                   </button>
 
-                  {/* Inline Confirmation Prompt if active */}
+                  {/* Clear History Button with Confirmation */}
                   {showClearHistoryConfirmToast ? (
                     <div className="flex items-center gap-1.5 bg-rose-950/90 border border-rose-500/60 px-2.5 py-1 rounded-xl text-[10.5px] text-rose-200 animate-fade-in shadow-sm">
                       <i className="fa-solid fa-triangle-exclamation text-rose-400 text-[10px]"></i>
-                      <span className="font-bold">Clear all logs?</span>
+                      <span className="font-bold">Clear all?</span>
                       <button
                         id="inline-confirm-clear-history-btn"
                         onClick={handleConfirmClearHistory}
                         className="px-2 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] cursor-pointer transition active:scale-95"
                       >
-                        Yes, Clear
+                        Yes
                       </button>
                       <button
                         id="inline-cancel-clear-history-btn"
@@ -3390,17 +3269,20 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                     <button
                       id="clear-recent-sessions-btn"
                       onClick={handleClearHistoryClick}
-                      className="text-[10px] font-bold text-slate-400 hover:text-rose-400 transition flex items-center gap-1 cursor-pointer ml-auto px-1.5 py-1 rounded-lg hover:bg-rose-500/10"
-                      title="Clear recent study history (requires confirmation)"
+                      className="text-[10px] font-bold text-slate-400 hover:text-rose-400 transition flex items-center gap-1 cursor-pointer px-1.5 py-1 rounded-lg hover:bg-rose-500/10"
+                      title="Clear recent study history"
                     >
                       <i className="fa-solid fa-trash-can text-[10px]"></i>
-                      <span>Clear History</span>
+                      <span>Clear</span>
                     </button>
                   )}
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+            {/* Session Cards Grid: Either Recent User Sessions OR Curated Starter Topics */}
+            {recentQuickSessions.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2.5">
                 {sortedRecentSessions.map((session, index) => {
                   const isUnfinishedResumeTarget = isMostRecentSessionUnfinished && session.id === mostRecentSession?.id;
                   const isCompleted = isSessionTopicCompleted(session);
@@ -3410,42 +3292,98 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
                       key={session.id}
                       onClick={() => resumeQuickStudySession(session)}
                       style={{ animationDelay: `${Math.min(index * 60, 300)}ms` }}
-                      className={`px-3.5 py-2 rounded-xl transition group flex items-center gap-2 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer animate-slide-in-item ${
+                      className={`px-4 py-2.5 rounded-2xl transition group flex items-center gap-2.5 text-xs font-semibold shadow-sm active:scale-95 cursor-pointer text-left ${
                         isUnfinishedResumeTarget
-                          ? 'bg-slate-900 hover:bg-indigo-950 border-2 border-amber-400 text-white animate-subtle-pulse shadow-md shadow-amber-400/25 ring-2 ring-amber-400/40'
-                          : 'bg-slate-800/90 hover:bg-indigo-900/90 border border-indigo-400/25 hover:border-amber-400/60 text-slate-200 hover:text-white'
+                          ? 'bg-slate-900 hover:bg-indigo-950 border-2 border-amber-400 text-white shadow-md shadow-amber-400/25 ring-2 ring-amber-400/40'
+                          : 'bg-slate-800/90 hover:bg-indigo-900/90 border border-indigo-400/30 hover:border-amber-400/60 text-slate-200 hover:text-white'
                       }`}
-                      title={
-                        isUnfinishedResumeTarget
-                          ? `⚡ CONTINUE STUDYING (UNFINISHED): ${session.topicTitle} - ${session.subjectName} (${session.gradeName}) • Est. Time: ${session.timeEstimate || '15-25 min'}`
-                          : `Resume ${session.topicTitle} - ${session.subjectName} (${session.gradeName}) • Est. Time to Master: ${session.timeEstimate || '15-25 min'}`
-                      }
+                      title={`Resume ${session.topicTitle} - ${session.subjectName} (${session.gradeName})`}
                     >
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform ${isUnfinishedResumeTarget ? 'bg-amber-300 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
-                      <span className="font-extrabold text-amber-300 group-hover:text-amber-200 shrink-0">{session.gradeName}</span>
+                      <div className={`w-2 h-2 rounded-full shrink-0 group-hover:scale-125 transition-transform ${isUnfinishedResumeTarget ? 'bg-amber-300 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
+                      <span className="font-extrabold text-amber-300 shrink-0">{session.gradeName}</span>
                       <span className="text-indigo-300 font-bold shrink-0">{session.subjectName}:</span>
-                      <span className="text-slate-100 font-medium truncate max-w-[120px] sm:max-w-[170px]">{session.topicTitle}</span>
+                      {/* Full topic title is now fully visible without truncate! */}
+                      <span className="text-white font-bold">{session.topicTitle}</span>
 
                       {isUnfinishedResumeTarget ? (
-                        <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shrink-0 animate-pulse">
+                        <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shrink-0 animate-pulse ml-1">
                           <i className="fa-solid fa-play text-[8px]"></i> Resume
                         </span>
                       ) : isCompleted ? (
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30 shrink-0">
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30 shrink-0 ml-1">
                           ✓ Done
                         </span>
                       ) : (
-                        <span className="px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 text-[10px] font-extrabold border border-amber-400/25 shrink-0">
+                        <span className="px-2 py-0.5 rounded bg-amber-400/15 text-amber-300 text-[10px] font-extrabold border border-amber-400/25 shrink-0 ml-1">
                           ⏱️ {session.timeEstimate || '15-25m'}
                         </span>
                       )}
-                      <i className="fa-solid fa-rotate-right text-[10px] text-amber-400/80 group-hover:text-amber-300 transition-transform group-hover:rotate-45 ml-0.5 shrink-0"></i>
+                      <i className="fa-solid fa-arrow-right text-[10px] text-amber-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1"></i>
                     </button>
                   );
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              /* When there are no prior recorded sessions, show high-yield quick review starter topics so every piece of content is visible immediately! */
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    grade: 'Form 4',
+                    subject: 'Biology',
+                    topic: 'Genetics, Cell Division & Mendel’s Laws',
+                    estTime: '20-25 min',
+                    color: 'border-emerald-500/40 hover:border-emerald-400'
+                  },
+                  {
+                    grade: 'Form 4',
+                    subject: 'Basic Mathematics',
+                    topic: 'Quadratic Equations & Parabolic Graphs',
+                    estTime: '25-30 min',
+                    color: 'border-amber-500/40 hover:border-amber-400'
+                  },
+                  {
+                    grade: 'Form 3',
+                    subject: 'Physics',
+                    topic: 'Newton’s Laws of Motion & Momentum',
+                    estTime: '20-25 min',
+                    color: 'border-cyan-500/40 hover:border-cyan-400'
+                  }
+                ].map((starter, sIdx) => (
+                  <button
+                    key={sIdx}
+                    onClick={() => {
+                      const pseudoSession: QuickStudySession = {
+                        id: `starter-${sIdx}`,
+                        gradeName: starter.grade,
+                        subjectName: starter.subject,
+                        topicTitle: starter.topic,
+                        timestamp: Date.now(),
+                        timeEstimate: starter.estTime
+                      };
+                      resumeQuickStudySession(pseudoSession);
+                    }}
+                    className={`p-3.5 rounded-2xl bg-slate-900/90 border-2 ${starter.color} text-left transition hover:bg-slate-800/90 space-y-1.5 group cursor-pointer shadow-md`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase">
+                        {starter.grade} • {starter.subject}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">⏱️ {starter.estTime}</span>
+                    </div>
+                    <h4 className="font-bold text-xs text-white group-hover:text-amber-300 transition-colors">
+                      {starter.topic}
+                    </h4>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                      <span>Notes + Videos + Quiz</span>
+                      <span className="text-amber-400 font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Start Review <i className="fa-solid fa-arrow-right text-[9px]"></i>
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -4382,6 +4320,12 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
       <StudyRoom 
         initialSubjectId={activeStudyRoomSubject} 
         onNavigateHome={goHome} 
+        userProgress={user}
+        onOpenYunAI={(prompt) => {
+          setYunDefaultTab('chat');
+          setYunContext(prompt);
+          setCurrentView(AppView.CHAT);
+        }}
       />
     )}
     {currentView === AppView.VIDEOS && <VideoLessonsSearch />}
@@ -4396,6 +4340,30 @@ Tanzania Educational Platform - Elimu Bora kwa Wote
     {currentView === AppView.TOPIC_CONTENT && renderTopicContent()}
     {currentView === AppView.PARENTS && renderParentDashboard()}
     {currentView === AppView.ADMIN && <AdminPanel onBack={goHome} />}
+    {currentView === AppView.INTERACTIVE_GAMES && (
+      <InteractiveGamesSuite
+        userProgress={user}
+        onAddXp={(pts) => setUser(u => ({ ...u, points: u.points + pts }))}
+        onNavigateHome={goHome}
+        onOpenYunAI={(prompt) => {
+          setYunDefaultTab('chat');
+          setYunContext(prompt);
+          setCurrentView(AppView.CHAT);
+        }}
+      />
+    )}
+    {currentView === AppView.ANALYTICS && (
+      <StudentAnalyticsHub
+        userProgress={user}
+        onNavigateHome={goHome}
+        onStartQuiz={() => setCurrentView(AppView.INTERACTIVE_GAMES)}
+        onOpenYunAI={(prompt) => {
+          setYunDefaultTab('chat');
+          setYunContext(prompt);
+          setCurrentView(AppView.CHAT);
+        }}
+      />
+    )}
 
         {currentView === AppView.CHAT && (
           <div className="animate-fade-in flex flex-col items-center justify-center h-full">

@@ -31,7 +31,7 @@ import {
   arrayRemove
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { UserProgress, StudyRoomMessage } from '../types';
+import { UserProgress, StudyRoomMessage, StudyBuddy, StudyBuddySession, BuddyChatMessage, CollaborativeStep } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -516,6 +516,9 @@ export async function toggleLikeStudyTip(tipId: string): Promise<boolean> {
 /**
  * Delete a study tip (allowed for author or admin).
  */
+/**
+ * Delete a study tip (allowed for author or admin).
+ */
 export async function deleteStudyTip(tipId: string): Promise<void> {
   const docRef = doc(db, 'study_tips', tipId);
   try {
@@ -526,4 +529,239 @@ export async function deleteStudyTip(tipId: string): Promise<void> {
   }
 }
 
+// ==========================================
+// STUDY BUDDY MATCHING & COLLABORATIVE WORKSPACE
+// ==========================================
+
+/**
+ * Publish student presence in the Study Buddy directory.
+ */
+export async function publishStudyBuddyPresence(buddyData: Omit<StudyBuddy, 'id' | 'lastActive'> & { id?: string }): Promise<string> {
+  const user = await ensureAuthUser();
+  if (!user) throw new Error("Authentication required to find study buddies.");
+
+  const buddyId = buddyData.id || `buddy_${user.uid}`;
+  const docRef = doc(db, 'study_buddies', buddyId);
+
+  const payload: StudyBuddy = {
+    ...buddyData,
+    id: buddyId,
+    userId: user.uid,
+    isOnline: true,
+    lastActive: new Date().toISOString()
+  };
+
+  try {
+    await setDoc(docRef, payload, { merge: true });
+    return buddyId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `study_buddies/${buddyId}`);
+    throw error;
+  }
+}
+
+/**
+ * Real-time listener for available study buddies, optionally filtered by subject.
+ */
+export function subscribeToStudyBuddies(
+  subjectId: string,
+  onUpdate: (buddies: StudyBuddy[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const colRef = collection(db, 'study_buddies');
+    let q;
+    if (subjectId && subjectId !== 'ALL') {
+      q = query(colRef, where('subjectId', '==', subjectId), limit(50));
+    } else {
+      q = query(colRef, limit(50));
+    }
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const buddies: StudyBuddy[] = snapshot.docs.map(doc => doc.data() as StudyBuddy);
+        onUpdate(buddies);
+      },
+      (error) => {
+        console.warn("Real-time study buddies subscription fallback:", error);
+        if (onError) onError(error as Error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("Failed to setup study buddy listener:", error);
+    return () => {};
+  }
+}
+
+/**
+ * Remove student presence from study buddy directory.
+ */
+export async function removeStudyBuddyPresence(buddyId?: string): Promise<void> {
+  const user = auth.currentUser;
+  const idToDelete = buddyId || (user ? `buddy_${user.uid}` : undefined);
+  if (!idToDelete) return;
+
+  try {
+    const docRef = doc(db, 'study_buddies', idToDelete);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.warn("Could not delete study buddy presence:", error);
+  }
+}
+
+/**
+ * Create or join a collaborative problem-solving session.
+ */
+export async function createOrJoinStudyBuddySession(
+  sessionPayload: Partial<StudyBuddySession> & { topicTitle: string; subjectId: string; subjectName: string }
+): Promise<StudyBuddySession> {
+  const user = await ensureAuthUser();
+  if (!user) throw new Error("Authentication required to collaborate.");
+
+  const sessionId = sessionPayload.id || `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const docRef = doc(db, 'study_buddy_sessions', sessionId);
+
+  const newSession: StudyBuddySession = {
+    id: sessionId,
+    subjectId: sessionPayload.subjectId,
+    subjectName: sessionPayload.subjectName,
+    topicTitle: sessionPayload.topicTitle,
+    questionOrProblem: sessionPayload.questionOrProblem || `Mastering ${sessionPayload.topicTitle} NECTA Practice Question`,
+    participants: sessionPayload.participants || [
+      {
+        userId: user.uid,
+        displayName: user.displayName || user.email?.split('@')[0] || 'Tanzanian Scholar',
+        role: 'creator'
+      }
+    ],
+    steps: sessionPayload.steps || [],
+    finalAnswer: sessionPayload.finalAnswer || '',
+    status: sessionPayload.status || 'active',
+    createdAt: sessionPayload.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    await setDoc(docRef, newSession, { merge: true });
+    return newSession;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `study_buddy_sessions/${sessionId}`);
+    throw error;
+  }
+}
+
+/**
+ * Subscribe to changes in a collaborative problem-solving session.
+ */
+export function subscribeToStudyBuddySession(
+  sessionId: string,
+  onUpdate: (session: StudyBuddySession | null) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const docRef = doc(db, 'study_buddy_sessions', sessionId);
+    return onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          onUpdate(snapshot.data() as StudyBuddySession);
+        } else {
+          onUpdate(null);
+        }
+      },
+      (error) => {
+        console.warn("Study buddy session snapshot error:", error);
+        if (onError) onError(error as Error);
+      }
+    );
+  } catch (err) {
+    console.error("Failed to subscribe to session:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Add a step to the collaborative problem solver.
+ */
+export async function addCollaborativeStepToSession(
+  sessionId: string,
+  step: CollaborativeStep
+): Promise<void> {
+  const docRef = doc(db, 'study_buddy_sessions', sessionId);
+  try {
+    await updateDoc(docRef, {
+      steps: arrayUnion(step),
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `study_buddy_sessions/${sessionId}`);
+    throw error;
+  }
+}
+
+/**
+ * Send real-time chat message or hint inside study buddy workspace.
+ */
+export async function sendStudyBuddyChatMessage(
+  msg: Omit<BuddyChatMessage, 'id' | 'createdAt'> & { id?: string }
+): Promise<string> {
+  const user = await ensureAuthUser();
+  const msgId = msg.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const docRef = doc(db, 'study_buddy_messages', msgId);
+
+  const payload: BuddyChatMessage = {
+    ...msg,
+    id: msgId,
+    senderId: user ? user.uid : (msg.senderId || 'guest'),
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    await setDoc(docRef, payload);
+    return msgId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `study_buddy_messages/${msgId}`);
+    throw error;
+  }
+}
+
+/**
+ * Subscribe to messages for a specific collaborative session.
+ */
+export function subscribeToStudyBuddyMessages(
+  sessionId: string,
+  onUpdate: (messages: BuddyChatMessage[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const colRef = collection(db, 'study_buddy_messages');
+    const q = query(
+      colRef,
+      where('sessionId', '==', sessionId),
+      limit(100)
+    );
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const msgs = snapshot.docs.map(d => d.data() as BuddyChatMessage);
+        // Sort chronologically
+        msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        onUpdate(msgs);
+      },
+      (error) => {
+        console.warn("Buddy messages subscription error:", error);
+        if (onError) onError(error as Error);
+      }
+    );
+  } catch (err) {
+    console.error("Failed to subscribe to buddy messages:", err);
+    return () => {};
+  }
+}
+
 testConnection();
+
