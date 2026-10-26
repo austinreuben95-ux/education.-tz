@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { playGeminiVoiceAudio, stopGeminiVoiceAudio } from '../services/geminiService';
 
 // ==========================================
 // 9,999,999,999+ / INFINITY MULTI-LINGUAL MOTIVATIONAL QUOTES BANK & GENERATOR
@@ -755,48 +756,46 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
     }
   };
 
+  const [selectedGeminiVoice, setSelectedGeminiVoice] = useState<string>('Kore');
+  const [showVoiceDropdown, setShowVoiceDropdown] = useState<boolean>(false);
+
+  // Clean up any active voice playback when component unmounts
+  useEffect(() => {
+    return () => {
+      stopGeminiVoiceAudio();
+    };
+  }, []);
+
+  const GEMINI_MOTIVATIONAL_VOICES = [
+    { id: 'Kore', name: 'Kore (Calm & Clear)', icon: '🎙️' },
+    { id: 'Puck', name: 'Puck (Enthusiastic)', icon: '⚡' },
+    { id: 'Charon', name: 'Charon (Deep & Steady)', icon: '🌟' },
+    { id: 'Fenrir', name: 'Fenrir (Inspiring & Bold)', icon: '🔥' },
+    { id: 'Zephyr', name: 'Zephyr (Gentle & Warm)', icon: '🕊️' },
+  ];
+
   const handleSpeakQuote = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported in your browser.');
-      return;
-    }
-    const synth = window.speechSynthesis;
-    if (synth.speaking) {
-      synth.cancel();
+    if (isSpeakingQuote) {
+      stopGeminiVoiceAudio();
       setIsSpeakingQuote(false);
       return;
     }
-    const cleanText = `${currentMotivationalQuote.quote}. ${currentMotivationalQuote.author}`;
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 0.95;
 
-    // Language mapping for browser speech synthesis
-    const langMap: Record<string, string> = {
-      SW: 'sw-TZ',
-      EN: 'en-US',
-      FR: 'fr-FR',
-      AR: 'ar-SA',
-      ES: 'es-ES',
-      ZH: 'zh-CN',
-      DE: 'de-DE',
-      PT: 'pt-PT',
-      HI: 'hi-IN',
-    };
+    const cleanText = `${currentMotivationalQuote.quote}. — ${currentMotivationalQuote.author}`;
+    const langCode = (currentMotivationalQuote.lang || 'EN').toLowerCase();
 
-    const targetLangCode = langMap[currentMotivationalQuote.lang] || 'en-US';
-    utterance.lang = targetLangCode;
-
-    const voices = synth.getVoices();
-    const desiredPrefix = currentMotivationalQuote.lang.toLowerCase();
-    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(desiredPrefix));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    }
-
-    utterance.onstart = () => setIsSpeakingQuote(true);
-    utterance.onend = () => setIsSpeakingQuote(false);
-    utterance.onerror = () => setIsSpeakingQuote(false);
-    synth.speak(utterance);
+    setIsSpeakingQuote(true);
+    playGeminiVoiceAudio({
+      text: cleanText,
+      voiceName: selectedGeminiVoice,
+      language: langCode,
+      onStart: () => setIsSpeakingQuote(true),
+      onEnd: () => setIsSpeakingQuote(false),
+      onError: (err) => {
+        console.warn('Gemini voice speech error:', err);
+        setIsSpeakingQuote(false);
+      },
+    });
   };
 
   const AVAILABLE_QUOTE_LANGUAGES = [
@@ -964,19 +963,87 @@ export const NectaCountdownTimer: React.FC<NectaCountdownTimerProps> = ({
                 )}
               </button>
 
-              <button
-                id="btn-quote-speak"
-                onClick={handleSpeakQuote}
-                className={`px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
-                  isSpeakingQuote
-                    ? 'text-amber-300 bg-amber-400/20 border border-amber-400/50 animate-pulse'
-                    : 'text-slate-200 hover:text-white hover:bg-slate-800'
-                }`}
-                title={`Read Quote Aloud (${currentMotivationalQuote.langName})`}
-              >
-                <i className={`fa-solid ${isSpeakingQuote ? 'fa-volume-high' : 'fa-volume-low'} text-xs text-amber-400`}></i>
-                <span>{isSpeakingQuote ? 'Speaking...' : 'Listen'}</span>
-              </button>
+              {/* Gemini Voice Player & Voice Selector */}
+              <div className="relative inline-flex items-center gap-1">
+                <button
+                  id="btn-quote-speak"
+                  onClick={handleSpeakQuote}
+                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 text-xs font-black shadow-md ${
+                    isSpeakingQuote
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white ring-2 ring-rose-400/50 shadow-rose-500/40'
+                      : 'bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-amber-400/20 active:scale-95'
+                  }`}
+                  title={
+                    isSpeakingQuote
+                      ? 'Stop Gemini Voice'
+                      : `Listen to Quote with Gemini Voice (${selectedGeminiVoice} • ${currentMotivationalQuote.langName})`
+                  }
+                >
+                  {isSpeakingQuote ? (
+                    <>
+                      <span className="flex items-center gap-0.5 h-3">
+                        <span className="w-1 bg-white rounded-full animate-pulse h-2"></span>
+                        <span className="w-1 bg-white rounded-full animate-pulse h-3.5"></span>
+                        <span className="w-1 bg-white rounded-full animate-pulse h-2.5"></span>
+                      </span>
+                      <span>Stop Voice</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-wand-magic-sparkles text-slate-900 text-xs"></i>
+                      <span>Gemini Voice</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Gemini Voice Persona Picker Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
+                  className="px-2 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Choose Gemini Voice Persona"
+                >
+                  <span>{selectedGeminiVoice}</span>
+                  <i className="fa-solid fa-chevron-down text-[9px] opacity-70"></i>
+                </button>
+
+                {/* Voice Selection Dropdown Menu */}
+                {showVoiceDropdown && (
+                  <div className="absolute right-0 bottom-full mb-2 z-50 w-52 bg-slate-900 border-2 border-amber-400/50 rounded-2xl p-1.5 shadow-2xl space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 border-b border-slate-800 flex items-center justify-between">
+                      <span>Gemini Voices</span>
+                      <i className="fa-solid fa-brain text-indigo-400"></i>
+                    </div>
+                    {GEMINI_MOTIVATIONAL_VOICES.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGeminiVoice(v.id);
+                          setShowVoiceDropdown(false);
+                          if (isSpeakingQuote) {
+                            stopGeminiVoiceAudio();
+                            setIsSpeakingQuote(false);
+                          }
+                        }}
+                        className={`w-full px-2.5 py-2 rounded-xl text-left text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                          selectedGeminiVoice === v.id
+                            ? 'bg-amber-400 text-slate-950 shadow-sm'
+                            : 'text-slate-200 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{v.icon}</span>
+                          <span>{v.name}</span>
+                        </span>
+                        {selectedGeminiVoice === v.id && (
+                          <i className="fa-solid fa-check text-[10px]"></i>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

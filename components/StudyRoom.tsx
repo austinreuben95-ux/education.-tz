@@ -15,6 +15,9 @@ import {
 import { SEED_STUDY_TIPS, STUDY_ROOM_SUBJECTS } from '../data/studyRoomSeedData';
 import { ScholarAvatar } from './ScholarAvatar';
 import { StudyBuddyTab } from './StudyBuddyTab';
+import { VoiceNoteRecorderModal } from './VoiceNoteRecorderModal';
+import { VoiceToTextButton } from './VoiceToTextButton';
+import { useVoiceToText } from '../src/hooks/useVoiceToText';
 
 interface StudyRoomProps {
   initialSubjectId?: string;
@@ -53,7 +56,76 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
   const [formTopicRef, setFormTopicRef] = useState<string>('');
   const [formTitle, setFormTitle] = useState<string>('');
   const [formContent, setFormContent] = useState<string>('');
-  const [formError, setFormError] = useState<string | null>(null);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState<boolean>(false);
+  const [voiceTargetField, setVoiceTargetField] = useState<'content' | 'title'>('content');
+
+  // Speech-to-text hook for direct dictation in the Post Form
+  const {
+    isListening: isFormListening,
+    interimTranscript: formInterim,
+    selectedLangCode: formSpeechLang,
+    setSelectedLangCode: setFormSpeechLang,
+    toggleListening: toggleFormListening,
+    stopListening: stopFormListening,
+  } = useVoiceToText({
+    initialLanguage: 'sw',
+    continuous: true,
+    onTranscriptChange: (text) => {
+      if (voiceTargetField === 'title') {
+        setFormTitle(text);
+      } else {
+        setFormContent(text);
+      }
+    },
+  });
+
+  const handleVoiceStudioSubmit = async (data: {
+    title: string;
+    content: string;
+    type: 'question' | 'tip' | 'trap' | 'formula';
+    subjectId?: string;
+  }) => {
+    const subjId = data.subjectId || (selectedSubject === 'ALL' ? 'physics' : selectedSubject);
+    const subjectObj = STUDY_ROOM_SUBJECTS.find(s => s.id === subjId) || STUDY_ROOM_SUBJECTS[1];
+
+    const optimisticId = 'voice_' + Date.now();
+    const newTip: StudyRoomMessage = {
+      id: optimisticId,
+      subjectId: subjId,
+      subjectName: subjectObj.name,
+      gradeLevel: 'Form 4 (CSEE)',
+      authorName: formAuthorName.trim() || 'Tanzanian Scholar',
+      authorId: currentUserId || 'guest',
+      authorRole: 'Student',
+      type: data.type,
+      title: data.title || (data.type === 'question' ? 'Voice Recorded Question' : 'Voice Study Note'),
+      content: data.content,
+      likes: 0,
+      likedBy: [],
+      createdAt: new Date().toISOString(),
+      isNectaTrap: data.type === 'trap',
+    };
+
+    setTips(prev => [newTip, ...prev]);
+
+    try {
+      await postStudyTip({
+        subjectId: subjId,
+        subjectName: subjectObj.name,
+        gradeLevel: 'Form 4 (CSEE)',
+        authorName: formAuthorName.trim() || 'Tanzanian Scholar',
+        authorRole: 'Student',
+        type: data.type,
+        title: newTip.title,
+        content: data.content,
+        isNectaTrap: data.type === 'trap',
+      });
+      triggerToast("Voice question/note published to Study Room!");
+    } catch (err) {
+      console.warn("Realtime post note:", err);
+      triggerToast("Saved locally and broadcast to study session!");
+    }
+  };
 
   // Initialize current user and default author name
   useEffect(() => {
@@ -320,6 +392,18 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
               <i className="fa-solid fa-users text-indigo-400"></i>
               <span><strong className="text-white font-bold">{activeUsersCount}</strong> peers online</span>
             </div>
+
+            <button
+              id="btn-open-voice-recorder"
+              type="button"
+              onClick={() => setShowVoiceRecorder(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white shadow-md shadow-rose-900/30 hover:shadow-rose-900/50 transition transform active:scale-95 cursor-pointer"
+              title="Record question or study note using microphone (Voice-to-Text)"
+            >
+              <i className="fa-solid fa-microphone-lines text-amber-200 animate-pulse"></i>
+              <span className="hidden sm:inline">Voice Note / Question</span>
+              <span className="sm:hidden">Voice</span>
+            </button>
 
             <button
               id="btn-open-post-tip-modal"
@@ -815,9 +899,20 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
               {/* Title & Topic Reference */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Headline / Title (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">
+                      Headline / Title (Optional)
+                    </label>
+                    <VoiceToTextButton
+                      isListening={isFormListening && voiceTargetField === 'title'}
+                      onToggle={() => {
+                        setVoiceTargetField('title');
+                        toggleFormListening();
+                      }}
+                      size="sm"
+                      title="Speak title using microphone"
+                    />
+                  </div>
                   <input
                     id="input-form-title"
                     type="text"
@@ -843,12 +938,26 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
                 </div>
               </div>
 
-              {/* Content Textarea */}
+              {/* Content Textarea with Voice Dictation */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    Your Tip / Trap Details <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-700">
+                      Your Tip / Trap / Question Details <span className="text-rose-500">*</span>
+                    </label>
+                    <VoiceToTextButton
+                      isListening={isFormListening && voiceTargetField === 'content'}
+                      onToggle={() => {
+                        setVoiceTargetField('content');
+                        toggleFormListening();
+                      }}
+                      langCode={formSpeechLang}
+                      onLangChange={setFormSpeechLang}
+                      showLangSelector={true}
+                      size="sm"
+                      title="Dictate question or study note using microphone"
+                    />
+                  </div>
                   <span className="text-[11px] text-slate-400 font-mono">
                     {formContent.length}/1000
                   </span>
@@ -859,12 +968,19 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
                   onChange={(e) => setFormContent(e.target.value.slice(0, 1000))}
                   rows={4}
                   placeholder={
-                    formType === 'trap'
+                    isFormListening && voiceTargetField === 'content'
+                      ? "Listening to your voice... Speak your note or question now..."
+                      : formType === 'trap'
                       ? "Describe the common mistake students make and what NECTA chief examiners deduct marks for..."
-                      : "Write your quick formula mnemonic or revision insight here..."
+                      : "Write or speak your revision insight, exam question, or formula..."
                   }
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-normal"
                 ></textarea>
+                {isFormListening && voiceTargetField === 'content' && formInterim && (
+                  <p className="text-[11px] text-emerald-600 font-semibold italic mt-1 px-1">
+                    Live Speech: {formInterim}
+                  </p>
+                )}
               </div>
 
               {/* Author & Role */}
@@ -929,6 +1045,15 @@ export const StudyRoom: React.FC<StudyRoomProps> = ({
           </div>
         </div>
       )}
+
+      {/* Dedicated Voice Note & Question Studio Modal */}
+      <VoiceNoteRecorderModal
+        isOpen={showVoiceRecorder}
+        onClose={() => setShowVoiceRecorder(false)}
+        defaultSubject={STUDY_ROOM_SUBJECTS.find(s => s.id === selectedSubject)?.name || 'Physics'}
+        onPostToStudyRoom={handleVoiceStudioSubmit}
+        onAskYunAI={onOpenYunAI}
+      />
 
       {/* Floating Toast Notification */}
       {toastMessage && (

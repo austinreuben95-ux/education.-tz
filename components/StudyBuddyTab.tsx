@@ -21,6 +21,8 @@ import { SEED_STUDY_BUDDIES, TOPIC_PROBLEM_STARTERS } from '../data/studyBuddySe
 import { STUDY_ROOM_SUBJECTS } from '../data/studyRoomSeedData';
 import { ScholarAvatar } from './ScholarAvatar';
 import { playGeminiVoiceAudio } from '../services/geminiService';
+import { VoiceToTextButton } from './VoiceToTextButton';
+import { useVoiceToText } from '../src/hooks/useVoiceToText';
 
 interface StudyBuddyTabProps {
   currentSubjectId: string;
@@ -60,6 +62,38 @@ export const StudyBuddyTab: React.FC<StudyBuddyTabProps> = ({
   const [newStepFormula, setNewStepFormula] = useState<string>('');
   const [isSubmittingStep, setIsSubmittingStep] = useState<boolean>(false);
   const [aiRefereeLoading, setAiRefereeLoading] = useState<boolean>(false);
+
+  // Voice-to-text for Chat Input
+  const {
+    isListening: isChatListening,
+    interimTranscript: chatInterim,
+    selectedLangCode: chatLangCode,
+    setSelectedLangCode: setChatLangCode,
+    toggleListening: toggleChatListening,
+    stopListening: stopChatListening,
+  } = useVoiceToText({
+    initialLanguage: 'sw',
+    continuous: true,
+    onTranscriptChange: (text) => {
+      setChatInputText(text);
+    },
+  });
+
+  // Voice-to-text for Collaborative Step
+  const {
+    isListening: isStepListening,
+    interimTranscript: stepInterim,
+    selectedLangCode: stepLangCode,
+    setSelectedLangCode: setStepLangCode,
+    toggleListening: toggleStepListening,
+    stopListening: stopStepListening,
+  } = useVoiceToText({
+    initialLanguage: 'en',
+    continuous: true,
+    onTranscriptChange: (text) => {
+      setNewStepText(text);
+    },
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -588,17 +622,37 @@ export const StudyBuddyTab: React.FC<StudyBuddyTabProps> = ({
                     <span className="text-xs font-black uppercase text-indigo-900 tracking-wider">
                       Add Next Step (Step {(activeSession.steps?.length || 0) + 1})
                     </span>
-                    <span className="text-[11px] text-slate-400">Both buddies can contribute</span>
+                    <div className="flex items-center gap-2">
+                      <VoiceToTextButton
+                        isListening={isStepListening}
+                        onToggle={toggleStepListening}
+                        langCode={stepLangCode}
+                        onLangChange={setStepLangCode}
+                        showLangSelector={true}
+                        size="sm"
+                        title="Dictate step explanation using microphone"
+                      />
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">Both buddies can contribute</span>
+                    </div>
                   </div>
 
                   <textarea
                     value={newStepText}
                     onChange={(e) => setNewStepText(e.target.value)}
-                    placeholder="Describe the calculation or theoretical step (e.g., 'Substitute mass = 1200kg into conservation of momentum equation')..."
+                    placeholder={
+                      isStepListening
+                        ? "Listening... Speak your derivation or step reasoning now..."
+                        : "Describe the calculation or theoretical step (e.g., 'Substitute mass = 1200kg into conservation of momentum equation')..."
+                    }
                     rows={2}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white font-medium"
                     required
                   ></textarea>
+                  {isStepListening && stepInterim && (
+                    <div className="text-[11px] font-semibold text-emerald-600 italic px-1">
+                      Live speech: {stepInterim}
+                    </div>
+                  )}
 
                   <div className="flex flex-col sm:flex-row items-center gap-2">
                     <input
@@ -722,24 +776,48 @@ export const StudyBuddyTab: React.FC<StudyBuddyTabProps> = ({
                 ))}
               </div>
 
-              {/* Chat Input Bar */}
-              <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+              {/* Chat Input Bar with Voice-to-Text */}
+              <form
+                onSubmit={(e) => {
+                  if (isChatListening) stopChatListening();
+                  handleSendMessage(e);
+                }}
+                className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
+              >
+                <VoiceToTextButton
+                  isListening={isChatListening}
+                  onToggle={toggleChatListening}
+                  langCode={chatLangCode}
+                  onLangChange={setChatLangCode}
+                  showLangSelector={true}
+                  size="md"
+                  title="Speak message to your study buddy"
+                />
                 <input
                   type="text"
                   value={chatInputText}
                   onChange={(e) => setChatInputText(e.target.value)}
-                  placeholder="Chat with your study buddy..."
+                  placeholder={
+                    isChatListening
+                      ? "Listening to voice... Speak now..."
+                      : "Chat with your study buddy, or tap mic..."
+                  }
                   className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                 />
                 <button
                   type="submit"
                   disabled={isSendingMessage || !chatInputText.trim()}
-                  className="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition shrink-0 active:scale-95 disabled:opacity-40"
+                  className="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition shrink-0 active:scale-95 disabled:opacity-40 cursor-pointer"
                   title="Send message"
                 >
                   <i className="fa-solid fa-paper-plane text-xs"></i>
                 </button>
               </form>
+              {isChatListening && chatInterim && (
+                <div className="px-3 pb-2 text-[11px] font-semibold text-emerald-600 bg-white italic">
+                  Live speech: {chatInterim}
+                </div>
+              )}
             </div>
           </div>
         </div>

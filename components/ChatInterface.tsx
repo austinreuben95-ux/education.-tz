@@ -22,6 +22,9 @@ import {
   SupportedLanguage
 } from '../src/data/geminiVoicesAndLanguages';
 import { GeminiVoiceLanguageModal } from './GeminiVoiceLanguageModal';
+import { VoiceToTextButton } from './VoiceToTextButton';
+import { VoiceNoteRecorderModal } from './VoiceNoteRecorderModal';
+import { useVoiceToText } from '../src/hooks/useVoiceToText';
 
 interface ChatInterfaceProps {
   initialContext?: string;
@@ -328,6 +331,51 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isGeneratingFc, setIsGeneratingFc] = useState(false);
   const [fcDeck, setFcDeck] = useState<FlashcardDeckResult | null>(null);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
+  const [isVoiceNoteModalOpen, setIsVoiceNoteModalOpen] = useState(false);
+
+  // Voice-to-text hook for Solver
+  const {
+    isListening: isSolverVoiceListening,
+    selectedLangCode: solverVoiceLang,
+    setSelectedLangCode: setSolverVoiceLang,
+    toggleListening: toggleSolverVoice,
+  } = useVoiceToText({
+    initialLanguage: 'en',
+    continuous: true,
+    onTranscriptChange: (text) => setSolverProblem(text),
+  });
+
+  // Voice-to-text hook for Examiner Question
+  const {
+    isListening: isExaminerQListening,
+    toggleListening: toggleExaminerQVoice,
+  } = useVoiceToText({
+    initialLanguage: 'en',
+    continuous: true,
+    onTranscriptChange: (text) => setGradeQuestion(text),
+  });
+
+  // Voice-to-text hook for Examiner Answer
+  const {
+    isListening: isExaminerAnsListening,
+    selectedLangCode: examinerAnsLang,
+    setSelectedLangCode: setExaminerAnsLang,
+    toggleListening: toggleExaminerAnsVoice,
+  } = useVoiceToText({
+    initialLanguage: 'en',
+    continuous: true,
+    onTranscriptChange: (text) => setGradeAnswer(text),
+  });
+
+  // Voice-to-text hook for Flashcards Topic
+  const {
+    isListening: isFcTopicListening,
+    toggleListening: toggleFcTopicVoice,
+  } = useVoiceToText({
+    initialLanguage: 'en',
+    continuous: true,
+    onTranscriptChange: (text) => setFcTopic(text),
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -930,6 +978,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <i className="fa-solid fa-layer-group text-amber-700"></i>
           <span>AI Flashcard Deck</span>
           <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-400 text-slate-950">AI</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsVoiceNoteModalOpen(true)}
+          className="px-3 py-1.5 rounded-xl font-bold text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
+          title="Record questions or study notes hands-free with microphone"
+        >
+          <i className="fa-solid fa-microphone-lines text-rose-600 animate-pulse"></i>
+          <span>Voice Note Studio</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-rose-600 text-white">MIC</span>
         </button>
       </div>
 
@@ -1905,14 +1964,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Problem Description / Question:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-stone-700">
+                    Problem Description / Question:
+                  </label>
+                  <VoiceToTextButton
+                    isListening={isSolverVoiceListening}
+                    onToggle={toggleSolverVoice}
+                    langCode={solverVoiceLang}
+                    onLangChange={setSolverVoiceLang}
+                    showLangSelector={true}
+                    size="sm"
+                    title="Speak math/physics problem using microphone"
+                  />
+                </div>
                 <textarea
                   rows={3}
                   value={solverProblem}
                   onChange={(e) => setSolverProblem(e.target.value)}
-                  placeholder="Paste or type your math, physics, or chemistry question here..."
+                  placeholder={
+                    isSolverVoiceListening
+                      ? "Listening to your voice... Speak your problem or equation now..."
+                      : "Paste or type your math, physics, or chemistry question here, or tap the mic..."
+                  }
                   className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-3.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -2203,27 +2277,54 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Examination Question:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-stone-700">
+                    Examination Question:
+                  </label>
+                  <VoiceToTextButton
+                    isListening={isExaminerQListening}
+                    onToggle={toggleExaminerQVoice}
+                    size="sm"
+                    title="Speak exam question using microphone"
+                  />
+                </div>
                 <input
                   type="text"
                   value={gradeQuestion}
                   onChange={(e) => setGradeQuestion(e.target.value)}
-                  placeholder="Enter the exact exam question..."
+                  placeholder={
+                    isExaminerQListening
+                      ? "Listening... Speak the question now..."
+                      : "Enter the exact exam question, or tap mic..."
+                  }
                   className="w-full bg-stone-50 border border-stone-300 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Your Answer (Andika jibu lako hapa):
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-stone-700">
+                    Your Answer (Andika jibu lako hapa):
+                  </label>
+                  <VoiceToTextButton
+                    isListening={isExaminerAnsListening}
+                    onToggle={toggleExaminerAnsVoice}
+                    langCode={examinerAnsLang}
+                    onLangChange={setExaminerAnsLang}
+                    showLangSelector={true}
+                    size="sm"
+                    title="Dictate your student answer using microphone"
+                  />
+                </div>
                 <textarea
                   rows={4}
                   value={gradeAnswer}
                   onChange={(e) => setGradeAnswer(e.target.value)}
-                  placeholder="Write your answer, essay points, or calculation working here..."
+                  placeholder={
+                    isExaminerAnsListening
+                      ? "Listening to your answer... Speak now in your chosen language..."
+                      : "Write your answer, essay points, or calculation working here, or dictate by voice..."
+                  }
                   className="w-full bg-stone-50 border border-stone-300 rounded-2xl p-3.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
